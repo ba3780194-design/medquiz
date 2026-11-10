@@ -212,9 +212,20 @@
     if (!user) return;
 
     const pseudo = user.user_metadata?.pseudonyme || user.email;
-    document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
-    document.getElementById("member").style.display = "block";
-    document.getElementById("compte").style.display = "none";
+   document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
+document.getElementById("pseudo").textContent = pseudo;
+
+document.getElementById("member").style.display = "block";
+document.getElementById("compte").style.display = "none";
+
+supabase
+  .from("profiles")
+  .select("points")
+  .eq("id", user.id)
+  .single()
+  .then(({ data }) => {
+    document.getElementById("points").textContent = data?.points ?? 0;
+  });
   }
 
   document.getElementById("logout").onclick = async () => {
