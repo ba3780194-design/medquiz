@@ -1,0 +1,195 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedQuiz - Apprendre en s'amusant</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f5f8ff;
+      color: #183153;
+    }
+
+    header {
+      background: white;
+      padding: 20px 8%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 12px #dce5f2;
+    }
+
+    .logo {
+      font-size: 27px;
+      font-weight: bold;
+      color: #1769d2;
+    }
+
+    .logo span {
+      color: #19a7ce;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: #183153;
+      margin-left: 22px;
+      font-weight: bold;
+    }
+
+    .hero {
+      padding: 90px 8%;
+      text-align: center;
+      background: linear-gradient(135deg, #e6f2ff, #ffffff);
+    }
+
+    .hero h1 {
+      font-size: 43px;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 span {
+      color: #1769d2;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: #60748d;
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      display: inline-block;
+      background: #1769d2;
+      color: white;
+      padding: 15px 30px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .sections {
+      padding: 60px 8%;
+      text-align: center;
+    }
+
+    .sections h2 {
+      font-size: 30px;
+      margin-bottom: 30px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 22px;
+    }
+
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 5px 20px #dce5f2;
+    }
+
+    .card .emoji {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .card h3 {
+      margin-bottom: 12px;
+      color: #1769d2;
+    }
+
+    .card p {
+      color: #60748d;
+      line-height: 1.6;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      background: #183153;
+      color: white;
+    }
+
+    @media(max-width: 600px) {
+      header {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      nav a {
+        margin: 0 8px;
+        font-size: 14px;
+      }
+
+      .hero h1 {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Med<span>Quiz</span></div>
+    <nav>
+      <a href="#accueil">Accueil</a>
+      <a href="#quiz">Quiz</a>
+      <a href="#premium">Premium</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="accueil">
+    <h1>Bienvenue sur <span>MedQuiz</span></h1>
+    <p>
+      Teste tes connaissances en médecine et en culture générale.
+      Apprends, progresse et défie les autres joueurs !
+    </p>
+    <a href="#quiz" class="btn">Découvrir les quiz</a>
+  </section>
+
+  <section class="sections" id="quiz">
+    <h2>Explore nos catégories</h2>
+
+    <div class="cards">
+      <div class="card">
+        <div class="emoji">🩺</div>
+        <h3>Médecine</h3>
+        <p>Teste tes connaissances médicales et découvre de nouvelles choses.</p>
+      </div>
+
+      <div class="card">
+        <div class="emoji">🌍</div>
+        <h3>Culture générale</h3>
+        <p>Développe tes connaissances sur le monde qui nous entoure.</p>
+      </div>
+
+      <div class="card">
+        <div class="emoji">🏆</div>
+        <h3>Classement</h3>
+        <p>Gagne des points et deviens l'un des meilleurs joueurs.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sections" id="premium">
+    <h2>Découvre MedQuiz Premium</h2>
+    <p>Des quiz exclusifs et des défis supplémentaires pour progresser.</p>
+  </section>
+
+  <footer>
+    © 2026 MedQuiz - Apprendre chaque jour.
+  </footer>
+
+</body>
+</html>
