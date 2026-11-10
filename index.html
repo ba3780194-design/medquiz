@@ -4,192 +4,219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MedQuiz - Apprendre en s'amusant</title>
+  <title>MedQuiz - Quiz et connaissances</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
-    body {
-      background: #f5f8ff;
-      color: #183153;
-    }
-
-    header {
-      background: white;
-      padding: 20px 8%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 12px #dce5f2;
-    }
-
-    .logo {
-      font-size: 27px;
-      font-weight: bold;
-      color: #1769d2;
-    }
-
-    .logo span {
-      color: #19a7ce;
-    }
-
-    nav a {
-      text-decoration: none;
-      color: #183153;
-      margin-left: 22px;
-      font-weight: bold;
-    }
-
-    .hero {
-      padding: 90px 8%;
-      text-align: center;
-      background: linear-gradient(135deg, #e6f2ff, #ffffff);
-    }
-
-    .hero h1 {
-      font-size: 43px;
-      margin-bottom: 20px;
-    }
-
-    .hero h1 span {
-      color: #1769d2;
-    }
-
-    .hero p {
-      font-size: 18px;
-      color: #60748d;
-      line-height: 1.7;
-      margin-bottom: 30px;
-    }
-
-    .btn {
-      display: inline-block;
-      background: #1769d2;
-      color: white;
-      padding: 15px 30px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    .sections {
-      padding: 60px 8%;
-      text-align: center;
-    }
-
-    .sections h2 {
-      font-size: 30px;
-      margin-bottom: 30px;
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 22px;
-    }
-
-    .card {
-      background: white;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 5px 20px #dce5f2;
-    }
-
-    .card .emoji {
-      font-size: 42px;
-      margin-bottom: 15px;
-    }
-
-    .card h3 {
-      margin-bottom: 12px;
-      color: #1769d2;
-    }
-
-    .card p {
-      color: #60748d;
-      line-height: 1.6;
-    }
-
-    footer {
-      text-align: center;
-      padding: 25px;
-      background: #183153;
-      color: white;
-    }
-
-    @media(max-width: 600px) {
-      header {
-        flex-direction: column;
-        gap: 15px;
-      }
-
-      nav a {
-        margin: 0 8px;
-        font-size: 14px;
-      }
-
-      .hero h1 {
-        font-size: 32px;
-      }
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background: #f5f8ff; color: #183153; }
+    header { background: white; padding: 20px 8%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 2px 12px #dce5f2; }
+    .logo { font-size: 27px; font-weight: bold; color: #1769d2; }
+    .logo span { color: #19a7ce; }
+    nav { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+    nav a { text-decoration: none; color: #183153; font-weight: bold; }
+    button, .btn { background: #1769d2; color: white; border: 0; padding: 13px 22px; border-radius: 9px; cursor: pointer; font-weight: bold; text-decoration: none; }
+    button:hover, .btn:hover { background: #1055ad; }
+    .hero { padding: 75px 8%; text-align: center; background: linear-gradient(135deg,#e6f2ff,#fff); }
+    .hero h1 { font-size: 40px; margin-bottom: 18px; }
+    .hero h1 span { color: #1769d2; }
+    .hero p { color: #60748d; line-height: 1.7; margin-bottom: 25px; }
+    .sections { padding: 55px 8%; text-align: center; }
+    .sections h2 { margin-bottom: 25px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 20px; }
+    .card { background: white; padding: 28px; border-radius: 15px; box-shadow: 0 5px 20px #dce5f2; }
+    .emoji { font-size: 40px; margin-bottom: 12px; }
+    .card h3 { color: #1769d2; margin-bottom: 12px; }
+    .card p { color: #60748d; line-height: 1.6; }
+    .auth { max-width: 430px; margin: 35px auto; padding: 28px; background: white; border-radius: 16px; box-shadow: 0 5px 20px #dce5f2; }
+    .auth h2 { text-align: center; margin-bottom: 20px; }
+    .auth input { width: 100%; padding: 13px; margin: 8px 0 15px; border: 1px solid #ccd7e5; border-radius: 8px; font-size: 16px; }
+    .auth button { width: 100%; margin-top: 8px; }
+    .auth p { text-align: center; margin-top: 16px; color: #60748d; }
+    .auth a { color: #1769d2; cursor: pointer; font-weight: bold; }
+    #message { text-align: center; margin: 15px 0; color: #1769d2; }
+    #member { display: none; text-align: center; padding: 30px; }
+    footer { text-align: center; padding: 25px; background: #183153; color: white; }
+    @media(max-width:600px) { header { justify-content: center; } .hero h1 { font-size: 30px; } }
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="logo">Med<span>Quiz</span></div>
-    <nav>
-      <a href="#accueil">Accueil</a>
-      <a href="#quiz">Quiz</a>
-      <a href="#premium">Premium</a>
-    </nav>
-  </header>
+<header>
+  <div class="logo">Med<span>Quiz</span></div>
+  <nav>
+    <a href="#accueil">Accueil</a>
+    <a href="#quiz">Quiz</a>
+    <a href="#premium">Premium</a>
+    <a href="#compte">Mon compte</a>
+  </nav>
+</header>
 
-  <section class="hero" id="accueil">
-    <h1>Bienvenue sur <span>MedQuiz</span></h1>
-    <p>
-      Teste tes connaissances en médecine et en culture générale.
-      Apprends, progresse et défie les autres joueurs !
-    </p>
-    <a href="#quiz" class="btn">Découvrir les quiz</a>
-  </section>
+<section class="hero" id="accueil">
+  <h1>Bienvenue sur <span>MedQuiz</span></h1>
+  <p>Teste tes connaissances en médecine et en culture générale.<br>
+  Apprends, progresse et défie les autres joueurs !</p>
+  <a href="#compte" class="btn">Créer mon compte</a>
+</section>
 
-  <section class="sections" id="quiz">
-    <h2>Explore nos catégories</h2>
-
-    <div class="cards">
-      <div class="card">
-        <div class="emoji">🩺</div>
-        <h3>Médecine</h3>
-        <p>Teste tes connaissances médicales et découvre de nouvelles choses.</p>
-      </div>
-
-      <div class="card">
-        <div class="emoji">🌍</div>
-        <h3>Culture générale</h3>
-        <p>Développe tes connaissances sur le monde qui nous entoure.</p>
-      </div>
-
-      <div class="card">
-        <div class="emoji">🏆</div>
-        <h3>Classement</h3>
-        <p>Gagne des points et deviens l'un des meilleurs joueurs.</p>
-      </div>
+<section class="sections" id="quiz">
+  <h2>Explore nos catégories</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="emoji">🩺</div>
+      <h3>Médecine</h3>
+      <p>Teste tes connaissances médicales.</p>
     </div>
-  </section>
+    <div class="card">
+      <div class="emoji">🌍</div>
+      <h3>Culture générale</h3>
+      <p>Développe tes connaissances.</p>
+    </div>
+    <div class="card">
+      <div class="emoji">🏆</div>
+      <h3>Classement</h3>
+      <p>Gagne des points et progresse.</p>
+    </div>
+  </div>
+</section>
 
-  <section class="sections" id="premium">
-    <h2>Découvre MedQuiz Premium</h2>
-    <p>Des quiz exclusifs et des défis supplémentaires pour progresser.</p>
-  </section>
+<section id="compte" class="auth">
+  <h2 id="formTitle">Créer un compte</h2>
 
-  <footer>
-    © 2026 MedQuiz - Apprendre chaque jour.
-  </footer>
+  <form id="signupForm">
+    <label>Ton pseudonyme</label>
+    <input id="pseudo" type="text" placeholder="Exemple : Docteur123" required>
+
+    <label>Adresse e-mail</label>
+    <input id="signupEmail" type="email" placeholder="Ton e-mail" required>
+
+    <label>Mot de passe</label>
+    <input id="signupPassword" type="password" placeholder="Minimum 6 caractères" minlength="6" required>
+
+    <button type="submit">Créer mon compte</button>
+    <p>Déjà inscrit ? <a id="showLogin">Se connecter</a></p>
+  </form>
+
+  <form id="loginForm" style="display:none">
+    <label>Adresse e-mail</label>
+    <input id="loginEmail" type="email" placeholder="Ton e-mail" required>
+
+    <label>Mot de passe</label>
+    <input id="loginPassword" type="password" placeholder="Ton mot de passe" required>
+
+    <button type="submit">Se connecter</button>
+    <p>Pas encore de compte ? <a id="showSignup">S'inscrire</a></p>
+  </form>
+
+  <div id="message"></div>
+</section>
+
+<section id="member">
+  <h2>Bienvenue sur MedQuiz !</h2>
+  <p id="welcome"></p>
+  <br>
+  <button id="logout">Se déconnecter</button>
+</section>
+
+<section class="sections" id="premium">
+  <h2>Découvre MedQuiz Premium</h2>
+  <p>Des quiz exclusifs et des défis supplémentaires pour progresser.</p>
+</section>
+
+<footer>© 2026 MedQuiz - Apprendre chaque jour.</footer>
+
+<script type="module">
+  import { createClient } from
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+  const SUPABASE_URL = "https://ncmxinonmrcpnlfbcmdy.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_Ds9ozIkGrjNjJVXpnMeDtw_uO9nSRte";
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const signupForm = document.getElementById("signupForm");
+  const loginForm = document.getElementById("loginForm");
+  const message = document.getElementById("message");
+
+  document.getElementById("showLogin").onclick = () => {
+    signupForm.style.display = "none";
+    loginForm.style.display = "block";
+    document.getElementById("formTitle").textContent = "Connexion";
+    message.textContent = "";
+  };
+
+  document.getElementById("showSignup").onclick = () => {
+    loginForm.style.display = "none";
+    signupForm.style.display = "block";
+    document.getElementById("formTitle").textContent = "Créer un compte";
+    message.textContent = "";
+  };
+
+  signupForm.onsubmit = async (event) => {
+    event.preventDefault();
+    message.textContent = "Création du compte en cours...";
+
+    const pseudonyme = document.getElementById("pseudo").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { pseudonyme } }
+    });
+
+    if (error) {
+      message.textContent = "Erreur : " + error.message;
+      return;
+    }
+
+    message.textContent = data.session
+      ? "Compte créé avec succès !"
+      : "Compte créé. Vérifie ton e-mail si une confirmation est demandée.";
+
+    signupForm.reset();
+    afficherUtilisateur(data.user);
+  };
+
+  loginForm.onsubmit = async (event) => {
+    event.preventDefault();
+    message.textContent = "Connexion en cours...";
+
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email, password
+    });
+
+    if (error) {
+      message.textContent = "Erreur : " + error.message;
+      return;
+    }
+
+    message.textContent = "Connexion réussie !";
+    loginForm.reset();
+    afficherUtilisateur(data.user);
+  };
+
+  function afficherUtilisateur(user) {
+    if (!user) return;
+
+    const pseudo = user.user_metadata?.pseudonyme || user.email;
+    document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
+    document.getElementById("member").style.display = "block";
+    document.getElementById("compte").style.display = "none";
+  }
+
+  document.getElementById("logout").onclick = async () => {
+    await supabase.auth.signOut();
+    document.getElementById("member").style.display = "none";
+    document.getElementById("compte").style.display = "block";
+    message.textContent = "Tu es déconnecté.";
+  };
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) afficherUtilisateur(session.user);
+</script>
 
 </body>
 </html>
