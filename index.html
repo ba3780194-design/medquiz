@@ -57,8 +57,11 @@
   <a href="#compte" class="btn">Créer mon compte</a>
 </section>
 
+
 <section class="sections" id="quiz">
-  <h2>Explore nos catégories</h2>
+  <h2>Jouer à un quiz</h2>
+  <p>Choisis ta catégorie et prépare-toi à jouer !</p>
+
   <div class="cards">
     <div class="card">
       <div class="emoji">🩺</div>
@@ -76,7 +79,40 @@
       <p>Gagne des points et progresse.</p>
     </div>
   </div>
+
+  <div class="card">
+    <h3>Paramètres du quiz</h3>
+
+    <label for="categorieQuiz">Catégorie</label>
+    <select id="categorieQuiz">
+      <option value="medecine">Médecine</option>
+      <option value="culture">Culture générale</option>
+    </select>
+
+    <label for="niveauQuiz">Niveau</label>
+    <select id="niveauQuiz">
+      <option value="facile">Facile</option>
+      <option value="moyen">Moyen</option>
+      <option value="difficile">Difficile</option>
+    </select>
+
+    <label for="nombreQuiz">Nombre de questions</label>
+    <select id="nombreQuiz">
+      <option value="5">5 questions</option>
+      <option value="10">10 questions</option>
+      <option value="20">20 questions</option>
+      <option value="30">30 questions</option>
+      <option value="50">50 questions</option>
+    </select>
+
+    <button id="demarrerQuiz" type="button">
+      Commencer le quiz
+    </button>
+  </div>
+
+  <div id="zoneQuiz"></div>
 </section>
+
 
 <section id="compte" class="auth">
   <h2 id="formTitle">Créer un compte</h2>
