@@ -403,6 +403,32 @@ document.getElementById("demarrerQuiz").addEventListener("click", function () {
   afficherQuestion();
 });
 
+// Navigation entre les rubriques
+const liensMenu = document.querySelectorAll("nav a");
+
+liensMenu.forEach(lien => {
+  lien.addEventListener("click", function (event) {
+    event.preventDefault();
+
+    const destination = this.getAttribute("href").substring(1);
+
+    document.querySelectorAll("section").forEach(section => {
+      section.style.display = "none";
+    });
+
+    const rubrique = document.getElementById(destination);
+
+    if (rubrique) {
+      rubrique.style.display = "block";
+    }
+
+    window.scrollTo(0, 0);
+  });
+});
+
+// Afficher l'accueil au démarrage
+document.getElementById("accueil").style.display = "block";
+
 </script>
 
 </body>
