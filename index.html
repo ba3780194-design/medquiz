@@ -226,7 +226,7 @@
         || user.email;
 
     document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
-    document.getElementById("pseudo").textContent = pseudo;
+    document.getElementById("pseudo").value = pseudo;
     document.getElementById("points").textContent = profil?.points ?? 0;
 
     document.getElementById("member").style.display = "block";
