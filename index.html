@@ -478,6 +478,7 @@ const selection = melangees.slice(0, nombre);
 if (index >= selection.length) {
 
   const enregistrerScore = async () => {
+    console.log("Enregistrement du score lancé");
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
