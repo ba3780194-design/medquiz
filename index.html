@@ -474,16 +474,43 @@ const selection = melangees.slice(0, nombre);
   let score = 0;
 
   function afficherQuestion() {
-    if (index >= selection.length) {
-      zone.innerHTML = `
-        <h3>Quiz terminé !</h3>
-        <p>Ton score : ${score} / ${selection.length * 10} points</p>
-        <p>${score / 10} bonne(s) réponse(s) sur ${selection.length}</p>
-      `;
+   
+if (index >= selection.length) {
+
+  const enregistrerScore = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      zone.innerHTML += "<p>Connecte-toi pour enregistrer ton score.</p>";
       return;
     }
 
-    const q = selection[index];
+    const { error } = await supabase
+      .from("quiz_history")
+      .insert({
+        user_id: user.id,
+        score: score,
+        nombre_questions: selection.length
+      });
+
+    if (error) {
+      console.error("Erreur d'enregistrement :", error.message);
+      zone.innerHTML += "<p>Impossible d'enregistrer le score.</p>";
+    } else {
+      zone.innerHTML += "<p>Ton score a été enregistré !</p>";
+    }
+  };
+
+  zone.innerHTML = `
+    <h3>Quiz terminé !</h3>
+    <p>Ton score : ${score} / ${selection.length * 10} points</p>
+    <p>${score / 10} bonne(s) réponse(s) sur ${selection.length}</p>
+  `;
+
+  enregistrerScore();
+  return;
+}
+
 
     zone.innerHTML = `
       <h3>Question ${index + 1} / ${selection.length}</h3>
