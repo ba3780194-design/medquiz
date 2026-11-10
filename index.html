@@ -208,10 +208,16 @@
     afficherUtilisateur(data.user);
   };
 
-  function afficherUtilisateur(user) {
+  async function afficherUtilisateur(user) {
     if (!user) return;
 
-    const pseudo = user.user_metadata?.pseudonyme || user.email;
+    const { data: profilPseudo } = await supabase
+  .from("profiles")
+  .select("pseudonyme")
+  .eq("id", user.id)
+  .single();
+
+const pseudo = profilPseudo?.pseudonyme || user.user_metadata?.pseudonyme || user.email;
    document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
 document.getElementById("pseudo").textContent = pseudo;
 
