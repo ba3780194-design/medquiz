@@ -211,30 +211,27 @@
   async function afficherUtilisateur(user) {
     if (!user) return;
 
-    const { data: profilPseudo } = await supabase
-  .from("profiles")
-  .select("pseudonyme")
-  .eq("id", user.id)
-  .single();
+    const { data: profil, error } = await supabase
+        .from("profiles")
+        .select("pseudonyme, points")
+        .eq("id", user.id)
+        .maybeSingle();
 
-const pseudo = profilPseudo?.pseudonyme || user.user_metadata?.pseudonyme || user.email;
-   document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
-document.getElementById("pseudo").textContent = pseudo;
+    if (error) {
+        console.error("Erreur profil :", error.message);
+    }
 
-document.getElementById("member").style.display = "block";
-document.getElementById("compte").style.display = "none";
+    const pseudo = profil?.pseudonyme
+        || user.user_metadata?.pseudonyme
+        || user.email;
 
-supabase
-  .from("profiles")
-  .select("points")
-  .eq("id", user.id)
-  .single()
-  .then(({ data }) => {
-    document.getElementById("points").textContent = data?.points ?? 0;
-  });
-  }
+    document.getElementById("welcome").textContent = "Bonjour " + pseudo + " !";
+    document.getElementById("pseudo").textContent = pseudo;
+    document.getElementById("points").textContent = profil?.points ?? 0;
 
-  document.getElementById("logout").onclick = async () => {
+    document.getElementById("member").style.display = "block";
+    document.getElementById("compte").style.display = "none";
+}
     await supabase.auth.signOut();
     document.getElementById("member").style.display = "none";
     document.getElementById("compte").style.display = "block";
