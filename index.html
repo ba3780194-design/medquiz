@@ -274,9 +274,123 @@
     document.getElementById("compte").style.display = "block";
     message.textContent = "Tu es déconnecté.";
   };
-
-  const { data: { session } } = await supabase.auth.getSession();
+  
+  const { data: { session } } = await supabase.auth.getSession();  
   if (session) afficherUtilisateur(session.user);
+  
+// Questions de MedQuiz
+const questionsMedQuiz = [
+  {
+    categorie: "medecine",
+    niveau: "facile",
+    question: "Quel organe permet de pomper le sang dans le corps ?",
+    choix: ["Le cerveau", "Le cœur", "Le foie", "Le poumon"],
+    reponse: "Le cœur",
+    explication: "Le cœur propulse le sang dans tout l'organisme."
+  },
+  {
+    categorie: "medecine",
+    niveau: "facile",
+    question: "Combien de poumons possède normalement un être humain ?",
+    choix: ["Un", "Deux", "Trois", "Quatre"],
+    reponse: "Deux",
+    explication: "Un être humain possède normalement deux poumons."
+  },
+  {
+    categorie: "culture",
+    niveau: "facile",
+    question: "Quelle est la capitale du Sénégal ?",
+    choix: ["Thiès", "Saint-Louis", "Dakar", "Touba"],
+    reponse: "Dakar",
+    explication: "Dakar est la capitale du Sénégal."
+  },
+  {
+    categorie: "culture",
+    niveau: "facile",
+    question: "Combien y a-t-il de jours dans une semaine ?",
+    choix: ["5", "6", "7", "8"],
+    reponse: "7",
+    explication: "Une semaine compte sept jours."
+  }
+];
+
+// Démarrer le quiz
+document.getElementById("demarrerQuiz").addEventListener("click", function () {
+  const categorie = document.getElementById("categorieQuiz").value;
+  const niveau = document.getElementById("niveauQuiz").value;
+  const nombre = Number(document.getElementById("nombreQuiz").value);
+
+  const disponibles = questionsMedQuiz.filter(q =>
+    q.categorie === categorie && q.niveau === niveau
+  );
+
+  const zone = document.getElementById("zoneQuiz");
+
+  if (disponibles.length === 0) {
+    zone.textContent = "Aucune question disponible pour ce choix pour le moment.";
+    return;
+  }
+
+  const selection = disponibles.slice(0, nombre);
+  let index = 0;
+  let score = 0;
+
+  function afficherQuestion() {
+    if (index >= selection.length) {
+      zone.innerHTML = `
+        <h3>Quiz terminé !</h3>
+        <p>Ton score : ${score} / ${selection.length * 10} points</p>
+        <p>${score / 10} bonne(s) réponse(s) sur ${selection.length}</p>
+      `;
+      return;
+    }
+
+    const q = selection[index];
+
+    zone.innerHTML = `
+      <h3>Question ${index + 1} / ${selection.length}</h3>
+      <p>${q.question}</p>
+      ${q.choix.map((choix, i) => `
+        <button type="button" class="reponseQuiz" data-choix="${i}">
+          ${choix}
+        </button>
+      `).join("")}
+      <p id="resultatQuestion"></p>
+    `;
+
+    zone.querySelectorAll(".reponseQuiz").forEach((bouton, i) => {
+      bouton.addEventListener("click", function () {
+        zone.querySelectorAll(".reponseQuiz").forEach(b => b.disabled = true);
+
+        const resultat = document.getElementById("resultatQuestion");
+
+        if (q.choix[i] === q.reponse) {
+          score += 10;
+          resultat.textContent = "Bonne réponse ! " + q.explication;
+        } else {
+          resultat.textContent = "Mauvaise réponse. La bonne réponse est : " +
+            q.reponse + ". " + q.explication;
+        }
+
+        const suivant = document.createElement("button");
+        suivant.type = "button";
+        suivant.textContent = index === selection.length - 1
+          ? "Voir mon résultat"
+          : "Question suivante";
+
+        suivant.addEventListener("click", function () {
+          index++;
+          afficherQuestion();
+        });
+
+        zone.appendChild(suivant);
+      });
+    });
+  }
+
+  afficherQuestion();
+});
+
 </script>
 
 </body>
