@@ -485,7 +485,7 @@ if (index >= selection.length) {
       zone.innerHTML += "<p>Connecte-toi pour enregistrer ton score.</p>";
       return;
     }
-
+    
     const { error } = await supabase
       .from("quiz_history")
       .insert({
@@ -508,12 +508,13 @@ if (index >= selection.length) {
     <p>${score / 10} bonne(s) réponse(s) sur ${selection.length}</p>
   `;
 
-  enregistrerScore();
+   enregistrerScore();
   return;
 }
 
+const q = selection[index];
 
-    zone.innerHTML = `
+zone.innerHTML = `
       <h3>Question ${index + 1} / ${selection.length}</h3>
       <p>${q.question}</p>
       ${q.choix.map((choix, i) => `
