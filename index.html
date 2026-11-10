@@ -285,6 +285,29 @@
 
     document.getElementById("member").style.display = "block";
     document.getElementById("compte").style.display = "none";
+    // Charger l'historique des quiz
+const liste = document.getElementById("historique");
+
+const { data: historiques, error: erreurHistorique } = await supabase
+    .from("quiz_history")
+    .select("score, nombre_questions, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+if (erreurHistorique) {
+    console.error("Erreur historique :", erreurHistorique.message);
+    liste.textContent = "Impossible de charger ton historique.";
+} else if (!historiques || historiques.length === 0) {
+    liste.textContent = "Tu n'as pas encore de résultat.";
+} else {
+    liste.innerHTML = historiques.map(resultat => `
+        <p>
+            Score : ${resultat.score} points sur ${resultat.nombre_questions * 10}
+            <br>
+            Date : ${new Date(resultat.created_at).toLocaleString("fr-FR")}
+        </p>
+    `).join("");
+}
 }
   document.getElementById("logout").onclick = async () => {
     await supabase.auth.signOut();
