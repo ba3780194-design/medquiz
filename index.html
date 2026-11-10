@@ -85,12 +85,17 @@
       <p>Développe tes connaissances.</p>
     </div>
 
-    <div class="card">
-      <div class="emoji">🏆</div>
-      <h3>Classement</h3>
-      <p>Gagne des points et progresse.</p>
-    </div>
+    <div class="card" onclick="chargerClassement()" style="cursor: pointer;">
+  <div class="emoji">🏆</div>
+  <h3>Classement</h3>
+  <p>Gagne des points et progresse.</p>
+</div>
+    <div id="zoneClassement" style="display: none;">
+  <h2>🏆 Classement des meilleurs joueurs</h2>
+  <div id="listeClassement">
+    Chargement du classement...
   </div>
+</div>
 
   <div class="card">
     <h3>Paramètres du quiz</h3>
@@ -274,6 +279,32 @@
     if (error) {
         console.error("Erreur profil :", error.message);
     }
+    async function chargerClassement() {
+  const zone = document.getElementById("zoneClassement");
+  const liste = document.getElementById("listeClassement");
+
+  zone.style.display = "block";
+  liste.textContent = "Chargement du classement...";
+
+  const { data, error } = await supabase.rpc("get_leaderboard");
+
+  if (error) {
+    liste.textContent = "Erreur : impossible de charger le classement.";
+    console.error(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    liste.textContent = "Aucun joueur classé pour le moment.";
+    return;
+  }
+
+  liste.innerHTML = data.map((joueur, index) => `
+    <p>
+      ${index + 1}. ${joueur.pseudonyme} — ${joueur.points} points
+    </p>
+  `).join("");
+}
 
     const pseudo = profil?.pseudonyme
         || user.user_metadata?.pseudonyme
