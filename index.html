@@ -291,12 +291,14 @@
   if (session) afficherUtilisateur(session.user);
   
 // Questions de MedQuiz
+
 const questionsMedQuiz = [
+  // MÉDECINE - FACILE
   {
     categorie: "medecine",
     niveau: "facile",
-    question: "Quel organe permet de pomper le sang dans le corps ?",
-    choix: ["Le cerveau", "Le cœur", "Le foie", "Le poumon"],
+    question: "Quel organe pompe le sang dans le corps ?",
+    choix: ["Le cerveau", "Le cœur", "Le foie", "Le rein"],
     reponse: "Le cœur",
     explication: "Le cœur propulse le sang dans tout l'organisme."
   },
@@ -309,6 +311,68 @@ const questionsMedQuiz = [
     explication: "Un être humain possède normalement deux poumons."
   },
   {
+    categorie: "medecine",
+    niveau: "facile",
+    question: "Quel organe permet principalement de voir ?",
+    choix: ["L'oreille", "Le nez", "L'œil", "La langue"],
+    reponse: "L'œil",
+    explication: "Les yeux captent la lumière et permettent la vision."
+  },
+
+  // MÉDECINE - MOYEN
+  {
+    categorie: "medecine",
+    niveau: "moyen",
+    question: "Quel est le rôle principal des globules rouges ?",
+    choix: ["Combattre les infections", "Transporter l'oxygène", "Digérer les aliments", "Produire les hormones"],
+    reponse: "Transporter l'oxygène",
+    explication: "L'hémoglobine des globules rouges transporte principalement l'oxygène."
+  },
+  {
+    categorie: "medecine",
+    niveau: "moyen",
+    question: "Quel organe produit l'insuline ?",
+    choix: ["Le pancréas", "Le cœur", "L'estomac", "La rate"],
+    reponse: "Le pancréas",
+    explication: "Les cellules bêta du pancréas produisent l'insuline."
+  },
+  {
+    categorie: "medecine",
+    niveau: "moyen",
+    question: "Quelle vitamine est produite par la peau grâce au soleil ?",
+    choix: ["Vitamine A", "Vitamine B12", "Vitamine C", "Vitamine D"],
+    reponse: "Vitamine D",
+    explication: "La peau peut produire de la vitamine D sous l'effet des rayons UVB."
+  },
+
+  // MÉDECINE - DIFFICILE
+  {
+    categorie: "medecine",
+    niveau: "difficile",
+    question: "Quelle partie du neurone reçoit principalement les signaux ?",
+    choix: ["Les dendrites", "L'axone", "La myéline", "La synapse"],
+    reponse: "Les dendrites",
+    explication: "Les dendrites reçoivent de nombreux signaux provenant d'autres cellules."
+  },
+  {
+    categorie: "medecine",
+    niveau: "difficile",
+    question: "Quelle hormone contribue à diminuer la glycémie ?",
+    choix: ["L'adrénaline", "L'insuline", "Le cortisol", "La thyroxine"],
+    reponse: "L'insuline",
+    explication: "L'insuline favorise l'utilisation et le stockage du glucose."
+  },
+  {
+    categorie: "medecine",
+    niveau: "difficile",
+    question: "Quelle structure assure principalement les échanges gazeux dans les poumons ?",
+    choix: ["Les bronches", "La trachée", "Les alvéoles", "Le larynx"],
+    reponse: "Les alvéoles",
+    explication: "Les alvéoles permettent les échanges d'oxygène et de dioxyde de carbone."
+  },
+
+  // CULTURE - FACILE
+  {
     categorie: "culture",
     niveau: "facile",
     question: "Quelle est la capitale du Sénégal ?",
@@ -319,12 +383,73 @@ const questionsMedQuiz = [
   {
     categorie: "culture",
     niveau: "facile",
-    question: "Combien y a-t-il de jours dans une semaine ?",
+    question: "Combien de jours compte une semaine ?",
     choix: ["5", "6", "7", "8"],
     reponse: "7",
     explication: "Une semaine compte sept jours."
+  },
+  {
+    categorie: "culture",
+    niveau: "facile",
+    question: "Quelle planète est surnommée la planète rouge ?",
+    choix: ["Vénus", "Mars", "Jupiter", "Mercure"],
+    reponse: "Mars",
+    explication: "La surface de Mars contient des oxydes de fer qui lui donnent sa couleur rougeâtre."
+  },
+
+  // CULTURE - MOYEN
+  {
+    categorie: "culture",
+    niveau: "moyen",
+    question: "En quelle année le Sénégal a-t-il obtenu son indépendance ?",
+    choix: ["1958", "1960", "1963", "1970"],
+    reponse: "1960",
+    explication: "Le Sénégal a accédé à l'indépendance en 1960."
+  },
+  {
+    categorie: "culture",
+    niveau: "moyen",
+    question: "Quel est le plus grand océan du monde ?",
+    choix: ["Atlantique", "Indien", "Arctique", "Pacifique"],
+    reponse: "Pacifique",
+    explication: "L'océan Pacifique est le plus vaste océan de la planète."
+  },
+  {
+    categorie: "culture",
+    niveau: "moyen",
+    question: "Qui a écrit Les Misérables ?",
+    choix: ["Molière", "Victor Hugo", "Émile Zola", "Voltaire"],
+    reponse: "Victor Hugo",
+    explication: "Victor Hugo a publié Les Misérables en 1862."
+  },
+
+  // CULTURE - DIFFICILE
+  {
+    categorie: "culture",
+    niveau: "difficile",
+    question: "Quel scientifique a formulé les lois du mouvement et de la gravitation universelle ?",
+    choix: ["Albert Einstein", "Isaac Newton", "Galilée", "Nicolas Copernic"],
+    reponse: "Isaac Newton",
+    explication: "Isaac Newton a formulé les lois classiques du mouvement et la loi de la gravitation universelle."
+  },
+  {
+    categorie: "culture",
+    niveau: "difficile",
+    question: "Quel est le plus grand désert chaud du monde ?",
+    choix: ["Le Gobi", "Le Kalahari", "Le Sahara", "Le désert d'Atacama"],
+    reponse: "Le Sahara",
+    explication: "Le Sahara est le plus grand désert chaud du monde."
+  },
+  {
+    categorie: "culture",
+    niveau: "difficile",
+    question: "Quelle est la monnaie officielle du Japon ?",
+    choix: ["Le yuan", "Le won", "Le yen", "Le baht"],
+    reponse: "Le yen",
+    explication: "Le yen est la monnaie officielle du Japon."
   }
 ];
+
 
 // Démarrer le quiz
 document.getElementById("demarrerQuiz").addEventListener("click", function () {
