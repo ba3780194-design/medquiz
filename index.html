@@ -468,7 +468,8 @@ document.getElementById("demarrerQuiz").addEventListener("click", function () {
     return;
   }
 
-  const selection = disponibles.slice(0, nombre);
+  const melangees = [...disponibles].sort(() => Math.random() - 0.5);
+const selection = melangees.slice(0, nombre);
   let index = 0;
   let score = 0;
 
