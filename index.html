@@ -279,33 +279,7 @@
     if (error) {
         console.error("Erreur profil :", error.message);
     }
-    async function chargerClassement() {
-  const zone = document.getElementById("zoneClassement");
-  const liste = document.getElementById("listeClassement");
-
-  zone.style.display = "block";
-  liste.textContent = "Chargement du classement...";
-
-  const { data, error } = await supabase.rpc("get_leaderboard");
-
-  if (error) {
-    liste.textContent = "Erreur : impossible de charger le classement.";
-    console.error(error);
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    liste.textContent = "Aucun joueur classé pour le moment.";
-    return;
-  }
-
-  liste.innerHTML = data.map((joueur, index) => `
-    <p>
-      ${index + 1}. ${joueur.pseudonyme} — ${joueur.points} points
-    </p>
-  `).join("");
-}
-
+ 
     const pseudo = profil?.pseudonyme
         || user.user_metadata?.pseudonyme
         || user.email;
