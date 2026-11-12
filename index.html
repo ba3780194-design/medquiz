@@ -801,6 +801,413 @@
           const vit = rep.startsWith("La vitamine");
           ajouter("medecine", niv, vit ? `Quelle vitamine ${desc} ?` : `Qu'est-ce qui ${desc} ?`, rep, pool, `Bonne réponse : ${rep}.`, vit ? "Vitamines" : "Anatomie");
         });
+      const niveaux = { f: "facile", m: "moyen", d: "difficile" };
+      const cours = {
+        "Plexus brachial": `
+f|Quelles racines forment le plexus brachial ?|C5, C6, C7, C8 et T1|C1 à C4|C3 à C7|C6 à T3
+f|Le plexus brachial innerve :|La ceinture scapulaire et le membre supérieur|Le membre inférieur|Le cou uniquement|Le thorax
+m|Quel tronc est formé par l'union de C5 et C6 ?|Le tronc supérieur|Le tronc moyen|Le tronc inférieur|Le faisceau médial
+m|Le tronc moyen est formé par la racine de :|C7|C6|C8|T1
+m|Le tronc inférieur est formé par :|C8 et T1|C7 et C8|C6 et C7|T1 et T2
+m|Le faisceau latéral est formé par les branches antérieures des troncs :|Supérieur et moyen|Moyen et inférieur|Supérieur et inférieur|Des 3 troncs
+m|Le faisceau postérieur est formé par les branches postérieures :|Des 3 troncs|Des troncs supérieur et moyen|Du tronc inférieur seul|Des troncs moyen et inférieur
+m|Le nerf radial naît du faisceau :|Postérieur|Latéral|Médial|Antérieur
+m|Quel nerf naît du faisceau latéral avec la racine latérale du médian ?|Le nerf musculo-cutané|Le nerf ulnaire|Le nerf radial|Le nerf axillaire
+d|Le nerf ulnaire naît du faisceau :|Médial|Latéral|Postérieur|Antérieur
+d|Le nerf thoraco-dorsal innerve :|Le grand dorsal|Le grand pectoral|Le petit pectoral|Le grand rond
+d|Le bloc supraclaviculaire expose au risque de :|Pneumothorax|Embolie pulmonaire|Pneumonie|Fracture de côte
+m|Le syndrome d'Erb-Duchenne correspond à un déficit de :|C5-C6|C8-T1|C7 seul|T1 seul
+m|Le syndrome de Déjerine-Klumpke correspond à un déficit de :|C8-T1|C5-C6|C6-C7|C4-C5
+d|La racine C5 assure principalement :|L'abduction du bras|La flexion du coude|L'extension du coude|Les muscles intrinsèques de la main
+d|La racine C6 assure principalement :|La flexion du coude|L'abduction du bras|L'extension des doigts|Les muscles intrinsèques de la main
+d|Le syndrome de Pancoast-Tobias est lié à une atteinte du :|Ganglion cervical inférieur|Nerf radial|Nerf fémoral|Plexus lombaire
+d|Quel nerf est comprimé dans le syndrome du canal carpien ?|Le nerf médian|Le nerf radial|Le nerf ulnaire|Le nerf axillaire
+`,
+        "Articulation du genou": `
+f|Le genou comprend deux articulations :|Fémoro-patellaire et fémoro-tibiale|Fémoro-patellaire et tibio-fibulaire|Fémoro-tibiale et tibio-talienne|Coxo-fémorale et fémoro-tibiale
+f|Combien de ménisques possède le genou ?|2|1|3|4
+f|La patella s'articule avec :|La trochlée fémorale|Le plateau tibial|La fibula|Le talus
+m|Le ménisque médial a la forme d'un :|C|O|X|Y
+m|Le ménisque latéral a la forme d'un :|O|C|V|S
+m|Quel système assure la stabilité antéro-postérieure du genou ?|Le pivot central|Le système collatéral|Les ailerons rotuliens|Les ligaments poplités
+m|Les ligaments collatéraux assurent la stabilité :|Latérale|Antéro-postérieure|Verticale|Rotatoire uniquement
+m|Quel signe clinique recherche une lésion des ligaments croisés ?|Le mouvement du tiroir|Le signe du bâillement latéral|Le signe de Lasègue|Le signe de Babinski
+m|Les muscles de la patte d'oie sont :|Sartorius, gracile, demi-tendineux|Biceps, poplité, demi-membraneux|Vaste médial, droit fémoral, sartorius|Gracile, poplité, tenseur du fascia lata
+m|Quelle joue de la trochlée est la plus saillante ?|La joue latérale|La joue médiale|Les deux sont égales|La joue postérieure
+d|L'os sésamoïde inconstant de la coque condylienne latérale est :|La fabella|La patella|Le pisiforme|Le sésamoïde médial
+d|La graisse intra-patellaire de Hoffa est :|Extra-articulaire|Intra-synoviale|Intra-articulaire|Intra-osseuse
+d|L'amplitude de la flexion passive (assis sur les talons) est de :|160°|90°|120°|180°
+d|La flexion active du genou, hanche fléchie, est de :|140°|120°|160°|90°
+d|La rotation externe du genou fléchi à 90° est de :|40°|30°|20°|60°
+d|La rotation interne du genou fléchi à 90° est de :|30°|40°|15°|60°
+d|Le ligament croisé antéro-externe se termine sur :|La face interne du condyle externe|La face externe du condyle médial|La patella|La fibula
+d|Les nerfs du genou dérivent notamment des nerfs obturateur, fémoral, tibial et :|Fibulaire commun|Sciatique poplité interne|Sural|Saphène externe
+`,
+        "Articulation de la hanche": `
+f|La hanche unit :|L'os coxal et le fémur|Le fémur et le tibia|L'os coxal et le sacrum|Le fémur et la patella
+f|La hanche est une articulation :|Synoviale sphéroïde|Trochléenne|En pivot|Condylienne
+f|La coxarthrose est due à :|La dégénérescence du cartilage|Une infection|Une tumeur|Une lésion nerveuse
+m|Où se fixe le ligament rond sur la tête fémorale ?|La fovéa capitis|Le grand trochanter|Le col fémoral|La ligne inter-trochantérienne
+m|Quel est le ligament le plus solide de la hanche ?|Le ligament ilio-fémoral de Bertin|Le ligament pubo-fémoral|Le ligament ischio-fémoral|Le ligament rond
+m|Le ligament ilio-fémoral naît sous :|L'épine iliaque antéro-inférieure|L'épine ischiatique|La symphyse pubienne|Le grand trochanter
+m|Le ligament ischio-fémoral est situé :|En arrière|En avant|En dedans|En haut
+m|Le ligament pubo-fémoral est situé :|En dedans|En arrière|En dehors|En haut
+m|Le bourrelet acétabulaire est un anneau :|Fibrocartilagineux|Osseux|Musculaire|Synovial
+m|La flexion de la hanche, genou fléchi, est de :|120°|90°|45°|160°
+d|Le limbus acétabulaire présente combien d'échancrures ?|3|2|4|5
+d|L'abduction de la hanche a une amplitude de :|45°|30°|90°|10°
+d|Le rayon de la tête fémorale est d'environ :|25 mm|10 mm|50 mm|5 mm
+d|L'artère du ligament rond est une branche de :|L'artère obturatrice|L'artère fémorale profonde|L'artère glutéale supérieure|L'artère circonflexe latérale
+d|L'ostéonécrose aseptique de la hanche serait due à :|Un trouble vasculaire|Une infection|Une fracture du cotyle|Un trouble nerveux
+d|Le ligament rond est :|Extra-synovial mais intra-articulaire|Extra-articulaire|Intra-synovial|Intra-musculaire
+d|Les artères circonflexes médiale et latérale sont des branches de :|L'artère fémorale profonde|L'artère fémorale superficielle|L'artère poplitée|L'artère iliaque interne
+`,
+        "Artère poplitée": `
+f|L'artère poplitée fait suite à :|L'artère fémorale superficielle|L'artère iliaque externe|L'artère tibiale postérieure|L'artère fémorale profonde
+m|Elle naît au niveau du hiatus tendineux du muscle :|Grand adducteur|Soléaire|Sartorius|Biceps fémoral
+m|Elle se termine au niveau de l'arcade tendineuse du muscle :|Soléaire|Gastrocnémien|Poplité|Grand adducteur
+m|Elle se termine en donnant :|Le tronc tibio-péroné et l'artère tibiale antérieure|L'artère fibulaire et l'artère plantaire|L'artère sural et l'artère moyenne du genou|La tibiale postérieure et la fémorale
+m|Le pouls poplité est perçu :|Au centre du creux poplité|Derrière la malléole|Au pli inguinal|Sous la rotule
+m|Quel nerf longe le bord postéro-latéral de la veine poplitée ?|Le nerf tibial|Le nerf fibulaire commun|Le nerf sural|Le nerf fémoral
+m|Quel nerf diverge latéralement contre le tendon du biceps fémoral ?|Le nerf fibulaire commun|Le nerf tibial|Le nerf obturateur|Le nerf saphène
+d|La longueur de l'artère poplitée est d'environ :|16 cm|8 cm|30 cm|4 cm
+d|Son diamètre est d'environ :|8 mm|2 mm|15 mm|25 mm
+d|Les artères surales sont destinées au muscle :|Gastrocnémien|Soléaire|Poplité|Plantaire
+d|L'artère moyenne du genou irrigue notamment :|Les ligaments croisés|Les ménisques|La patella|Le ligament patellaire
+d|La douleur du mollet à la marche chez l'artéritique s'explique par l'ischémie du :|Gastrocnémien|Poplité|Tibial antérieur|Biceps fémoral
+d|Pourquoi l'artère poplitée est-elle dite « dangereuse » ?|Son réseau anastomotique est peu efficace|Elle est très superficielle|Elle est très volumineuse|Elle n'a pas de branches
+d|Le réseau patellaire du genou est :|Superficiel|Profond|Intra-osseux|Intra-articulaire
+`,
+        "Artère fémorale": `
+f|L'artère fémorale fait suite à :|L'artère iliaque externe|L'artère iliaque interne|L'aorte|L'artère poplitée
+f|L'artère fémorale se divise en :|Fémorale superficielle et fémorale profonde|Fémorale et poplitée|Tibiale antérieure et postérieure|Iliaque et obturatrice
+m|La longueur de l'artère fémorale commune est d'environ :|4 cm|16 cm|30 cm|1 cm
+m|Dans la lacune vasculaire, l'artère est :|En dehors de la veine et en dedans du nerf|En dedans de la veine|En dehors du nerf|En arrière de la veine
+m|Le trigone fémoral est aussi appelé :|Triangle de Scarpa|Canal de Hunter|Triangle de Farabeuf|Canal de Guyon
+m|Le canal des adducteurs est aussi appelé :|Canal de Hunter|Triangle de Scarpa|Canal de Guyon|Canal carpien
+m|L'artère nourricière de la cuisse est :|L'artère fémorale profonde|L'artère fémorale superficielle|L'artère poplitée|L'artère obturatrice
+m|Dans le trigone fémoral, la veine fémorale est :|Médiale à l'artère|Latérale à l'artère|Postérieure à l'artère|Antérieure à l'artère
+m|Où perçoit-on le pouls fémoral ?|Au pli inguinal|Dans le creux poplité|Derrière la malléole|À l'aisselle
+d|L'artère fémorale superficielle devient poplitée au niveau :|Du hiatus du grand adducteur|De l'arcade du soléaire|Du ligament inguinal|Du trigone fémoral
+d|L'artère fémorale profonde donne :|Les circonflexes médiale et latérale et les perforantes|L'artère descendante du genou|L'épigastrique superficielle|Les pudendales externes
+d|Quelle est une branche de l'artère fémorale commune ?|L'artère épigastrique superficielle|L'artère circonflexe médiale|Les perforantes|L'artère poplitée
+d|Le pontage fémoro-poplité relie :|L'artère fémorale et l'artère poplitée|L'aorte et l'iliaque|La poplitée et la tibiale|La fémorale et l'iliaque interne
+d|La perte sanguine en cas de traumatisme peut atteindre :|3 litres|500 ml|1 litre|6 litres
+d|L'anastomose cruciforme relie la fémorale profonde aux artères :|Obturatrice, glutéale inférieure et poplitée|Iliaque externe et interne|Tibiales antérieure et postérieure|Épigastriques
+d|Le canal des adducteurs est limité en avant par le muscle :|Vaste médial|Long adducteur|Sartorius|Pectiné
+`,
+        "Artère axillaire": `
+f|L'artère axillaire fait suite à :|L'artère sous-clavière|L'artère humérale|L'artère carotide|L'aorte
+f|Elle devient artère humérale au niveau du bord inférieur du :|Grand pectoral|Petit pectoral|Deltoïde|Grand dorsal
+m|La longueur de l'artère axillaire est d'environ :|8 cm|20 cm|3 cm|15 cm
+m|Son calibre est d'environ :|8 mm|3 mm|15 mm|2 mm
+m|En abduction à 90°, l'artère axillaire est :|Pratiquement horizontale|Verticale|Concave en bas|Oblique en haut
+m|Quel repère sert au bloc axillaire ?|L'artère axillaire et le bord inférieur du grand pectoral|La clavicule|Le processus coracoïde|La 1ère côte
+m|La compression de l'artère contre la paroi latérale permet :|L'hémostase temporaire d'une hémorragie du membre supérieur|Le bloc nerveux|La palpation de l'humérale|Un accès veineux
+d|L'artère thoraco-acromiale naît :|Au-dessus du petit pectoral|En arrière du petit pectoral|Au bord inférieur du subscapulaire|Sous le deltoïde
+d|L'artère thoracique latérale naît :|En arrière du petit pectoral|Au-dessus du petit pectoral|Au bord inférieur du subscapulaire|Au-dessous de la clavicule
+d|L'artère subscapulaire se divise en :|Thoraco-dorsale et circonflexe de la scapula|Acromiale et thoracique|Circonflexes humérales|Thoracique supérieure et latérale
+d|La veine axillaire est située par rapport à l'artère :|Médialement|Latéralement|En avant|En arrière
+d|Les luxations antéro-médiales de l'épaule peuvent :|Comprimer l'artère par la tête humérale|Rompre l'aorte|Léser la veine cave|Atteindre le nerf phrénique
+d|Le cercle périscapulaire est préservé si la ligature siège :|Au-dessus de l'origine de l'artère subscapulaire|En dessous de l'artère subscapulaire|Sur l'humérale|Sur la thoracique
+`,
+        "Vessie": `
+f|La vessie est un réservoir destiné à contenir :|L'urine|La bile|Le sperme|Le sang
+f|La vessie est située dans la loge :|Antérieure de la cavité pelvienne|Postérieure de la cavité pelvienne|Rétropéritonéale lombaire|Thoracique
+m|La capacité physiologique de la vessie est d'environ :|300 ml|100 ml|1 L|3 L
+m|La capacité maximale est d'environ :|3 L|1 L|500 ml|10 L
+m|La vessie vide est :|Exclusivement pelvienne|Abdomino-pelvienne|Abdominale|Rétropéritonéale
+m|Le cystocathéter est possible lorsque la vessie est :|Pleine|Vide|Toujours|Jamais
+m|Le muscle de la paroi vésicale est :|Le détrusor|Le sphincter strié|Le dartos|Le psoas
+m|Le trigone vésical est aussi appelé :|Trigone de Lieutaud|Trigone de Scarpa|Trigone de Hesselbach|Trigone de Farabeuf
+m|L'espace pré-vésical est appelé espace de :|Retzius|Douglas|Winslow|Waldeyer
+m|Le détrusor comporte combien de couches ?|3|2|4|1
+d|L'épithélium de la muqueuse vésicale est :|Pavimenteux stratifié|Cylindrique simple|Cubique|Cilié
+d|Le prolapsus de la paroi vaginale antérieure réalise :|Une cystocèle|Une rectocèle|Une hystérocèle|Une urétérocèle
+d|L'apex de la vessie se continue par :|L'ouraque|L'urètre|Les uretères|Le canal déférent
+d|Les uretères s'abouchent aux angles :|Postéro-latéraux|Antérieur|Supérieur|Inférieur
+d|Le centre parasympathique sacré commande :|L'évacuation vésicale|La fermeture du sphincter lisse|Le caractère volontaire de la miction|La sécrétion rénale
+d|Le centre orthosympathique commande :|La fermeture du sphincter lisse|L'évacuation vésicale|La miction volontaire|La sécrétion rénale
+d|Quels nerfs sacrés innervent la vessie ?|Les 3ème et 4ème|Les 1er et 2ème|Le 5ème|Aucun
+d|Chez l'homme, la loge vésicale est limitée en arrière par :|L'aponévrose de Denonvilliers|L'aponévrose ombilico-prévésicale|Les lames de Delbet|Le fascia de Toldt
+`,
+        "Utérus": `
+f|L'utérus est un organe :|Creux, impair et médian|Plein et pair|Pair et symétrique|Rétropéritonéal
+m|Les 3 parties de l'utérus sont :|Le corps, l'isthme et le col|Le fond, la trompe et le col|Le corps, l'ovaire et le vagin|Le col, le vagin et la vulve
+m|L'utérus est normalement :|Antéversé et antéfléchi|Rétroversé|Antéversé et rétrofléchi|Rétrofléchi
+m|L'angle d'antéflexion est de :|120°|90°|45°|180°
+m|L'orifice externe du col est punctiforme chez :|La nullipare|La multipare|La femme ménopausée|La femme enceinte
+m|L'artère utérine naît de :|L'artère iliaque interne|L'aorte abdominale|L'artère iliaque externe|L'artère fémorale
+m|L'artère ovarique naît de :|L'aorte abdominale|L'artère rénale|L'artère iliaque interne|L'artère utérine
+m|La muqueuse du corps de l'utérus est appelée :|Endomètre|Myomètre|Périmétrium|Exocol
+m|Pendant la grossesse, l'isthme devient :|Le segment inférieur|Le col|Le fond|La corne
+d|Le cul-de-sac recto-utérin est le cul-de-sac de :|Douglas|Winslow|Retzius|Waldeyer
+d|La jonction exo-endocol est le siège électif des :|Cancers du col|Fibromes|Kystes de l'ovaire|Hernies
+d|L'artère du ligament rond naît de :|L'épigastrique inférieure|L'utérine|L'ovarique|L'obturatrice
+d|La couche moyenne du myomètre est :|Très épaisse|Mince|Fibreuse|Absente
+d|Le poids de l'utérus de la nullipare est d'environ :|60 g|10 g|200 g|500 g
+d|L'utérus devient thoraco-abdominal à :|9 mois|6 mois|3 mois|12 mois
+d|L'utérus est abdominal entre :|4 et 6 mois|0 et 3 mois|7 et 8 mois|1 et 2 mois
+d|Pendant la grossesse, l'artère ovarique :|Double de diamètre|Disparaît|Diminue de moitié|Reste inchangée
+`,
+        "Uretères": `
+f|Les uretères conduisent l'urine :|Du bassinet à la vessie|De la vessie à l'urètre|Du rein à l'urètre|Du bassinet à l'urètre
+m|La longueur de l'uretère est de :|24 à 32 cm|10 à 12 cm|40 à 50 cm|5 à 8 cm
+m|Le calibre de l'uretère est de :|3 à 5 mm|1 mm|1 cm|2 cm
+m|Combien de rétrécissements possède l'uretère ?|3|2|4|5
+m|L'uretère naît du bassinet en regard de :|L2|T10|L5|S1
+m|Les calculs de moins de 5 mm :|Peuvent être éliminés spontanément|Sont toujours opérés|Bloquent toujours l'uretère|Se dissolvent dans la vessie
+m|Quel examen explore l'uretère ?|L'UIV|La FOGD|La coloscopie|La rectoscopie
+d|La musculeuse de l'uretère comprend :|Une couche externe circulaire et une interne longitudinale|Trois couches|Une seule couche|Une couche externe longitudinale et une interne circulaire
+d|Les artères uretériques supérieures naissent de :|L'artère rénale|L'artère iliaque commune|L'artère utérine|L'artère génitale
+d|L'artère uretérique moyenne naît de :|L'artère iliaque commune|L'artère rénale|L'artère génitale|L'artère utérine
+d|L'artère uretérique intermédiaire naît de :|L'artère génitale|L'artère rénale|L'artère iliaque commune|L'artère vésicale
+d|La partie abdominale de l'uretère mesure :|12 à 14 cm|24 cm|5 cm|30 cm
+d|La partie pelvienne de l'uretère comprend combien de segments ?|3|2|4|1
+d|Les lymphatiques de l'uretère se drainent vers :|Les ganglions latéro-aortiques, iliaques primitifs et hypogastriques|Les ganglions inguinaux|Les ganglions axillaires|Les ganglions poplités
+d|L'uretère abdominal est en arrière en rapport avec :|Le muscle psoas|Le colon|La rate|L'estomac
+`,
+        "Surrénales": `
+f|Les surrénales sont des glandes :|Endocrines paires|Exocrines|Impaires|Lymphatiques
+f|Les surrénales sont situées à :|La partie supéro-médiale du rein|Le pôle inférieur du rein|La vessie|Le foie
+m|La médullosurrénale produit :|Adrénaline et noradrénaline|Cortisol|Aldostérone|Androgènes
+m|La zone glomérulée sécrète :|Les minéralocorticoïdes|Les glucocorticoïdes|Les androgènes|Les catécholamines
+m|La zone fasciculée sécrète :|Les glucocorticoïdes|Les minéralocorticoïdes|Les androgènes|L'adrénaline
+m|La zone réticulée sécrète :|Les androgènes|Les glucocorticoïdes|Les minéralocorticoïdes|Les catécholamines
+m|Quelle tumeur sécrétante touche la médullaire ?|Le phéochromocytome|Le syndrome de Conn|La maladie d'Addison|Le syndrome de Cushing
+m|Quelle est la couleur des surrénales ?|Jaune chamois|Rouge sombre|Blanc nacré|Gris
+d|Le défaut de sécrétion corticale est la maladie de :|Addison|Cushing|Conn|Basedow
+d|La surrénale droite a la forme :|Pyramidale|D'une virgule renversée|D'un haricot|Sphérique
+d|La surrénale gauche a la forme :|D'une virgule renversée|Pyramidale|D'un haricot|Ronde
+d|La veine surrénale droite rejoint :|La VCI|La veine rénale|La veine porte|La veine phrénique
+d|La veine surrénale gauche rejoint :|La veine rénale|La VCI|La veine porte|La veine cave supérieure
+d|L'artère surrénale moyenne est une branche de :|L'aorte abdominale|L'artère rénale|L'artère phrénique inférieure|L'artère splénique
+d|L'artère surrénale inférieure est une branche de :|L'artère rénale|L'aorte|La phrénique inférieure|La mésentérique
+d|En cas de néphrectomie, la surrénale :|Reste en place|Est enlevée obligatoirement|Descend avec le rein|Se rompt
+d|La surrénale droite est en rapport en avant avec :|Le foie et le duodénum|La rate et le pancréas|L'estomac|Le côlon gauche
+`,
+        "Rein": `
+f|Le rein est un organe :|Pair, rétropéritonéal|Impair, intrapéritonéal|Pair, intrapéritonéal|Thoracique
+f|Le rein a la forme d'un :|Haricot|Disque|Cube|Cône
+m|Le poids moyen du rein est d'environ :|150 g|50 g|500 g|1 kg
+m|La longueur du rein est d'environ :|12 cm|6 cm|20 cm|3 cm
+m|Le hile se situe sur le bord :|Médial concave|Latéral convexe|Supérieur|Inférieur
+m|Les pyramides rénales de Malpighi appartiennent à la zone :|Médullaire|Corticale|Capsulaire|Hilaire
+m|Les colonnes rénales de Bertin sont dans la zone :|Corticale|Médullaire|Papillaire|Hilaire
+m|Quel rein est un peu plus haut situé ?|Le gauche|Le droit|Aucun|Cela dépend du sexe
+m|L'artère rénale naît de l'aorte à hauteur de :|L1|T10|L4|S1
+m|Quelle artère rénale est la plus courte ?|La gauche|La droite|Elles sont égales|Aucune des deux
+d|Quelle veine rénale est la plus longue ?|La gauche (7,5 cm)|La droite (3 cm)|Elles sont égales|Aucune des deux
+d|Les veines rénales se jettent dans :|La VCI|La veine porte|La veine azygos|L'aorte
+d|La distribution artérielle rénale est de type :|Terminal|Anastomotique|Collatéral|Mixte
+d|Le rein en fer à cheval est un rein :|Fusionnel|Ectopique|Polykystique|Agénésique
+d|Une tumeur rénale gauche est à rechercher devant :|Un varicocèle gauche récent|Un varicocèle droit|Une hernie inguinale|Une hydrocèle
+d|La loge rénale est limitée par :|Le fascia de Zuckerkandel et la lame surréno-rénale|Le fascia de Toldt|Le ligament de Treitz|Le fascia de Denonvilliers
+d|Les rapports antérieurs du rein droit incluent :|Le foie et l'angle colique droit|La rate|La queue du pancréas|L'estomac
+d|La partie supérieure du rein gauche répond à :|La rate et la queue du pancréas|Le foie|Le duodénum|La vésicule biliaire
+d|Les artères arquées donnent :|Les artères interlobulaires|Les artères segmentaires|Les artères polaires|Les artères capsulaires
+`,
+        "Ovaires et ligaments larges": `
+f|L'ovaire est une glande :|Amphicrine, paire|Exocrine, impaire|Endocrine, impaire|Salivaire
+f|L'ovaire produit :|Les ovocytes et des hormones sexuelles|Le sperme|La bile|L'urine
+m|L'ovaire est le seul organe :|Intrapéritonéal|Rétropéritonéal|Sous-péritonéal|Thoracique
+m|La couleur de l'ovaire est :|Blanc nacré|Rouge|Jaune|Gris-noir
+m|Le ligament le plus solide de l'ovaire est :|Le ligament suspenseur|Le ligament propre|Le ligament tubo-ovarique|Le mésovarium
+m|Le ligament propre de l'ovaire est aussi appelé :|Utéro-ovarien|Lombo-ovarien|Tubo-ovarien|Pubo-ovarien
+m|Le ligament suspenseur de l'ovaire est aussi appelé :|Lombo-ovarien|Utéro-ovarien|Tubo-ovarien|Ilio-ovarien
+m|Pendant l'ovulation, l'ovaire :|Double ou triple de volume|Diminue de volume|Disparaît|Reste identique
+m|Le ligament large est constitué de :|Deux lames péritonéales|Une lame musculaire|Un cordon fibreux|Un tendon
+d|Le poids de l'ovaire hors ovulation est d'environ :|10 g|50 g|100 g|1 g
+d|Chez la multipare, l'ovaire est dans la fossette :|Sous-ovarique (de Claudius)|Ovarique|Paravésicale|Rétro-utérine
+d|La veine ovarique droite se jette dans :|La VCI|La veine rénale|La veine porte|La veine iliaque
+d|La veine ovarique gauche se jette dans :|La veine rénale gauche|La VCI|La veine porte|La veine iliaque
+d|Le syndrome de Stein-Leventhal est lié à :|Une albuginée très épaisse|Une torsion de l'ovaire|Un kyste dermoïde|Une hernie
+d|La zone supérieure du ligament large est :|Le mésomètre|Le mésométrium|Le paramètre|Le mésorectum
+d|L'aileron supérieur du ligament large est :|Le mésosalpinx|Le mésovarium|Le ligament rond|Le paramètre
+d|L'aileron antérieur du ligament large contient :|Le ligament rond|La trompe|L'ovaire|L'uretère
+d|Le paramètre renferme :|L'artère utérine et l'uretère|La trompe|Uniquement l'ovaire|Uniquement le ligament rond
+d|Les varices des veines ovariques sont appelées :|Varicocèles ovariques|Hémorroïdes|Cystocèles|Hydrocèles
+`,
+        "Canal déférent": `
+f|Le canal déférent est une voie d'excrétion du :|Sperme|Urine|Bile|Sang
+f|Le canal déférent fait suite à :|La queue de l'épididyme|La prostate|La vessie|L'urètre
+m|La longueur du canal déférent est d'environ :|40 cm|10 cm|100 cm|5 cm
+m|Son diamètre est d'environ :|3 mm|1 cm|1 mm|2 cm
+m|Sa portion terminale dilatée est :|L'ampoule|L'uncus|La papille|Le bulbe
+m|La vasectomie consiste à :|Sectionner le canal déférent|Retirer la prostate|Retirer le testicule|Sectionner l'urètre
+m|Avec la vésicule séminale, le déférent forme :|Le canal éjaculateur|L'urètre|L'ampoule de Vater|Le canal pancréatique
+d|Combien de segments décrit-on au canal déférent ?|5|3|4|2
+d|Le canal déférent traverse :|Le canal inguinal|Le canal de Hunter|Le canal carpien|Le canal sacré
+d|La musculeuse du canal déférent a combien de couches ?|3|2|1|4
+d|L'obstruction du canal déférent entraîne :|Une stérilité excrétoire|Une hernie|Une incontinence|Une infection biliaire
+d|Le canal déférent croise la face médiale des :|Vaisseaux iliaques externes|Vaisseaux fémoraux|Vaisseaux rénaux|Vaisseaux ovariques
+d|Au niveau pelvien, il passe au-dessus de :|L'artère ombilicale et de l'uretère|La vessie seulement|Le rectum|L'urètre
+d|Les nerfs du déférent proviennent du plexus :|Déférentiel (hypogastrique inférieur)|Brachial|Lombaire|Sacré
+d|Le canal déférent assure :|Le transport et le stockage des spermatozoïdes|La sécrétion hormonale|La production du sperme|La filtration du sang
+d|Quel examen explore le canal déférent ?|La déférentographie|La coloscopie|La FOGD|Le TOGD
+`,
+        "Rectum": `
+f|Le rectum est le segment terminal du :|Tube digestif|Appareil urinaire|Appareil génital|Système lymphatique
+f|Le rectum fait suite au :|Côlon sigmoïde|Côlon transverse|Caecum|Duodénum
+m|Les 2 segments du rectum sont :|L'ampoule rectale et le canal anal|Le haut et le bas rectum|Le cap et l'ampoule|Le sphincter et le canal
+m|L'ampoule rectale dérive :|De l'intestin primitif|De l'ectoderme|Du cloaque seul|Du mésentère
+m|Le canal anal dérive :|De l'ectoderme|De l'intestin primitif|De l'endoderme|Du mésoderme
+m|La jonction recto-sigmoïdienne est à hauteur de :|S3|L1|T12|S5
+m|Le cap du rectum forme un angle de :|90°|45°|180°|120°
+m|Le bas rectum est à moins de :|5 cm de la marge anale|10 cm de la marge anale|15 cm de la marge anale|20 cm de la marge anale
+m|La dilatation variqueuse du plexus hémorroïdal est :|La maladie hémorroïdaire|Le prolapsus|La fistule|L'abcès
+m|Quel est l'examen clinique de base du rectum ?|Le toucher rectal|La palpation de la rate|L'auscultation|La percussion
+d|Le haut rectum est à plus de :|10 cm de la marge anale|5 cm de la marge anale|15 cm de la marge anale|3 cm de la marge anale
+d|Combien de valvules de Houston ?|3|2|5|1
+d|La ligne pectinée sépare :|La zone colunnaire et la zone intermédiaire|Le rectum et le sigmoïde|L'anus et la peau|L'ampoule et le cap
+d|Le sphincter interne est :|Lisse et réflexe|Strié et volontaire|Strié et réflexe|Lisse et volontaire
+d|Le sphincter externe est :|Strié et volontaire|Lisse|Réflexe|Interne
+d|Les artères rectales supérieures sont des branches de :|L'artère mésentérique inférieure|L'artère iliaque interne|L'artère honteuse interne|L'artère mésentérique supérieure
+d|Les artères rectales moyennes naissent de :|L'artère iliaque interne|L'artère honteuse interne|L'artère mésentérique inférieure|L'aorte
+d|Les artères rectales inférieures naissent de :|L'artère honteuse interne|L'artère iliaque interne|L'artère mésentérique|L'artère fémorale
+d|Le cul-de-sac de Douglas est accessible :|Au toucher rectal|À la palpation lombaire|À l'auscultation|À la percussion costale
+d|L'infection des glandes anales cause :|Un kyste, un abcès ou une fistule anale|Des hémorroïdes|Un cancer|Un prolapsus
+`,
+        "Pédicule hépatique": `
+f|Le pédicule hépatique contient la veine porte, l'artère hépatique propre et :|Les voies biliaires extra-hépatiques|L'aorte|La VCI|Le canal thoracique
+m|Le pédicule hépatique mesure environ :|4 cm de long|20 cm|10 cm|1 cm
+m|La veine porte mesure environ :|10 cm de long|3 cm|20 cm|5 cm
+m|Le pédicule hépatique est contenu dans :|Le petit épiploon|Le grand épiploon|Le mésocolon|Le mésentère
+m|La manœuvre de Pringle consiste à :|Clamper le pédicule hépatique|Ouvrir le cholédoque|Ligaturer la veine porte seule|Drainer la vésicule
+m|D'avant en arrière, l'ordre des éléments du pédicule est :|Biliaire, Artère, Veine|Veine, Artère, Biliaire|Artère, Veine, Biliaire|Veine, Biliaire, Artère
+m|Le canal cholédoque naît de l'union du canal cystique et du :|Canal hépatique commun|Canal de Wirsung|Canal de Santorini|Canal déférent
+d|Le foramen épiploïque est aussi appelé :|Hiatus de Winslow|Hiatus de Treitz|Hiatus de Hesselbach|Hiatus de Retzius
+d|L'incarcération d'anses dans le hiatus de Winslow est la hernie de :|Blandin|Spiegel|Richter|Littré
+d|L'ampoule hépato-pancréatique est celle de :|Vater|Wirsung|Santorini|Kehr
+d|Le sphincter qui entoure l'ampoule est celui d' :|Oddi|Vater|Houston|Morgagni
+d|Le drain de Kehr est placé sur :|La voie biliaire principale|La veine porte|L'artère hépatique|Le pancréas
+d|Le ganglion de Quenu est situé :|À droite du pédicule|À gauche du pédicule|Dans le foie|Dans le hile gauche
+d|Le triangle des voies biliaires est capital dans :|La cholécystectomie|L'appendicectomie|La gastrectomie|La splénectomie
+d|Les branches collatérales de l'artère hépatique propre sont :|La gastrique droite et la cystique|La splénique et la rénale|Les mésentériques|Les phréniques
+d|Tout obstacle sur les voies biliaires entraîne :|Une cholestase|Une hémorragie|Une ischémie|Une pancréatite
+d|La veine porte naît de l'union du tronc spléno-mésaraïque et de :|La veine mésentérique supérieure|La veine rénale|La VCI|La veine cave
+`,
+        "Estomac": `
+f|L'estomac est intercalé entre :|L'œsophage et le duodénum|Le duodénum et le jéjunum|Le pharynx et l'œsophage|Le jéjunum et le côlon
+f|Classiquement, l'estomac a la forme d'un :|J|O|S|L
+m|Le cardia est à hauteur de :|T11|L1|T6|L4
+m|Le pylore est à hauteur de :|L1|T11|L4|T8
+m|La capacité de l'estomac est d'environ :|1,5 L|0,5 L|5 L|10 L
+m|La grande courbure mesure environ :|40 cm|15 cm|100 cm|5 cm
+m|La petite courbure mesure environ :|15 cm|40 cm|60 cm|5 cm
+m|Combien de couches musculaires possède l'estomac ?|3|2|4|1
+m|Quelle est la poche à air gastrique radiologique ?|Le fundus|L'antre|Le pylore|Le corps
+m|Quel examen explore l'estomac ?|La FOGD|La rectoscopie|L'UIV|La cystoscopie
+d|La valvule du cardia est celle de :|Gubarow|Bauhin|Houston|Kerckring
+d|L'artère gastrique gauche naît du :|Tronc cœliaque|L'artère splénique|L'hépatique propre|La gastroduodénale
+d|L'artère gastrique droite naît de :|L'artère hépatique propre|Le tronc cœliaque|L'artère splénique|L'artère mésentérique
+d|L'artère gastro-épiploïque gauche naît de :|L'artère splénique|L'artère gastroduodénale|L'artère hépatique|Le tronc cœliaque
+d|L'artère gastro-épiploïque droite naît de :|L'artère gastroduodénale|L'artère splénique|Le tronc cœliaque|L'artère gastrique gauche
+d|Les ganglions de Troisier sont :|Sus-claviculaires gauches|Inguinaux|Axillaires|Cœliaques
+d|Le nerf vague gauche est :|Antérieur|Postérieur|Latéral|Absent
+d|La sténose du pylore est traitée par :|Une pylorotomie extra-muqueuse|Une gastrectomie totale|Une splénectomie|Une vagotomie seule
+d|En cas d'HTP, les varices cardio-œsophagiennes sont dues à l'anastomose entre :|Veines gastriques courtes et veines œsophagiennes|Veines rénales et surrénales|Veines iliaques|Veines hépatiques et rénales
+d|La muqueuse du fundus et du corps est :|Acide|Alcaline|Neutre|Non sécrétante
+d|La muqueuse de l'antre est :|Alcaline|Acide|Malpighienne|Ciliée
+d|L'estomac est presque entièrement situé :|À gauche de la ligne médiane|À droite de la ligne médiane|Derrière le rein|Dans le pelvis
+`,
+        "Duodéno-pancréas": `
+f|Le duodénum est le segment initial de :|L'intestin grêle|Le côlon|L'estomac|Le rectum
+f|Le duodénum a la forme d'un :|C|S|O|J
+m|Combien de parties a le duodénum ?|4|3|5|2
+m|La longueur du duodénum est d'environ :|25 cm|10 cm|50 cm|1 m
+m|Quel segment est le siège le plus fréquent des ulcères duodénaux ?|D1|D2|D3|D4
+m|L'angle de Treitz sépare :|Les hémorragies digestives hautes et basses|L'estomac et le duodénum|Le pancréas et la rate|Le côlon et le rectum
+m|La papille duodénale majeure se trouve sur :|D2|D1|D3|D4
+m|Le pancréas est une glande :|Amphicrine|Exocrine seule|Endocrine seule|Salivaire
+m|Les cellules bêta des îlots de Langerhans sécrètent :|L'insuline|Le glucagon|La somatostatine|La gastrine
+m|Les cellules alpha des îlots de Langerhans sécrètent :|Le glucagon|L'insuline|La somatostatine|L'adrénaline
+d|Les cellules delta des îlots de Langerhans sécrètent :|La somatostatine|L'insuline|Le glucagon|La sécrétine
+d|Le canal pancréatique principal est celui de :|Wirsung|Santorini|Vater|Oddi
+d|Le canal pancréatique accessoire est celui de :|Santorini|Wirsung|Vater|Kehr
+d|La longueur du pancréas est d'environ :|15 cm|30 cm|5 cm|50 cm
+d|Le poids du pancréas est d'environ :|80 g|10 g|300 g|500 g
+d|L'uncus est aussi appelé :|Petit pancréas de Winslow|Pancréas de Santorini|Isthme|Col
+d|Les glandes de Brunner se trouvent dans :|Le duodénum|L'estomac|Le côlon|Le pancréas
+d|Le bloc duodéno-pancréatique comprend la tête du pancréas et :|Le cadre duodénal D1, D2, D3|Le jéjunum|La rate|Le côlon
+d|La queue du pancréas est irriguée par :|L'artère splénique|L'artère mésentérique supérieure|L'artère gastroduodénale|L'artère rénale
+d|La section des nerfs splanchniques sert à :|Traiter la douleur des cancers du pancréas|Réduire l'acidité gastrique|Traiter le diabète|Enlever la rate
+d|Quel examen explore le pancréas ?|La CPRE|La rectoscopie|L'UIV|La cystoscopie
+`,
+        "Côlon": `
+f|Le côlon est situé entre :|La valvule iléo-caecale et le rectum|L'estomac et le duodénum|Le pharynx et l'œsophage|Le rectum et l'anus
+m|La longueur du côlon est d'environ :|1,5 m|50 cm|5 m|10 m
+m|Le calibre du côlon au niveau du caecum est d'environ :|8 cm|4 cm|2 cm|15 cm
+m|Combien de bandelettes (tænia) le côlon possède-t-il ?|3, sauf au sigmoïde (2)|1|4|6
+m|Le côlon droit est vascularisé par :|L'artère mésentérique supérieure|L'artère mésentérique inférieure|Le tronc cœliaque|L'artère rénale
+m|Le côlon gauche est vascularisé par :|L'artère mésentérique inférieure|L'artère mésentérique supérieure|Le tronc cœliaque|L'artère iliaque interne
+m|Quelle arcade anastomose les 2 systèmes mésentériques ?|L'arcade de Riolan|Le cercle de Willis|L'arcade de Treitz|La boucle de Wirsung
+m|L'artère mésentérique supérieure naît à hauteur de :|L1|L3|T12|S1
+m|L'artère mésentérique inférieure naît à hauteur de :|L3|L1|L5|T10
+d|Les branches coliques de l'AMS sont :|Colique droite, iléo-colique, colique moyenne|Colique gauche, sigmoïdiennes|Rectale supérieure|Gastrique
+d|L'AMI irrigue le côlon par :|La colique gauche, les sigmoïdiennes et la rectale supérieure|L'iléo-colique|La colique droite|La colique moyenne
+d|Les cryptes de la muqueuse colique sont celles de :|Lieberkühn|Brunner|Houston|Morgagni
+d|Quel est le segment le plus fixe du côlon ?|L'angle colique gauche|Le caecum|Le sigmoïde|Le transverse
+d|Le fascia de Toldt droit fixe :|Le côlon ascendant|Le sigmoïde|Le transverse|Le caecum
+d|Les colotomies transversales sont :|Moins hémorragiques que les longitudinales|Plus hémorragiques|Impossibles|Interdites
+d|Le siège électif des colotomies est :|Les bandelettes|Les haustrations|Les franges épiploïques|Les angles coliques
+d|La VMI s'unit à la veine splénique pour former :|Le tronc spléno-mésaraïque|La veine porte directement|La VCI|La veine rénale
+d|Le côlon sigmoïde est :|Mobile|Fixe|Rétropéritonéal|Fixé par le fascia de Toldt
+d|La muqueuse colique est dépourvue de :|Villosités|Cryptes|Glandes|Cellules caliciformes
+`,
+        "Rate": `
+f|La rate est le plus volumineux organe :|Lymphoïde secondaire|Endocrine|Digestif|Respiratoire
+m|La rate est située dans :|L'hypochondre gauche|L'hypochondre droit|La fosse iliaque|Le pelvis
+m|Quelle côte est la « côte splénique » ?|La 11ème|La 5ème|La 7ème|La 3ème
+m|Le poids de la rate est d'environ :|200 g|50 g|1 kg|20 g
+m|La rate est de couleur :|Rouge violacée|Jaune|Blanche|Verte
+m|La pulpe blanche contient :|Des follicules lymphoïdes|Des globules rouges seulement|Des hépatocytes|Du cartilage
+m|La pulpe rouge est :|Périphérique|Centrale|Capsulaire|Absente
+m|La rate normale est :|Non palpable|Toujours palpable|Palpable à droite|Sous-cutanée
+m|Le grand axe de la rate est parallèle à la :|10ème côte|5ème côte|12ème côte|3ème côte
+d|La vascularisation de la rate est de type :|Terminal|Anastomotique|Mixte|Collatéral
+d|L'artère splénique naît du :|Tronc cœliaque|AMS|Aorte directement|Artère rénale
+d|La veine splénique s'unit à la VMI pour former :|Le tronc spléno-mésaraïque|La veine porte|La VCI|La veine rénale
+d|La splénomégalie peut être due à :|L'HTP|L'anémie seule|La grippe|L'asthme
+d|L'artère splénique comprend combien de segments ?|3|2|4|5
+d|La rate a la forme d'un :|Tétraèdre irrégulier|Cube|Sphère|Cylindre
+d|Le bord antérieur de la rate est :|Crénelé|Mousse|Lisse|Aplati
+d|La splénectomie partielle est possible grâce à :|La vascularisation terminale|La mobilité de la rate|La petite taille|L'absence de capsule
+d|La fixité de la rate est assurée surtout par :|L'étroitesse de sa loge|Ses ligaments|Ses vaisseaux|Le diaphragme
+d|La rate est en rapport avec la queue du :|Pancréas|Duodénum|Foie|Rein droit
+d|Les nerfs de la rate viennent du plexus :|Cœliaque|Brachial|Lombaire|Sacré
+`,
+        "Œsophage": `
+f|L'œsophage fait suite au :|Pharynx|Larynx|Estomac|Trachée
+m|L'œsophage commence à hauteur de :|C6|T4|C1|T11
+m|L'œsophage se termine à hauteur de :|T11|C6|L1|T4
+m|La longueur de l'œsophage est de :|25 cm|10 cm|50 cm|5 cm
+m|Combien de segments l'œsophage possède-t-il ?|3|2|4|5
+m|Combien de rétrécissements l'œsophage possède-t-il ?|4|2|3|5
+m|Le rétrécissement aortique est à hauteur de :|T4|C6|T11|L1
+m|La longueur de l'œsophage abdominal est de :|2 cm|6 cm|17 cm|10 cm
+m|L'œsophage commence à distance de l'arcade dentaire inférieure de :|15 cm|5 cm|30 cm|40 cm
+d|La longueur du segment thoracique est de :|17 cm|6 cm|2 cm|25 cm
+d|La muqueuse œsophagienne est de type :|Malpighien|Glandulaire|Cylindrique|Cilié
+d|L'œsophage n'a pas de :|Séreuse|Muqueuse|Musculeuse|Sous-muqueuse
+d|La jonction muqueuse œsophage-estomac est :|La ligne Z|La ligne pectinée|L'angle de His|Le cardia seulement
+d|L'angle de His sépare :|L'œsophage et le fundus|L'œsophage et le pharynx|L'estomac et le duodénum|Le cardia et le pylore
+d|Le nerf vague gauche passe au hiatus œsophagien :|En avant|En arrière|À droite|Il est absent
+d|Le segment cervical est irrigué par :|L'artère thyroïdienne inférieure|L'aorte|La gastrique gauche|La splénique
+d|Le segment abdominal est irrigué par :|La phrénique inférieure gauche et la gastrique gauche|La thyroïdienne inférieure|Les artères bronchiques|La splénique
+d|Le segment thoracique est irrigué par :|Les artères bronchiques et des rameaux de l'aorte|La gastrique droite|La rénale|La carotide
+d|Les varices œsophagiennes surviennent en cas de :|HTP|HTA|Diabète|Asthme
+d|Le segment thoracique est dans le médiastin :|Postérieur|Antérieur|Moyen|Supérieur
+d|Les plexus nerveux intrinsèques sont ceux de :|Meissner et Auerbach|Latarjet|Bleicher|Santorini
+d|La valvule cardio-œsophagienne est celle de :|Gubarow|Houston|Bauhin|Morgagni
+d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
+`,
+      };
+      for (const [titre, texte] of Object.entries(cours))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Anatomie");
+        });
     questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
     })();
 
