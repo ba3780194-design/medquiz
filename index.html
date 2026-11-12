@@ -55,9 +55,10 @@
     .page { display: none; width: min(1180px, 90%); margin: 0 auto; padding: 58px 0 76px; }
     .page.active { display: block; }
     .hero {
-      min-height: 580px; display: grid; grid-template-columns: 1.2fr .8fr;
+      min-height: 580px; grid-template-columns: 1.2fr .8fr;
       align-items: center; gap: 45px; padding-top: 65px; padding-bottom: 65px;
     }
+    .page.hero.active { display: grid; }
     .eyebrow {
       display: inline-flex; align-items: center; gap: 9px; color: var(--teal);
       background: rgba(34,211,197,.1); border: 1px solid rgba(34,211,197,.22);
@@ -153,6 +154,7 @@
     .auth-panel > p { color: var(--muted); margin-bottom: 20px; }
     .auth-panel button { width: 100%; margin-top: 8px; }
     .text-link { color: var(--teal); font-weight: 800; cursor: pointer; background: none; border: 0; padding: 0; }
+    .auth-panel .text-link { width: auto; margin-top: 0; }
     .auth-switch { color: var(--muted); text-align: center; margin-top: 18px; }
     #message { margin-top: 15px; min-height: 24px; text-align: center; color: var(--teal); }
     .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
@@ -179,6 +181,23 @@
     .feature strong { display: block; margin: 8px 0 4px; }
     .feature p { color: var(--muted); font-size: .9rem; }
     .premium-note { margin-top: 20px; color: var(--muted); font-size: .88rem; }
+    .compare-wrap { overflow-x: auto; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 16px; }
+    .compare { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .compare th, .compare td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--line); font-size: .93rem; }
+    .compare thead th { background: rgba(255,255,255,.04); color: var(--muted); }
+    .compare thead th:last-child, .compare td:last-child { color: var(--gold); font-weight: 750; }
+    .compare tbody tr:last-child td { border-bottom: 0; }
+    .no { color: var(--muted); }
+    .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+    .price-card { padding: 24px; text-align: center; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 18px; }
+    .price-card.best { border-color: rgba(242,198,109,.55); background: rgba(242,198,109,.06); }
+    .price-card h3 { font-size: 1.05rem; }
+    .price { font-size: 2rem; font-weight: 850; color: var(--gold); margin: 10px 0 2px; }
+    .price-card p { color: var(--muted); font-size: .9rem; margin-bottom: 14px; }
+    .price-card .btn { width: 100%; opacity: .6; cursor: not-allowed; }
+    .pay-methods { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+    .pay-methods span { padding: 9px 15px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.04); font-weight: 700; }
+    @media (max-width: 600px) { .pricing { grid-template-columns: 1fr; } }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -308,15 +327,19 @@
       <div class="premium-hero">
         <span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
         <h2>Va plus loin dans ton apprentissage.</h2>
-        <p>Une expérience enrichie pour les joueurs qui veulent approfondir leurs connaissances, relever davantage de défis et progresser régulièrement.</p>
+        <p>Questions avancées illimitées, examens blancs, statistiques détaillées, défis exclusifs et certificats de réussite.</p>
         <div style="margin-top:22px"><span class="btn btn-gold" aria-disabled="true">Offre Premium — bientôt disponible</span></div>
       </div>
-      <div class="premium-features">
-        <div class="feature"><div class="gold-text">✦</div><strong>Quiz exclusifs</strong><p>Des séries de questions supplémentaires pour approfondir tes connaissances.</p></div>
-        <div class="feature"><div class="gold-text">♛</div><strong>Défis avancés</strong><p>Des défis conçus pour les joueurs qui souhaitent aller plus loin.</p></div>
-        <div class="feature"><div class="gold-text">📈</div><strong>Progression enrichie</strong><p>Un suivi plus détaillé de tes performances et de tes résultats.</p></div>
+      <div class="section-heading"><h2>Gratuit ou Premium</h2></div>
+      <div class="compare-wrap"><table class="compare"><thead><tr><th>Fonctionnalité</th><th>Gratuit</th><th>Premium</th></tr></thead><tbody><tr><td>Quiz médecine</td><td>✓ Oui</td><td>✓ Oui</td></tr><tr><td>Culture générale</td><td>✓ Oui</td><td>✓ Oui</td></tr><tr><td>Questions classiques</td><td>✓ Oui</td><td>✓ Oui</td></tr><tr><td>Questions avancées</td><td>Limitées</td><td>Illimitées</td></tr><tr><td>Explications détaillées</td><td>Basiques</td><td>Approfondies</td></tr><tr><td>Examens blancs</td><td class="no">✕ Non</td><td>✓ Oui</td></tr><tr><td>Quiz sans limite</td><td class="no">✕ Non</td><td>✓ Oui</td></tr><tr><td>Statistiques personnelles</td><td>Basiques</td><td>Détaillées</td></tr><tr><td>Défis Premium</td><td class="no">✕ Non</td><td>✓ Oui</td></tr><tr><td>Certificats de réussite</td><td class="no">✕ Non</td><td>✓ Oui</td></tr></tbody></table></div>
+      <div class="section-heading"><h2>Nos tarifs</h2></div>
+      <div class="pricing"><div class="price-card"><h3>Abonnement mensuel</h3><div class="price">2 500 FCFA</div><p>Pour un mois</p><span class="btn btn-gold" aria-disabled="true">Bientôt disponible</span></div><div class="price-card"><h3>Abonnement trimestriel</h3><div class="price">6 000 FCFA</div><p>Pour trois mois</p><span class="btn btn-gold" aria-disabled="true">Bientôt disponible</span></div><div class="price-card best"><h3>Abonnement annuel</h3><div class="price">20 000 FCFA</div><p>Pour douze mois</p><span class="btn btn-gold" aria-disabled="true">Bientôt disponible</span></div></div>
+      <div class="panel">
+        <h3>Moyens de paiement prévus</h3>
+        <div class="pay-methods"><span>Orange Money</span><span>Wave</span><span>Carte bancaire</span></div>
+        <p class="muted">L'activation du Premium se fera automatiquement après confirmation du paiement.</p>
       </div>
-      <p class="premium-note">La présentation Premium est prête. L'activation des abonnements et les paiements seront ajoutés après le choix d'un moyen de paiement et la configuration sécurisée côté serveur. Aucun paiement n'est effectué sur cette page.</p>
+      <p class="premium-note">Les paiements ne sont pas encore ouverts : aucun paiement n'est effectué sur cette page. Les fonctionnalités Premium seront activées au lancement.</p>
     </section>
 
     <section class="page" id="compte">
@@ -381,7 +404,7 @@
     let utilisateurActuel = null;
 
     function afficherPage(id) {
-      const destination = id === "compte" && utilisateurActuel ? "member" : id;
+      const destination = id === "compte" && utilisateurActuel ? "member" : (id === "member" && !utilisateurActuel ? "compte" : id);
       document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === destination));
       document.querySelectorAll(".nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${id}`));
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -395,13 +418,14 @@
         if (!$(id) && id !== "compte") return;
         event.preventDefault();
         afficherPage(id);
-        history.replaceState(null, "", `#${id}`);
+        try { history.replaceState(null, "", `#${id}`); } catch (e) { /* aperçu dans un iframe : on ignore */ }
       });
     });
 
     document.querySelectorAll("[data-preset]").forEach(card => {
       card.addEventListener("click", () => {
         $("categorieQuiz").value = card.dataset.preset;
+        majOptionsNombre();
         afficherPage("quiz");
         $("niveauQuiz").focus();
       });
@@ -413,12 +437,14 @@
       $("loginForm").classList.remove("hidden");
       $("formTitle").textContent = "Connexion";
       message.textContent = "";
+      message.classList.remove("error");
     });
     $("showSignup").addEventListener("click", () => {
       $("loginForm").classList.add("hidden");
       $("signupForm").classList.remove("hidden");
       $("formTitle").textContent = "Créer un compte";
       message.textContent = "";
+      message.classList.remove("error");
     });
 
     $("signupForm").addEventListener("submit", async (event) => {
@@ -438,7 +464,8 @@
       message.classList.remove("error");
       if (data.session && data.user) {
         message.textContent = "Compte créé avec succès !";
-        await chargerProfil(data.user);
+        utilisateurActuel = data.user;
+        afficherPage("member");
       } else {
         message.textContent = "Compte créé. Vérifie ton e-mail si une confirmation est demandée.";
       }
@@ -459,8 +486,10 @@
       message.classList.remove("error");
       message.textContent = "Connexion réussie !";
       $("loginForm").reset();
-      if (data.user) await chargerProfil(data.user);
-      afficherPage("member");
+      if (data.user) {
+        utilisateurActuel = data.user;
+        afficherPage("member");
+      }
     });
 
     async function chargerProfil(user) {
@@ -478,7 +507,6 @@
       $("profilePseudo").textContent = pseudo;
       $("profilePoints").textContent = profil?.points ?? 0;
       await chargerHistorique(user);
-      afficherPage("member");
     }
 
     async function chargerHistorique(user = utilisateurActuel) {
@@ -604,8 +632,104 @@
       {categorie:"culture",niveau:"difficile",question:"Quel est le plus grand désert chaud du monde ?",choix:["Le Gobi","Le Kalahari","Le Sahara","Le désert d'Atacama"],reponse:"Le Sahara",explication:"Le Sahara est le plus grand désert chaud du monde."},
       {categorie:"culture",niveau:"difficile",question:"Quelle est la monnaie officielle du Japon ?",choix:["Le yuan","Le won","Le yen","Le baht"],reponse:"Le yen",explication:"Le yen est la monnaie officielle du Japon."},
       {categorie:"culture",niveau:"difficile",question:"Quel élément chimique a pour symbole Fe ?",choix:["Le fluor","Le fer","Le francium","Le phosphore"],reponse:"Le fer",explication:"Fe est le symbole chimique du fer."},
-      {categorie:"culture",niveau:"difficile",question:"Quel traité est généralement associé à la fin de la Première Guerre mondiale ?",choix:["Traité de Rome","Traité de Versailles","Traité de Maastricht","Traité de Tordesillas"],reponse:"Traité de Versailles",explication:"Le traité de Versailles, signé en 1919, règle notamment la paix entre l'Allemagne et les Alliés."}
+      {categorie:"culture",niveau:"difficile",question:"Quel traité est généralement associé à la fin de la Première Guerre mondiale ?",choix:["Traité de Rome","Traité de Versailles","Traité de Maastricht","Traité de Tordesillas"],reponse:"Traité de Versailles",explication:"Le traité de Versailles, signé en 1919, règle notamment la paix entre l'Allemagne et les Alliés."},
+      // Questions supplémentaires
+      {categorie:"medecine",niveau:"facile",question:"Quel os protège le cerveau ?",choix:["Le fémur","Le crâne","Le sternum","Le tibia"],reponse:"Le crâne",explication:"Le crâne enferme et protège le cerveau."},
+      {categorie:"medecine",niveau:"facile",question:"Combien de dents un adulte possède-t-il normalement ?",choix:["20","28","32","36"],reponse:"32",explication:"Un adulte a normalement 32 dents, dents de sagesse comprises."},
+      {categorie:"medecine",niveau:"facile",question:"Quel organe digère les aliments grâce à un liquide acide ?",choix:["L'estomac","Le cœur","Le poumon","Le cerveau"],reponse:"L'estomac",explication:"L'estomac sécrète de l'acide chlorhydrique qui participe à la digestion."},
+      {categorie:"medecine",niveau:"facile",question:"Quel sens utilise-t-on grâce au nez ?",choix:["La vue","L'ouïe","L'odorat","Le goût"],reponse:"L'odorat",explication:"Le nez est l'organe de l'odorat."},
+      {categorie:"medecine",niveau:"facile",question:"Quel est le plus grand organe du corps humain ?",choix:["Le foie","La peau","Le cœur","Le poumon"],reponse:"La peau",explication:"La peau est l'organe le plus étendu et le plus lourd du corps."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel est le plus long os du corps humain ?",choix:["Le tibia","L'humérus","Le fémur","Le radius"],reponse:"Le fémur",explication:"Le fémur, dans la cuisse, est l'os le plus long et le plus solide."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel organe produit la bile ?",choix:["Le foie","Le rein","La rate","Le pancréas"],reponse:"Le foie",explication:"La bile est produite par le foie puis stockée dans la vésicule biliaire."},
+      {categorie:"medecine",niveau:"moyen",question:"Quelle vitamine est essentielle à la coagulation du sang ?",choix:["Vitamine A","Vitamine C","Vitamine K","Vitamine E"],reponse:"Vitamine K",explication:"La vitamine K intervient dans la fabrication de facteurs de coagulation."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel groupe sanguin est considéré comme donneur universel pour les globules rouges ?",choix:["AB+","A+","B-","O-"],reponse:"O-",explication:"Les globules rouges O négatif peuvent être transfusés à la plupart des patients."},
+      {categorie:"medecine",niveau:"moyen",question:"Quelle est la plus grosse artère du corps ?",choix:["L'aorte","La carotide","La veine cave","L'artère fémorale"],reponse:"L'aorte",explication:"L'aorte part du ventricule gauche et distribue le sang à tout le corps."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle hormone est produite par la glande thyroïde ?",choix:["L'insuline","La thyroxine","Le cortisol","La mélatonine"],reponse:"La thyroxine",explication:"La thyroïde produit notamment la thyroxine (T4), qui régule le métabolisme."},
+      {categorie:"medecine",niveau:"difficile",question:"Comment s'appelle la membrane qui enveloppe le cœur ?",choix:["La plèvre","Le péricarde","Le péritoine","Les méninges"],reponse:"Le péricarde",explication:"Le péricarde entoure et protège le cœur."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelles cellules du sang participent principalement à la coagulation ?",choix:["Les plaquettes","Les globules rouges","Les lymphocytes","Les neutrophiles"],reponse:"Les plaquettes",explication:"Les plaquettes forment le clou plaquettaire qui arrête les saignements."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle valve sépare l'oreillette gauche du ventricule gauche ?",choix:["La valve tricuspide","La valve mitrale","La valve pulmonaire","La valve aortique"],reponse:"La valve mitrale",explication:"La valve mitrale (bicuspide) relie l'oreillette gauche au ventricule gauche."},
+      {categorie:"medecine",niveau:"difficile",question:"Quel est le principal muscle de la respiration ?",choix:["Le diaphragme","Le biceps","Le trapèze","Le deltoïde"],reponse:"Le diaphragme",explication:"Le diaphragme se contracte à chaque inspiration."},
+      {categorie:"culture",niveau:"facile",question:"Quel est le plus grand animal terrestre ?",choix:["Le lion","La girafe","L'éléphant","L'hippopotame"],reponse:"L'éléphant",explication:"L'éléphant d'Afrique est le plus grand animal terrestre."},
+      {categorie:"culture",niveau:"facile",question:"Combien y a-t-il de mois dans une année ?",choix:["10","11","12","13"],reponse:"12",explication:"Une année compte douze mois."},
+      {categorie:"culture",niveau:"facile",question:"Quelle est la capitale de la France ?",choix:["Lyon","Marseille","Paris","Lille"],reponse:"Paris",explication:"Paris est la capitale de la France."},
+      {categorie:"culture",niveau:"facile",question:"Quelle étoile éclaire et réchauffe la Terre ?",choix:["La Lune","Le Soleil","Mars","Sirius"],reponse:"Le Soleil",explication:"Le Soleil est l'étoile au centre de notre système solaire."},
+      {categorie:"culture",niveau:"facile",question:"Combien font 5 × 6 ?",choix:["25","30","35","11"],reponse:"30",explication:"5 multiplié par 6 égale 30."},
+      {categorie:"culture",niveau:"moyen",question:"Quel est le plus long fleuve d'Afrique ?",choix:["Le Congo","Le Niger","Le Sénégal","Le Nil"],reponse:"Le Nil",explication:"Le Nil mesure environ 6 650 km."},
+      {categorie:"culture",niveau:"moyen",question:"Qui a peint la Joconde ?",choix:["Michel-Ange","Léonard de Vinci","Raphaël","Picasso"],reponse:"Léonard de Vinci",explication:"La Joconde a été peinte par Léonard de Vinci au début du XVIe siècle."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la capitale du Brésil ?",choix:["Rio de Janeiro","São Paulo","Salvador","Brasília"],reponse:"Brasília",explication:"Brasília est la capitale du Brésil depuis 1960."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la formule chimique de l'eau ?",choix:["CO2","H2O","O2","NaCl"],reponse:"H2O",explication:"Une molécule d'eau contient deux atomes d'hydrogène et un atome d'oxygène."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la plus haute montagne du monde ?",choix:["Le K2","Le Mont Blanc","L'Everest","Le Kilimandjaro"],reponse:"L'Everest",explication:"L'Everest culmine à environ 8 849 m."},
+      {categorie:"culture",niveau:"difficile",question:"Qui a été le premier homme à marcher sur la Lune ?",choix:["Buzz Aldrin","Youri Gagarine","Neil Armstrong","Michael Collins"],reponse:"Neil Armstrong",explication:"Neil Armstrong a posé le pied sur la Lune le 20 juillet 1969."},
+      {categorie:"culture",niveau:"difficile",question:"Quelle est la capitale de l'Australie ?",choix:["Sydney","Melbourne","Canberra","Perth"],reponse:"Canberra",explication:"Canberra est la capitale de l'Australie, et non Sydney."},
+      {categorie:"culture",niveau:"difficile",question:"En quelle année le mur de Berlin est-il tombé ?",choix:["1985","1989","1991","1993"],reponse:"1989",explication:"Le mur de Berlin est tombé le 9 novembre 1989."},
+      {categorie:"culture",niveau:"difficile",question:"Quel est le plus petit pays du monde ?",choix:["Monaco","Saint-Marin","Le Vatican","Malte"],reponse:"Le Vatican",explication:"Le Vatican couvre environ 0,44 km²."},
+      {categorie:"culture",niveau:"difficile",question:"Quel est le symbole chimique de l'or ?",choix:["Ag","Au","Or","Go"],reponse:"Au",explication:"Au vient du latin aurum."}
     ];
+
+    (function genererQuestions() {
+      const melanger = a => [...a].sort(() => Math.random() - 0.5);
+      const ajouter = (categorie, niveau, question, bonne, pool, explication) => {
+        const faux = melanger([...new Set(pool)].filter(x => x !== bonne)).slice(0, 3);
+        questionsMedQuiz.push({ categorie, niveau, question, choix: melanger([bonne, ...faux]), reponse: bonne, explication });
+      };
+      const capitales = {
+        facile: [["de l'Italie","Rome"],["de l'Espagne","Madrid"],["de l'Allemagne","Berlin"],["du Royaume-Uni","Londres"],["du Japon","Tokyo"],["de l'Égypte","Le Caire"],["de la Chine","Pékin"],["de la Russie","Moscou"],["du Maroc","Rabat"],["du Mali","Bamako"],["de l'Algérie","Alger"],["de la Guinée","Conakry"],["de la Mauritanie","Nouakchott"],["de la Gambie","Banjul"],["des États-Unis","Washington"]],
+        moyen: [["du Canada","Ottawa"],["du Nigeria","Abuja"],["du Ghana","Accra"],["du Kenya","Nairobi"],["de l'Éthiopie","Addis-Abeba"],["de la Turquie","Ankara"],["de l'Inde","New Delhi"],["de l'Argentine","Buenos Aires"],["du Portugal","Lisbonne"],["de la Grèce","Athènes"],["de la Suisse","Berne"],["de la Tunisie","Tunis"],["du Cameroun","Yaoundé"],["du Burkina Faso","Ouagadougou"],["du Niger","Niamey"]],
+        difficile: [["de la Côte d'Ivoire","Yamoussoukro"],["du Bénin","Porto-Novo"],["de la Tanzanie","Dodoma"],["du Pakistan","Islamabad"],["du Kazakhstan","Astana"],["du Myanmar","Naypyidaw"],["de la Nouvelle-Zélande","Wellington"],["du Vietnam","Hanoï"],["du Pérou","Lima"],["de la Colombie","Bogota"],["de la Norvège","Oslo"],["de la Suède","Stockholm"],["de la Finlande","Helsinki"],["de la République démocratique du Congo","Kinshasa"],["de Madagascar","Antananarivo"]]
+      };
+      const toutesCap = Object.values(capitales).flat().map(x => x[1]).concat(["Dakar","Paris","Lagos","Casablanca","Abidjan"]);
+      for (const [niv, liste] of Object.entries(capitales))
+        liste.forEach(([pays, cap]) => ajouter("culture", niv, `Quelle est la capitale ${pays} ?`, cap, toutesCap, `${cap} est la capitale ${pays}.`));
+
+      const elements = {
+        moyen: [["l'oxygène","O"],["l'hydrogène","H"],["le carbone","C"],["le sodium","Na"],["le potassium","K"],["l'azote","N"]],
+        difficile: [["l'argent","Ag"],["le plomb","Pb"],["le cuivre","Cu"],["le calcium","Ca"],["le mercure","Hg"],["l'étain","Sn"]]
+      };
+      const symboles = Object.values(elements).flat().map(x => x[1]).concat(["Fe","Au","He"]);
+      for (const [niv, liste] of Object.entries(elements))
+        liste.forEach(([nom, sym]) => ajouter("culture", niv, `Quel est le symbole chimique de ${nom} ?`, sym, symboles, `${sym} est le symbole de ${nom}.`));
+
+      const oeuvres = {
+        moyen: [["Le Petit Prince","Antoine de Saint-Exupéry"],["Roméo et Juliette","William Shakespeare"],["Une si longue lettre","Mariama Bâ"],["L'Étranger","Albert Camus"],["Le Rouge et le Noir","Stendhal"],["Germinal","Émile Zola"]],
+        difficile: [["L'Aventure ambiguë","Cheikh Hamidou Kane"],["Les Soleils des indépendances","Ahmadou Kourouma"],["Madame Bovary","Gustave Flaubert"],["Les Fleurs du mal","Charles Baudelaire"],["Don Quichotte","Miguel de Cervantes"],["Cahier d'un retour au pays natal","Aimé Césaire"],["Le Ventre de l'Atlantique","Fatou Diome"],["Le Dernier Jour d'un condamné","Victor Hugo"]]
+      };
+      const auteurs = Object.values(oeuvres).flat().map(x => x[1]).concat(["Molière","Léopold Sédar Senghor"]);
+      for (const [niv, liste] of Object.entries(oeuvres))
+        liste.forEach(([titre, auteur]) => ajouter("culture", niv, `Qui est l'auteur de « ${titre} » ?`, auteur, auteurs, `« ${titre} » a été écrit par ${auteur}.`));
+
+      const corps = {
+        facile: [["permet d'entendre","L'oreille"],["permet de goûter les aliments","La langue"],["contrôle la pensée et les mouvements","Le cerveau"],["stocke l'urine","La vessie"],["conduit les aliments de la bouche à l'estomac","L'œsophage"],["protège le cœur et les poumons","La cage thoracique"],["soutient le corps et protège la moelle épinière","La colonne vertébrale"]],
+        moyen: [["absorbe la majorité des nutriments","L'intestin grêle"],["absorbe l'eau et forme les selles","Le côlon"],["stocke la bile","La vésicule biliaire"],["filtre le sang et participe à l'immunité","La rate"],["fabrique les cellules sanguines","La moelle osseuse"],["conduit l'air vers les bronches","La trachée"],["sécrète l'adrénaline","Les glandes surrénales"],["est en cause dans le scorbut lorsqu'elle manque","La vitamine C"],["protège la vision, notamment nocturne","La vitamine A"],["est nécessaire aux globules rouges et au système nerveux","La vitamine B12"]],
+        difficile: [["sécrète l'hormone de croissance","L'hypophyse"],["produit la mélatonine","La glande pinéale"],["sécrète la parathormone","Les glandes parathyroïdes"],["coordonne l'équilibre et les mouvements","Le cervelet"],["constitue l'unité filtrante du rein","Le néphron"],["relaie les informations sensorielles vers le cortex","Le thalamus"],["joue un rôle clé dans la mémoire","L'hippocampe"],["intervient dans les émotions comme la peur","L'amygdale cérébrale"],["est recommandée pendant la grossesse pour prévenir des malformations du tube neural","La vitamine B9"],["est en cause dans le béribéri lorsqu'elle manque","La vitamine B1"],["est en cause dans la pellagre lorsqu'elle manque","La vitamine B3"]]
+      };
+      const toutCorps = Object.values(corps).flat().map(x => x[1]);
+      for (const [niv, liste] of Object.entries(corps))
+        liste.forEach(([desc, rep]) => {
+          const pool = rep.startsWith("La vitamine") ? toutCorps.filter(x => x.startsWith("La vitamine")) : liste.map(x => x[1]).filter(x => !x.startsWith("La vitamine")).concat(niv === "facile" ? [] : toutCorps.filter(x => !x.startsWith("La vitamine")));
+          const vit = rep.startsWith("La vitamine");
+          ajouter("medecine", niv, vit ? `Quelle vitamine ${desc} ?` : `Qu'est-ce qui ${desc} ?`, rep, pool, `Bonne réponse : ${rep}.`);
+        });
+    })();
+
+    function majOptionsNombre() {
+      const cat = $("categorieQuiz").value, niv = $("niveauQuiz").value;
+      const dispo = questionsMedQuiz.filter(q => q.categorie === cat && q.niveau === niv).length;
+      const select = $("nombreQuiz");
+      const ancien = select.value;
+      const valeurs = [5, 10, 20, 30].filter(n => n <= dispo);
+      if (!valeurs.length || valeurs[valeurs.length - 1] < dispo) valeurs.push(dispo);
+      select.replaceChildren();
+      valeurs.forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = String(n);
+        opt.textContent = n === dispo && !([5,10,20,30].includes(n)) ? `Toutes (${n} questions)` : `${n} questions`;
+        select.append(opt);
+      });
+      select.value = valeurs.map(String).includes(ancien) ? ancien : String(valeurs[0]);
+    }
+    $("categorieQuiz").addEventListener("change", majOptionsNombre);
+    $("niveauQuiz").addEventListener("change", majOptionsNombre);
+    majOptionsNombre();
 
     $("demarrerQuiz").addEventListener("click", () => {
       const categorie = $("categorieQuiz").value;
@@ -723,6 +847,11 @@
       }
     });
 
+    window.addEventListener("hashchange", () => {
+      const id = window.location.hash.slice(1);
+      if (id && $(id)) afficherPage(id);
+    });
+
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         utilisateurActuel = session.user;
@@ -737,8 +866,8 @@
     if (sessionData.session?.user) {
       utilisateurActuel = sessionData.session.user;
       $("accountNav").textContent = "Mon profil";
-      await chargerProfil(utilisateurActuel);
-    } else {
+    }
+    {
       const hash = window.location.hash.slice(1);
       if (hash && $(hash)) afficherPage(hash);
       else afficherPage("accueil");
