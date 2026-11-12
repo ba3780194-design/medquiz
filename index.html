@@ -1227,6 +1227,200 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
           const [n, q, bonne, ...faux] = ligne.split("|");
           ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Anatomie");
         });
+      const physiologie = {
+        "Physiologie du pancréas exocrine": `
+f|Le pancréas exocrine sécrète :|Le suc pancréatique|L'insuline|La bile|Le glucagon
+f|Quelle est la fonction principale du suc pancréatique ?|Digérer protides, lipides et glucides|Produire l'insuline|Stocker la bile|Absorber l'eau
+f|Le pancréas exocrine représente environ quel pourcentage du parenchyme pancréatique ?|90%|50%|10%|70%
+m|Les cellules du pancréas exocrine sont regroupées en :|Acini|Îlots de Langerhans|Néphrons|Villosités
+m|Où sont stockés les grains de zymogène ?|Dans l'appareil de Golgi|Dans le noyau|Dans les mitochondries|Dans les lysosomes
+m|Le suc pancréatique est un liquide :|Alcalin|Acide|Très acide|Hypo-osmotique
+m|La quantité de suc pancréatique est de :|1,5 à 2,5 L par 24 h|0,1 L par 24 h|5 L par 24 h|10 L par 24 h
+m|Le suc pancréatique contient environ quel pourcentage d'eau ?|98%|50%|80%|20%
+m|La sécrétion hydro-électrolytique sert surtout à neutraliser :|L'acidité gastrique|Les graisses|Les protéines|Le glucose
+m|Quel ion neutralise les chymes acides ?|HCO3-|Cl-|K+|Ca++
+m|La concentration en HCO3- est inversement proportionnelle à celle de :|Cl-|Na+|K+|Ca++
+m|Le trypsinogène est activé par :|L'entérokinase|La sécrétine|La CCK-PZ|La pepsine
+m|La trypsine active :|Les autres zymogènes pancréatiques|Uniquement la lipase|La gastrine|La sécrétine
+m|La trypsine hydrolyse les liaisons dont le COOH est porté par :|L'arginine ou la lysine|Les acides aminés aromatiques|La leucine|La valine
+m|La chymotrypsine agit sur les acides aminés :|Aromatiques|Aliphatiques|Basiques seulement|Soufrés
+m|L'amylase pancréatique agit sur :|L'amidon|Les triglycérides|Les protéines|Le cholestérol
+m|La lipase hydrolyse :|Les triglycérides|Les protéines|L'amidon|Les acides nucléiques
+m|La sécrétine stimule la sécrétion pancréatique :|Hydrélatique|Enzymatique|Endocrine|Acide gastrique
+m|La CCK-PZ stimule la sécrétion pancréatique :|Enzymatique (ecbolique)|Hydrélatique|Mucineuse|Endocrine
+m|Quelles hormones inhibent la sécrétion pancréatique ?|Somatostatine et glucagon|Sécrétine et CCK-PZ|Gastrine et VIP|Insuline et GIP
+m|Quel système stimule la sécrétion pancréatique ?|Le parasympathique (nerf vague)|Le sympathique|Le nerf phrénique|Le nerf splanchnique
+d|Le sympathique agit sur le pancréas par le nerf :|Splanchnique|Vague|Phrénique|Fémoral
+d|La chymotrypsine est activée à partir du chymotrypsinogène par :|La trypsine|L'entérokinase|La pepsine|La sécrétine
+d|Quels sont les acides aminés aromatiques ?|Tyrosine, tryptophane, phénylalanine|Leucine, alanine, valine|Arginine, lysine|Glycine, sérine
+d|L'élastase agit sur les acides aminés :|Aliphatiques (leucine, alanine, valine)|Aromatiques|Basiques|Acides
+d|Les carboxypeptidases sont des :|Exopeptidases|Endopeptidases|Lipases|Amylases
+d|La carboxypeptidase B hydrolyse les peptides dont le COOH est porté par :|La lysine ou l'arginine|Un acide aminé aromatique|La leucine|La valine
+d|La carboxypeptidase A hydrolyse les peptides dont le COOH appartient à :|Un acide aminé aromatique|La lysine|L'arginine|La valine
+d|L'amylase agit sur les liaisons :|α (1-4) glucosidiques|β (1-4) glucosidiques|Peptidiques|Phospho-diester
+d|L'amylase hydrolyse l'amidon en :|Dextrine et maltose|Glucose seul|Galactose|Fructose
+d|La lipase agit en présence de :|Colipase|Ca++ seul|Sécrétine|Entérokinase
+d|La phospholipase A2 est activée par :|La trypsine|L'entérokinase|La sécrétine|La bile
+d|La phospholipase A2 agit en présence de :|Ca++|Mg++|Na+|Colipase
+d|Les nucléases pancréatiques sont :|DNase et RNase|Lipase et amylase|Trypsine et élastase|Pepsine et rennine
+d|Quelle phase de la sécrétion pancréatique est quantitativement la plus importante ?|La phase duodénale|La phase céphalique|La phase gastrique|La phase basale
+d|Dans la phase céphalique, la sécrétion pancréatique est transmise par :|Le nerf vague|La sécrétine|La CCK-PZ|Le splanchnique
+d|La phase gastrique de la sécrétion pancréatique met en jeu un réflexe :|Vago-vagal|Entéro-gastrique|Sympathique|Spinal
+d|L'insuffisance pancréatique exocrine entraîne :|Une maldigestion avec malabsorption|Une hypoglycémie|Une constipation|Une hypertension
+d|La pancréatite aiguë est due à :|L'activation précoce des enzymes pancréatiques|Un manque d'enzymes|Un excès de bile|Une carence en vitamine K
+d|Le pancréas sécrète environ :|6 à 20 g d'enzymes|1 à 2 g d'enzymes|100 g d'enzymes|500 g d'enzymes
+d|La fistule pancréatique externe est une méthode d'étude chez :|L'animal|L'homme|La femme|L'enfant
+`,
+        "Digestion intestinale": `
+f|La digestion s'effectue essentiellement dans :|L'intestin grêle|L'estomac|Le côlon|L'œsophage
+m|La longueur de l'intestin grêle est d'environ :|3 m|1,2 m|10 m|50 cm
+m|Le diamètre de l'intestin grêle est d'environ :|4 cm|6 cm|1 cm|10 cm
+m|La longueur du jéjunum est d'environ :|1 m|25 cm|1,75 m|3 m
+m|La longueur de l'iléon est d'environ :|1,75 m|1 m|25 cm|3 m
+m|Le plexus d'Auerbach se situe :|Entre les 2 couches de la musculeuse|Dans la sous-muqueuse|Dans la muqueuse|Dans la séreuse
+m|Le plexus de Meissner se situe dans :|La sous-muqueuse|La musculeuse|La séreuse|La muqueuse
+m|Les mouvements pendulaires sont dus à la contraction des fibres :|Longitudinales|Circulaires|Obliques|Striées
+m|Les mouvements segmentaires sont dus aux fibres :|Circulaires|Longitudinales|Obliques|Striées
+m|Quels mouvements assurent la progression du bol alimentaire ?|Les mouvements péristaltiques|Les mouvements pendulaires|Les mouvements segmentaires|Les haustrations
+m|La stimulation du sympathique :|Inhibe la motricité intestinale|Stimule la motricité intestinale|N'a pas d'effet|Provoque la sécrétion biliaire
+m|Quelles hormones inhibent la motricité intestinale ?|Sécrétine et glucagon|Gastrine et CCK-PZ|Insuline et sérotonine|Histamine
+m|Quelles glandes sécrètent le suc duodénal ?|Les glandes de Brunner|Les glandes de Lieberkühn|Le plexus de Meissner|Le plexus d'Auerbach
+m|Quelles glandes produisent le suc jéjuno-iléal ?|Les glandes de Lieberkühn|Les glandes de Brunner|Le plexus de Meissner|Le plexus d'Auerbach
+m|Le duodénum sécrète :|Gastrine, sécrétine et CCK-PZ|Insuline|Glucagon|Amylase seule
+m|Les sels biliaires sont indispensables à la digestion des :|Graisses|Protéines|Sucres|Vitamines hydrosolubles
+m|La bile est stockée dans :|La vésicule biliaire|Le pancréas|Le duodénum|La rate
+m|Le sucrose est dégradé en :|Glucose + fructose|Glucose + glucose|Glucose + galactose|Fructose + galactose
+m|Le lactose est dégradé en :|Glucose + galactose|Glucose + fructose|Glucose + glucose|Fructose + galactose
+m|Le maltose est dégradé en :|Glucose + glucose|Glucose + fructose|Glucose + galactose|Galactose + fructose
+m|Quelle enzyme digère le lactose ?|La lactase|La sucrase|La maltase|L'amylase
+m|Quelle enzyme digère le sucrose ?|La sucrase|La lactase|La maltase|La lipase
+m|L'émulsification des graisses se fait sous l'action de :|Sels biliaires|Amylase|Pepsine|Sécrétine
+m|Les haustrations ont pour rôle :|Mélanger le contenu colique|Digérer les graisses|Absorber le glucose|Sécréter des enzymes
+d|Les mouvements segmentaires pincent le chyme jusqu'à :|8 à 12 fois par minute|1 à 2 fois par minute|50 fois par minute|100 fois par minute
+d|Les mouvements de brassage sont :|Indépendants du système nerveux intrinsèque|Dépendants du plexus d'Auerbach|Hormonaux|Abolis par vagotomie
+d|Le péristaltisme se déplace dans le sens :|Oral-aboral|Aboral-oral|Latéral|Circulaire
+d|La vitesse des ondes péristaltiques est de :|0,5 à 2 cm/s|10 cm/s|1 m/s|0,1 mm/s
+d|Le chyme est propulsé à une vitesse moyenne de :|1 cm/min|10 cm/min|1 m/min|1 mm/min
+d|Pendant le péristaltisme, les fibres circulaires en aval du bol :|Se relâchent|Se contractent|Se rompent|Restent inchangées
+d|Le péristaltisme nécessite :|L'intégrité du système nerveux intrinsèque|Un chyme acide|L'ablation du plexus d'Auerbach|Une hormone seule
+d|La sécrétion pancréatique hydrélatique est stimulée par :|La sécrétine|La CCK-PZ|La gastrine|La somatostatine
+d|La sécrétine est libérée à l'arrivée de :|Chyme gastrique acide|Graisses|Eau|Sucre
+d|La CCK-PZ est libérée par la présence de :|Acides gras et acides aminés|Eau seule|Acide chlorhydrique|Glucose seul
+d|L'effet cholérétique correspond à :|La stimulation de la sécrétion biliaire par le foie|La contraction de la vésicule|L'absorption de la bile|La sécrétion d'enzymes
+d|L'effet cholagogue correspond à :|La contraction de la vésicule biliaire|La sécrétion biliaire du foie|La digestion des lipides|L'absorption des sels biliaires
+d|Quelle hormone provoque la contraction de la vésicule biliaire ?|La CCK-PZ|La sécrétine|La gastrine|La somatostatine
+d|Le cycle entéro-hépatique concerne :|Les sels biliaires|Le glucose|Le fer|Les protéines
+d|Où se trouvent les disaccharidases ?|Sur la bordure en brosse|Dans le foie|Dans la lumière gastrique|Dans la bile
+d|Dans la lumière intestinale, les protéines sont transformées en :|Oligopeptides|Glucose|Acides gras|Dipeptides seulement
+d|Dans l'entérocyte, les di et tripeptides sont hydrolysés en acides aminés par :|La peptidase cytoplasmique|La trypsine|La pepsine|L'élastase
+d|Les produits de digestion des lipides sont transportés vers l'entérocyte par :|Des micelles|Des chylomicrons|L'albumine|Des lysosomes
+d|Les mouvements de masse du côlon surviennent :|1 à 3 fois par jour|Toutes les minutes|10 fois par heure|Une fois par semaine
+d|La sécrétion colique est :|Peu abondante, alcaline, sans enzymes|Abondante et riche en enzymes|Acide|Riche en bile
+d|Le complexe moteur de migration part de :|La partie inférieure de l'estomac|Le duodénum|L'iléon|Le côlon
+`,
+        "Digestion gastrique": `
+f|L'estomac transforme le bol alimentaire en :|Chyme|Chyle|Bile|Mucus
+f|Les vomissements sont :|Le rejet brutal du contenu gastrique par la bouche|Une absorption|Une sécrétion|Un transit lent
+m|Les cellules principales sécrètent :|Le pepsinogène|L'HCl|Le mucus|La gastrine
+m|Les cellules pariétales sécrètent :|L'HCl et le facteur intrinsèque|Le pepsinogène|La gastrine|Le mucus
+m|Les cellules G sécrètent :|La gastrine|La somatostatine|L'histamine|Le mucus
+m|Les cellules D sécrètent :|La somatostatine|La gastrine|L'histamine|La mucine
+m|Les mastocytes libèrent :|L'histamine|La gastrine|La sérotonine|La mucine
+m|Les cellules du collet sécrètent :|La mucine|Le pepsinogène|L'HCl|La gastrine
+m|Le facteur intrinsèque est aussi appelé facteur de :|Castle|Pavlov|Heidenhain|Biermer
+m|Le facteur intrinsèque permet l'absorption de :|La vitamine B12|La vitamine C|Le fer|Le calcium
+m|Le défaut de facteur intrinsèque cause :|L'anémie de Biermer|L'anémie ferriprive|L'hémophilie|La drépanocytose
+m|La « relaxation de réception » est un réflexe :|Vago-vagal|Sympathique|Hormonal|Spinal
+m|Les ondes de brassage gastriques sont de :|3 à 5 par minute|1 par heure|20 par minute|60 par minute
+m|L'estomac se remplit en :|20 minutes|4 heures|6 heures|1 minute
+m|L'estomac se vide en :|4 à 6 heures|20 minutes|1 heure|24 heures
+m|L'estomac sécrète jusqu'à :|3,5 à 4,5 L de suc gastrique par jour|0,5 L par jour|10 L par jour|100 ml par jour
+m|Le chyme a l'aspect :|Opaque, laiteux, semi-liquide|Clair|Solide|Vert
+m|Les entérogastrones sont libérées par :|Les cellules duodénales|Les cellules pariétales|Le foie|La rate
+m|Les entérogastrones :|Inhibent la motricité et la sécrétion gastriques|Stimulent la sécrétion d'HCl|Activent la pepsine|Stimulent la vidange
+m|L'HCl active :|Le pepsinogène en pepsine|La trypsine|La lipase|L'amylase
+m|L'HCl réduit :|Le fer ferrique en fer ferreux|Le calcium en phosphate|La vitamine B12|Le glucose
+m|L'HCl transforme le calcium insoluble en :|Calcium soluble|Phosphate|Fer|Glucose
+m|La pepsine est :|Une endopeptidase|Une lipase|Une amylase|Une exopeptidase
+m|Le mucus gastrique protège contre :|L'autodigestion|Les infections|L'anémie|L'obésité
+d|L'anémie de Biermer est une anémie :|Mégaloblastique|Microcytaire|Hémolytique|Aplasique
+d|La poche gastrique de Pavlov conserve :|L'innervation|La bile|La paroi musculaire seule|Les vaisseaux seuls
+d|La poche gastrique de Heidenhain est :|Sans innervation vagale|Avec innervation vagale|Sans muqueuse|Sans vaisseaux
+d|Le repas fictif de Pavlov démontre la phase :|Céphalique|Gastrique|Intestinale|Duodénale
+d|L'expérience de Heidenhain montre la nature hormonale de la phase :|Gastrique|Céphalique|Intestinale|Basale
+d|La paroi de l'estomac peut se distendre de :|50 ml à 1,5 L|10 ml à 100 ml|1 L à 10 L|200 ml à 500 ml
+d|La relaxation de réception est abolie par :|La double vagotomie|La gastrectomie|La sympathectomie|Les antiacides
+d|L'onde péristaltique d'évacuation est plus puissante que l'onde de brassage d'un facteur :|6|2|10|20
+d|La « pompe pylorique » correspond à :|Le passage de quelques ml de chyme dans le duodénum|L'ouverture du cardia|L'absorption du fer|La sécrétion de gastrine
+d|Les entérogastrones comprennent :|CCK-PZ, sécrétine, GIP|Gastrine seule|Histamine|Insuline
+d|La gastrine stimule :|Modestement la motricité gastrique|Fortement la vidange gastrique|La sécrétion de bile|L'amylase
+d|L'HCl est sécrété dans la lumière par transport actif en échange de :|K+|Na+|Cl-|Ca++
+d|Quelle enzyme catalyse la réaction H2O + CO2 ⇌ H2CO3 ?|L'anhydrase carbonique|La pepsine|La lipase|L'amylase
+d|La « vague alcaline postprandiale » est due à :|Les bicarbonates passant dans le sang veineux|La bile|Le suc pancréatique|La salive
+d|La phase céphalique de la sécrétion gastrique est de nature :|Nerveuse|Hormonale|Mécanique|Immunitaire
+d|La phase gastrique de la sécrétion gastrique est essentiellement de nature :|Hormonale|Nerveuse|Mécanique|Osmotique
+d|La phase gastrique commence environ :|30 minutes après le repas|5 minutes après le repas|3 heures après le repas|12 heures après le repas
+d|La phase intestinale de la sécrétion gastrique survient environ :|1 à 2 heures après la prise d'aliment|5 minutes après|12 heures après|30 secondes après
+d|L'hyperchlorhydrie expose au risque de :|Ulcère gastro-duodénal|Anémie de Biermer|Diarrhée chronique|Constipation
+d|La gastroparésie est :|Un retard de vidange sans obstacle mécanique|Une obstruction du pylore|Une inflammation|Une sécrétion acide excessive
+d|Le plexus d'Auerbach a un rôle :|Moteur|Sensitif|Sécrétoire|Immunitaire
+d|Le plexus de Meissner a un rôle :|Sensitif|Moteur|Hormonal|Vasculaire
+d|L'innervation sympathique de l'estomac passe par :|Les nerfs splanchniques|Les nerfs vagues|Le nerf phrénique|Les nerfs sacrés
+d|L'estomac sécrète environ 2 litres par jour de :|HCl|Pepsine|Mucus|Bile
+`,
+        "Absorption intestinale": `
+f|L'absorption se fait essentiellement dans :|L'intestin grêle|L'estomac|L'œsophage|Le rectum
+m|La surface d'absorption de l'intestin grêle est d'environ :|200 m²|2 m²|20 m²|2000 m²
+m|Quelle est l'unité fonctionnelle d'absorption ?|Le complexe villosité-crypte|Le néphron|L'acinus|Le lobule
+m|La bordure en brosse est formée par :|Les microvillosités|Les cils|Les villosités|Les cryptes
+m|Les vaisseaux lymphatiques des villosités sont les :|Chylifères|Sinusoïdes|Capillaires artériels|Alvéoles
+m|Le gros intestin absorbe surtout :|L'eau et les électrolytes|Les graisses|Les protéines|Le glucose
+m|La stéatorrhée est :|Une quantité anormale de graisse dans les selles|Du sang dans les selles|Une diarrhée infectieuse|Une absence de selles
+m|Quel dosage explore l'absorption des glucides ?|Le D-xylose urinaire|La stéatorrhée|L'azote fécal|La bilirubine
+m|Quel dosage explore l'absorption des protides ?|L'azote fécal|Le D-xylose|Les graisses fécales|La bilirubine
+m|L'osmose concerne :|L'eau|Le glucose|Les protéines|Le fer
+m|Les protides sont absorbés sous forme de :|Acides aminés, di- et tripeptides|Polypeptides|Protéines entières|Glycérol
+m|Les protides sont absorbés dans :|Le duodénum et le jéjunum|L'iléon seul|Le côlon|L'estomac
+m|Les glucides absorbés sont :|Glucose, fructose, galactose|Amidon|Saccharose|Lactose
+m|Les glucides sont absorbés surtout dans :|Le jéjunum|L'iléon|Le côlon|Le duodénum seul
+m|Les lipides absorbés sont :|Triglycérides, phospholipides et cholestérol|Le cholestérol seul|Les acides aminés|L'amidon
+m|Les lipides sont absorbés dans :|Le jéjunum et l'iléon|L'estomac|Le côlon|Le duodénum seul
+m|Quel pourcentage de l'eau du tube digestif est réabsorbé ?|98 à 99%|10%|50%|75%
+m|Le fer est absorbé sous forme de :|Fer ferreux|Fer ferrique|Ferritine|Transferrine
+m|Le complexe vitamine B12-facteur intrinsèque est absorbé dans :|L'iléon|Le duodénum|L'estomac|Le côlon
+m|Quelles sont les vitamines liposolubles ?|A, D, E, K|B1, B2, C|B6, B12|C, K
+d|La diffusion facilitée est :|Plus rapide que la diffusion simple et saturable|Consommatrice d'énergie|Contre le gradient|Unidirectionnelle
+d|Le transport actif :|Consomme de l'énergie, contre un gradient|Est passif|Suit le gradient|N'est pas saturable
+d|La filtration-absorption se fait selon :|Un gradient de pression|Un gradient de concentration|Un gradient électrique|Un transporteur
+d|Quelle pompe crée le gradient de Na+ dans l'entérocyte ?|Na+/K+ ATPase|Na+/H+|H+/peptide|SGLT1
+d|Les di et tripeptides entrent par le cotransporteur :|H+/peptide|SGLT1|GLUT 5|GLUT 2
+d|Glucose et galactose entrent par le transporteur :|SGLT1|GLUT 5|GLUT 2|GLUT 4
+d|Le fructose entre par :|GLUT 5 (diffusion facilitée)|SGLT1|GLUT 2|Na+/K+ ATPase
+d|La sortie basolatérale des monosaccharides se fait par :|GLUT 2|SGLT1|GLUT 5|Na+/H+
+d|Les lipides entrent dans l'entérocyte par :|Diffusion passive|Transport actif|Cotransport Na+|GLUT 5
+d|Les lipides sont incorporés dans :|Les chylomicrons|Les micelles|Les lysosomes|Les hémoglobines
+d|Les chylomicrons gagnent :|La circulation lymphatique|La veine porte|L'artère hépatique|Le canal cholédoque
+d|Les acides gras à chaîne courte et moyenne passent dans :|La veine porte|La lymphe|La bile|Les chylifères
+d|La quantité d'eau restant dans les selles est de :|100 à 200 mL|1 L|2 L|50 mL
+d|Le volume d'eau présent dans le tube digestif est de :|9 à 10 L|1 L|20 L|50 L
+d|Le sodium est massivement absorbé dans :|Le duodénum|Le côlon|L'iléon|L'estomac
+d|Dans le jéjunum, le sodium est absorbé par :|Des symports glucose/Na+ et acides aminés/Na+|Une pompe K+/H+|Une diffusion simple|Une filtration
+d|L'absorption du potassium est :|Passive dans le grêle, active dans le côlon sigmoïde et le rectum|Active dans le grêle|Absente|Passive dans le côlon
+d|Le calcium est surtout absorbé dans :|Le duodénum|Le côlon|L'iléon|Le rectum
+d|L'absorption du calcium est favorisée par :|La PTH et la vitamine D|L'insuline|La sécrétine|La gastrine
+d|Les vitamines B1 et B2 sont absorbées par :|Transport actif|Diffusion passive|Filtration|Osmose
+d|La vitamine B6 est absorbée par :|Diffusion passive|Transport actif|Symport Na+|Micelles
+d|La vitamine C est absorbée par :|Symport Na+/vitamine C|Diffusion passive|Micelles|Chylomicrons
+d|Les vitamines liposolubles sont absorbées avec :|Les triglycérides et les sels biliaires|L'eau|Le glucose|Les protéines
+d|Le bicarbonate est absorbé par :|Une pompe Cl-/HCO3- de l'intestin distal|Diffusion dans l'estomac|SGLT1|GLUT 5
+d|L'absorption du chlore est passive dans :|L'intestin proximal|L'intestin distal|Le côlon sigmoïde|Le rectum
+`,
+      };
+      for (const [titre, texte] of Object.entries(physiologie))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Physiologie");
+        });
     questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
     })();
 
