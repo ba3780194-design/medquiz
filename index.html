@@ -211,6 +211,12 @@
     .badge { text-align: center; padding: 14px 8px; border: 1px solid rgba(242,198,109,.4); border-radius: 14px; background: rgba(242,198,109,.07); font-size: .85rem; }
     .badge span { display: block; font-size: 1.8rem; }
     .badge.locked { opacity: .35; filter: grayscale(1); border-color: var(--line); background: none; }
+    input[type="radio"] { width: auto; min-height: 0; accent-color: var(--teal); flex: none; }
+    .qbloc { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 14px 0; background: rgba(255,255,255,.03); }
+    .qhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+    .btn-small { min-height: 36px; padding: 6px 12px; font-size: .85rem; }
+    .code-partie { font-size: 2.6rem; font-weight: 900; letter-spacing: .25em; color: var(--gold); margin: 8px 0; }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -238,6 +244,7 @@
     <nav class="nav" aria-label="Navigation principale">
       <a href="#accueil" class="active">Accueil</a>
       <a href="#quiz">Quiz</a>
+      <a href="#parties">Parties</a>
       <a href="#classement">Classement</a>
       <a href="#premium">Premium</a>
       <a href="#compte" id="accountNav" class="nav-cta">Mon compte</a>
@@ -354,6 +361,45 @@
       </div>
     </section>
 
+    <section class="page" id="parties">
+      <div class="section-heading">
+        <span class="eyebrow">✦ Entre amis</span>
+        <h2>🎮 Parties entre amis</h2>
+        <p>Crée ta partie avec tes propres questions, partage le code, et compare les scores de tes amis.</p>
+      </div>
+      <div class="panel hidden" id="partiesAuth">
+        <p class="muted">Connecte-toi pour créer ou rejoindre une partie.</p>
+        <a class="btn btn-primary" href="#compte" style="margin-top:14px">Me connecter</a>
+      </div>
+      <div id="partiesContenu">
+        <div class="quiz-layout">
+          <div class="panel">
+            <h3>Rejoindre une partie</h3>
+            <div class="field"><label for="codePartie">Code de la partie</label><input id="codePartie" maxlength="10" placeholder="Exemple : K7M2QX" autocomplete="off" style="text-transform:uppercase"></div>
+            <button class="btn btn-primary" id="rejoindrePartie" type="button" style="width:100%">Rejoindre →</button>
+          </div>
+          <div class="panel quiz-area" id="zonePartie" aria-live="polite">
+            <div class="card-icon">🎮</div><h3>Prêt à jouer entre amis ?</h3>
+            <p class="muted">Entre un code pour rejoindre une partie, ou crée la tienne ci-dessous.</p>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:20px">
+          <h3>Créer ma partie</h3>
+          <div class="field"><label for="partieTitre">Nom de la partie</label><input id="partieTitre" maxlength="60" placeholder="Exemple : Quiz de la promo"></div>
+          <div class="field"><label for="partieChrono">Temps par question</label>
+            <select id="partieChrono"><option value="10">10 secondes</option><option value="15">15 secondes</option><option value="20" selected>20 secondes</option><option value="30">30 secondes</option><option value="45">45 secondes</option></select>
+          </div>
+          <p class="muted" style="font-size:.88rem">Écris tes questions et coche la bonne réponse. Maximum 30 questions.</p>
+          <div id="blocsQuestions"></div>
+          <div class="actions">
+            <button class="btn btn-secondary" id="ajouterQuestion" type="button">+ Ajouter une question</button>
+            <button class="btn btn-primary" id="creerPartie" type="button">Créer la partie</button>
+          </div>
+          <p id="msgPartie" class="muted" style="margin-top:12px" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
     <section class="page" id="premium">
       <div class="premium-hero">
         <span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
@@ -449,6 +495,7 @@
       document.querySelectorAll(".nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${id}`));
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (destination === "classement") chargerClassement();
+      if (destination === "parties") majPageParties();
       if (destination === "member" && utilisateurActuel) chargerProfil(utilisateurActuel);
     }
 
@@ -828,7 +875,7 @@
     }
 
     function lancerQuiz(cfg) {
-      const zone = $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
+      const zone = cfg.zone || $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
       let index = 0, score = 0, minuteur = null;
       zone.scrollIntoView({ behavior: "smooth", block: "start" });
       afficherQuestion();
@@ -894,6 +941,7 @@
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
         zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${score / 10} bonne(s) réponse(s) sur ${selection.length}`));
+        if (cfg.mode === "partie") { await cfg.surFin(score, zone); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
           zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
@@ -991,6 +1039,163 @@
       return true;
     }
 
+    // ---------- Parties entre amis (code + questions de l'organisateur) ----------
+    let pollPartie = null, compteurBloc = 0;
+    const melangerListe = a => [...a].sort(() => Math.random() - 0.5);
+
+    function majPageParties() {
+      $("partiesAuth").classList.toggle("hidden", !!utilisateurActuel);
+      $("partiesContenu").classList.toggle("hidden", !utilisateurActuel);
+    }
+
+    function ajouterBlocQuestion() {
+      const conteneur = $("blocsQuestions");
+      if (conteneur.children.length >= 30) return;
+      const id = ++compteurBloc;
+      const bloc = el("div", "qbloc");
+      const tete = el("div", "qhead");
+      const supprimer = el("button", "btn btn-secondary btn-small", "Supprimer");
+      supprimer.type = "button";
+      supprimer.addEventListener("click", () => { bloc.remove(); numeroterBlocs(); });
+      tete.append(el("strong", "", "Question"), supprimer);
+      const texte = el("input", "q-texte");
+      texte.type = "text"; texte.maxLength = 200; texte.placeholder = "Ta question";
+      bloc.append(tete, texte);
+      for (let i = 0; i < 4; i++) {
+        const ligne = el("div", "opt");
+        const radio = el("input"); radio.type = "radio"; radio.name = "bonne-" + id; radio.value = String(i); radio.title = "Bonne réponse";
+        if (i === 0) radio.checked = true;
+        const champ = el("input", "q-choix"); champ.type = "text"; champ.maxLength = 100; champ.placeholder = `Réponse ${"ABCD"[i]}` + (i === 0 ? " (coche la bonne)" : "");
+        ligne.append(radio, champ);
+        bloc.append(ligne);
+      }
+      conteneur.append(bloc);
+      numeroterBlocs();
+    }
+    function numeroterBlocs() {
+      [...$("blocsQuestions").children].forEach((b, i) => { b.querySelector("strong").textContent = `Question ${i + 1}`; });
+    }
+    for (let i = 0; i < 3; i++) ajouterBlocQuestion();
+    $("ajouterQuestion").addEventListener("click", ajouterBlocQuestion);
+
+    function lireQuestionsFormulaire() {
+      const questions = [];
+      for (const [i, bloc] of [...$("blocsQuestions").children].entries()) {
+        const texte = bloc.querySelector(".q-texte").value.trim();
+        const choix = [...bloc.querySelectorAll(".q-choix")].map(c => c.value.trim());
+        const idx = Number(bloc.querySelector('input[type="radio"]:checked')?.value ?? 0);
+        if (!texte || choix.some(c => !c)) throw new Error(`Question ${i + 1} : remplis la question et les 4 réponses.`);
+        if (new Set(choix.map(c => c.toLowerCase())).size < 4) throw new Error(`Question ${i + 1} : les 4 réponses doivent être différentes.`);
+        questions.push({ question: texte, choix, reponse: choix[idx], explication: "" });
+      }
+      if (!questions.length) throw new Error("Ajoute au moins une question.");
+      return questions;
+    }
+
+    $("creerPartie").addEventListener("click", async () => {
+      const msg = $("msgPartie");
+      msg.className = "muted";
+      if (!utilisateurActuel) { msg.textContent = "Connecte-toi d'abord."; return; }
+      let questions;
+      try { questions = lireQuestionsFormulaire(); }
+      catch (e) { msg.textContent = e.message; msg.className = "error"; return; }
+      msg.textContent = "Création de la partie...";
+      const titre = $("partieTitre").value.trim() || `Partie de ${pseudoActuel}`;
+      const { data, error } = await supabase.rpc("create_room", { p_title: titre, p_chrono: Number($("partieChrono").value), p_questions: questions });
+      if (error) {
+        console.error("Erreur création partie :", error.message);
+        msg.textContent = "Impossible de créer la partie : " + error.message;
+        msg.className = "error";
+        return;
+      }
+      msg.textContent = "";
+      afficherPartieCreee(data, titre);
+    });
+
+    function afficherPartieCreee(code, titre) {
+      const zone = $("zonePartie");
+      const lien = `${urlSite()}?partie=${code}`;
+      const message = `🎮 Rejoins ma partie MedQuiz « ${titre} » ! Code : ${code}\n${lien}`;
+      const wa = el("a", "btn btn-gold", "Inviter sur WhatsApp");
+      wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+      wa.target = "_blank"; wa.rel = "noopener";
+      const copier = el("button", "btn btn-secondary", "Copier l'invitation");
+      copier.type = "button";
+      copier.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+        catch { window.prompt("Copie ce message :", message); }
+      });
+      const classement = el("button", "btn btn-primary", "Voir le classement");
+      classement.type = "button";
+      classement.addEventListener("click", () => { zone.replaceChildren(el("h3", "", titre)); afficherClassementPartie(code, zone); });
+      const actions = el("div", "actions");
+      actions.append(wa, copier, classement);
+      zone.replaceChildren(el("h3", "", "Partie créée ! 🎉"), el("p", "muted", "Donne ce code à tes amis :"), el("div", "code-partie", code), actions);
+      zone.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function afficherClassementPartie(code, zone) {
+      const boite = el("div");
+      const actualiser = el("button", "btn btn-secondary btn-small", "Actualiser");
+      actualiser.type = "button";
+      zone.append(el("h4", "", "🏆 Classement"), boite, actualiser);
+      async function charger() {
+        const { data, error } = await supabase.rpc("get_room_leaderboard", { p_code: code });
+        if (error) { boite.textContent = "Impossible de charger le classement."; return; }
+        if (!data || !data.length) { boite.replaceChildren(el("p", "muted", "Personne n'a encore joué. Partage le code !")); return; }
+        boite.replaceChildren(...data.map((j, i) => {
+          const ligne = el("div", "rank-item");
+          const gauche = el("div", "rank-left");
+          gauche.append(el("span", "rank-number", String(i + 1)), el("strong", "", j.pseudonyme || "Joueur"));
+          ligne.append(gauche, el("span", "rank-points", `${j.score} / ${j.nombre_questions * 10} pts`));
+          return ligne;
+        }));
+      }
+      actualiser.addEventListener("click", charger);
+      await charger();
+      clearInterval(pollPartie);
+      pollPartie = setInterval(() => { if (!boite.isConnected) clearInterval(pollPartie); else charger(); }, 10000);
+    }
+
+    async function rejoindrePartie(codeBrut) {
+      const zone = $("zonePartie"), code = codeBrut.trim().toUpperCase();
+      if (!utilisateurActuel) { zone.replaceChildren(el("p", "error", "Connecte-toi pour rejoindre une partie.")); return; }
+      if (!/^[A-Z0-9]{4,10}$/.test(code)) { zone.replaceChildren(el("p", "error", "Entre un code valide (6 caractères).")); return; }
+      zone.replaceChildren(el("p", "muted", "Recherche de la partie..."));
+      const { data, error } = await supabase.rpc("get_room", { p_code: code });
+      if (error) {
+        console.error("Erreur partie :", error.message);
+        zone.replaceChildren(el("p", "error", "Impossible de charger la partie. Vérifie que le script parties.sql a été exécuté dans Supabase."));
+        return;
+      }
+      const room = data && data[0];
+      if (!room) { zone.replaceChildren(el("p", "error", "Aucune partie avec ce code.")); return; }
+      zone.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (room.is_host || room.already_played) {
+        zone.replaceChildren(el("h3", "", room.title), el("p", "muted", room.is_host ? "Tu es l'organisateur : le classement se met à jour tout seul." : "Tu as déjà joué cette partie. Voici le classement."));
+        afficherClassementPartie(code, zone);
+        return;
+      }
+      const n = room.questions.length;
+      const commencer = el("button", "btn btn-primary", "Commencer →");
+      commencer.type = "button";
+      commencer.style.marginTop = "14px";
+      commencer.addEventListener("click", () => lancerQuiz({
+        zone, titre: room.title, mode: "partie", chrono: room.chrono,
+        selection: melangerListe(room.questions).map(q => ({ ...q, choix: melangerListe(q.choix) })),
+        surFin: async (score, z) => {
+          const info = el("p", "muted", "Enregistrement de ton score...");
+          z.append(info);
+          const { error: err } = await supabase.rpc("submit_room_score", { p_code: code, p_score: score });
+          if (err) { info.className = "error"; info.textContent = "Score non enregistré : " + err.message; return; }
+          info.remove();
+          afficherClassementPartie(code, z);
+        }
+      }));
+      zone.replaceChildren(el("h3", "", room.title), el("p", "muted", `Organisée par ${room.host_pseudonyme} · ${n} question(s) · ${room.chrono} s par question. Une seule participation par joueur.`), commencer);
+    }
+    $("rejoindrePartie").addEventListener("click", () => rejoindrePartie($("codePartie").value));
+
     if ("serviceWorker" in navigator && /^https?:$/.test(window.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
 
     window.addEventListener("hashchange", () => {
@@ -1006,6 +1211,7 @@
         utilisateurActuel = null;
         $("accountNav").textContent = "Mon compte";
       }
+      majPageParties();
     });
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -1015,8 +1221,13 @@
     }
     {
       const duelOuvert = afficherDuelEntrant();
+      const codeLien = new URLSearchParams(window.location.search).get("partie");
       const hash = window.location.hash.slice(1);
-      if (duelOuvert) afficherPage("quiz");
+      if (codeLien) {
+        $("codePartie").value = codeLien.toUpperCase().slice(0, 10);
+        afficherPage("parties");
+        if (utilisateurActuel) rejoindrePartie(codeLien);
+      } else if (duelOuvert) afficherPage("quiz");
       else if (hash && $(hash)) afficherPage(hash);
       else afficherPage("accueil");
     }
