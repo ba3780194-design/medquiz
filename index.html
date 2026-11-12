@@ -219,6 +219,9 @@
     .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
     .btn-small { min-height: 36px; padding: 6px 12px; font-size: .85rem; }
     .code-partie { font-size: 2.6rem; font-weight: 900; letter-spacing: .25em; color: var(--gold); margin: 8px 0; }
+    .son-btn { background: none; border: 1px solid var(--line); color: inherit; border-radius: 999px; width: 40px; height: 40px; font-size: 1.1rem; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tabs .btn.actif { background: var(--teal); color: #05202a; border-color: var(--teal); }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -250,6 +253,7 @@
       <a href="#classement">Classement</a>
       <a href="#premium">Premium</a>
       <a href="#compte" id="accountNav" class="nav-cta">Mon compte</a>
+      <button class="son-btn" id="btnSon" type="button" aria-label="Activer ou couper le son" title="Son">🔊</button>
     </nav>
   </header>
 
@@ -356,9 +360,13 @@
       </div>
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:12px">
-          <h3>Top 20</h3>
+          <div class="tabs" role="tablist">
+            <button class="btn btn-secondary actif" id="ongletSemaine" type="button">📅 Classement hebdomadaire</button>
+            <button class="btn btn-secondary" id="ongletTotal" type="button">🏆 Classement général</button>
+          </div>
           <button class="btn btn-secondary" id="refreshLeaderboard">Actualiser</button>
         </div>
+        <p class="muted" id="noteClassement" style="font-size:.88rem;margin-bottom:10px">Points gagnés depuis lundi. Le classement repart à zéro chaque lundi.</p>
         <div id="listeClassement" aria-live="polite"><p class="muted">Connecte-toi pour consulter le classement.</p></div>
       </div>
     </section>
@@ -637,6 +645,8 @@
       });
     }
 
+    let modeClassement = "semaine";
+
     async function chargerClassement() {
       const liste = $("listeClassement");
       liste.textContent = "Chargement du classement...";
@@ -644,14 +654,14 @@
         liste.textContent = "Connecte-toi pour consulter le classement.";
         return;
       }
-      const { data, error } = await supabase.rpc("get_leaderboard");
+      const { data, error } = await supabase.rpc(modeClassement === "semaine" ? "get_weekly_leaderboard" : "get_leaderboard");
       if (error) {
         console.error("Erreur classement :", error.message);
-        liste.textContent = "Impossible de charger le classement. Vérifie la fonction get_leaderboard dans Supabase.";
+        liste.textContent = modeClassement === "semaine" ? "Impossible de charger le classement de la semaine. Vérifie que le script classement.sql a été exécuté dans Supabase." : "Impossible de charger le classement. Vérifie la fonction get_leaderboard dans Supabase.";
         return;
       }
       if (!data || data.length === 0) {
-        liste.textContent = "Aucun joueur classé pour le moment.";
+        liste.textContent = modeClassement === "semaine" ? "Personne n'a encore marqué de points cette semaine. Sois le premier du classement hebdomadaire !" : "Aucun joueur classé pour le moment.";
         return;
       }
       liste.replaceChildren();
@@ -675,6 +685,15 @@
     }
 
     $("refreshLeaderboard").addEventListener("click", chargerClassement);
+    function choisirOnglet(mode) {
+      modeClassement = mode;
+      $("ongletSemaine").classList.toggle("actif", mode === "semaine");
+      $("ongletTotal").classList.toggle("actif", mode === "total");
+      $("noteClassement").textContent = mode === "semaine" ? "Points gagnés depuis lundi. Le classement repart à zéro chaque lundi." : "Total des points de chaque joueur depuis son inscription.";
+      chargerClassement();
+    }
+    $("ongletSemaine").addEventListener("click", () => choisirOnglet("semaine"));
+    $("ongletTotal").addEventListener("click", () => choisirOnglet("total"));
     $("refreshHistory").addEventListener("click", () => chargerHistorique());
     $("logout").addEventListener("click", async () => {
       const { error } = await supabase.auth.signOut();
@@ -1283,6 +1302,44 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
       return urlSite() + "?" + p;
     }
 
+    // ---------- Sons (générés par le navigateur, aucun fichier) ----------
+    let contexteAudio = null;
+    let sonActif = lireLocal("medquiz_son") !== "off";
+    function jouerNote(freq, debut, duree, type = "sine", volume = 0.15) {
+      const ctx = contexteAudio, osc = ctx.createOscillator(), gain = ctx.createGain();
+      const t = ctx.currentTime + debut;
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(volume, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + duree + 0.05);
+    }
+    function son(nom) {
+      if (!sonActif) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        contexteAudio = contexteAudio || new AC();
+        if (contexteAudio.state === "suspended") contexteAudio.resume();
+        if (nom === "bon") { jouerNote(660, 0, 0.12); jouerNote(880, 0.1, 0.2); }
+        else if (nom === "mauvais") { jouerNote(220, 0, 0.18, "sawtooth", 0.08); jouerNote(165, 0.15, 0.3, "sawtooth", 0.08); }
+        else if (nom === "tic") jouerNote(1000, 0, 0.05, "square", 0.04);
+        else if (nom === "demarrer") jouerNote(523, 0, 0.1);
+        else if (nom === "victoire") [523, 659, 784, 1047].forEach((f, i) => jouerNote(f, i * 0.12, 0.25, "triangle"));
+        else if (nom === "fin") { jouerNote(392, 0, 0.2, "triangle"); jouerNote(330, 0.2, 0.35, "triangle"); }
+      } catch { /* audio indisponible */ }
+    }
+    $("btnSon").textContent = sonActif ? "🔊" : "🔇";
+    $("btnSon").addEventListener("click", () => {
+      sonActif = !sonActif;
+      ecrireLocal("medquiz_son", sonActif ? "on" : "off");
+      $("btnSon").textContent = sonActif ? "🔊" : "🔇";
+      son("bon");
+    });
+
     // ---------- Réponses ouvertes : comparaison tolérante ----------
     function normaliser(t) {
       return String(t).toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -1316,6 +1373,7 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
       const zone = cfg.zone || $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
       let index = 0, score = 0, minuteur = null, debut = 0, tempsTotal = 0;
       zone.scrollIntoView({ behavior: "smooth", block: "start" });
+      son("demarrer");
       afficherQuestion();
 
       function arreter() { clearInterval(minuteur); minuteur = null; }
@@ -1359,6 +1417,7 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
           minuteur = setInterval(() => {
             if (jeton !== compteurQuiz) { arreter(); return; }
             reste--;
+            if (reste <= 5 && reste > 0) son("tic");
             texte.textContent = `⏱ ${reste} s`;
             texte.classList.toggle("urgent", reste <= 5);
             barre.style.width = (reste / cfg.chrono * 100) + "%";
@@ -1373,6 +1432,7 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
         const ecoule = choix === null ? cfg.chrono * 1000 : Date.now() - debut;
         tempsTotal += ecoule;
         const correct = choix !== null && (q.type === "ouverte" ? reponseOuverteCorrecte(choix, q.reponses) : choix === q.reponse);
+        son(correct ? "bon" : "mauvais");
         const rapide = cfg.mode === "partie" && cfg.chrono > 0;
         const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : 10;
         score += gain;
@@ -1392,6 +1452,7 @@ d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
 
       async function afficherFin() {
         arreter();
+        son(score >= selection.length * 5 ? "victoire" : "fin");
         const max = selection.length * 10;
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
