@@ -213,7 +213,9 @@
     .badge.locked { opacity: .35; filter: grayscale(1); border-color: var(--line); background: none; }
     input[type="radio"] { width: auto; min-height: 0; accent-color: var(--teal); flex: none; }
     .qbloc { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 14px 0; background: rgba(255,255,255,.03); }
-    .qhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .qhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .qhead div { display: flex; gap: 8px; align-items: center; }
+    select.q-type { width: auto; min-height: 36px; padding: 4px 10px; }
     .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
     .btn-small { min-height: 36px; padding: 6px 12px; font-size: .85rem; }
     .code-partie { font-size: 2.6rem; font-weight: 900; letter-spacing: .25em; color: var(--gold); margin: 8px 0; }
@@ -389,7 +391,7 @@
           <div class="field"><label for="partieChrono">Temps par question</label>
             <select id="partieChrono"><option value="10">10 secondes</option><option value="15">15 secondes</option><option value="20" selected>20 secondes</option><option value="30">30 secondes</option><option value="45">45 secondes</option></select>
           </div>
-          <p class="muted" style="font-size:.88rem">Écris tes questions et coche la bonne réponse. Maximum 30 questions.</p>
+          <p class="muted" style="font-size:.88rem">Choisis pour chaque question : choix multiples (coche la bonne réponse) ou question ouverte (le joueur tape sa réponse). Maximum 30 questions.</p>
           <div id="blocsQuestions"></div>
           <div class="actions">
             <button class="btn btn-secondary" id="ajouterQuestion" type="button">+ Ajouter une question</button>
@@ -874,9 +876,38 @@
       return urlSite() + "?" + p;
     }
 
+    // ---------- Réponses ouvertes : comparaison tolérante ----------
+    function normaliser(t) {
+      return String(t).toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ").trim().replace(/^(le|la|les|l|un|une|the) /, "");
+    }
+    function distanceEdition(a, b) {
+      const m = [...Array(b.length + 1).keys()];
+      for (let i = 1; i <= a.length; i++) {
+        let prev = m[0]; m[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+          const tmp = m[j];
+          m[j] = Math.min(m[j] + 1, m[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+          prev = tmp;
+        }
+      }
+      return m[b.length];
+    }
+    function reponseOuverteCorrecte(saisie, acceptees) {
+      const s = normaliser(saisie);
+      if (!s) return false;
+      return acceptees.some(r => {
+        const n = normaliser(r);
+        if (!n) return false;
+        if (s === n) return true;
+        const tolerance = n.length >= 12 ? 2 : n.length >= 6 ? 1 : 0;
+        return tolerance > 0 && distanceEdition(s, n) <= tolerance;
+      });
+    }
+
     function lancerQuiz(cfg) {
       const zone = cfg.zone || $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
-      let index = 0, score = 0, minuteur = null;
+      let index = 0, score = 0, minuteur = null, debut = 0, tempsTotal = 0;
       zone.scrollIntoView({ behavior: "smooth", block: "start" });
       afficherQuestion();
 
@@ -885,6 +916,7 @@
       function afficherQuestion() {
         if (index >= selection.length) { afficherFin(); return; }
         const q = selection[index];
+        debut = Date.now();
         zone.replaceChildren(el("h3", "", `${cfg.titre} — Question ${index + 1} / ${selection.length}`));
         let barre, texte;
         if (cfg.chrono > 0) {
@@ -898,7 +930,18 @@
         const question = el("p", "", q.question);
         question.style.marginBottom = "15px";
         zone.append(question);
-        q.choix.forEach(choix => {
+        if (q.type === "ouverte") {
+          const champ = el("input", "reponse-libre");
+          champ.type = "text"; champ.maxLength = 100; champ.placeholder = "Tape ta réponse"; champ.autocomplete = "off";
+          const valider = el("button", "btn btn-primary valider", "Valider");
+          valider.type = "button";
+          valider.style.marginTop = "12px";
+          const envoyer = () => { if (champ.value.trim()) repondre(champ.value, q); };
+          valider.addEventListener("click", envoyer);
+          champ.addEventListener("keydown", e => { if (e.key === "Enter") envoyer(); });
+          zone.append(champ, valider);
+          champ.focus();
+        } else q.choix.forEach(choix => {
           const b = el("button", "quiz-answer", choix);
           b.type = "button";
           b.addEventListener("click", () => repondre(choix, q));
@@ -920,19 +963,24 @@
       function repondre(choix, q) {
         if (zone.querySelector(".quiz-feedback")) return;
         arreter();
-        const correct = choix === q.reponse;
-        if (correct) score += 10;
+        const ecoule = choix === null ? cfg.chrono * 1000 : Date.now() - debut;
+        tempsTotal += ecoule;
+        const correct = choix !== null && (q.type === "ouverte" ? reponseOuverteCorrecte(choix, q.reponses) : choix === q.reponse);
+        const rapide = cfg.mode === "partie" && cfg.chrono > 0;
+        const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : 10;
+        score += gain;
+        zone.querySelectorAll(".quiz-answer, .reponse-libre, .valider").forEach(b => { b.disabled = true; });
         zone.querySelectorAll(".quiz-answer").forEach(b => {
-          b.disabled = true;
           if (b.textContent === q.reponse) b.classList.add("correct");
           else if (b.textContent === choix) b.classList.add("wrong");
         });
-        const debut = correct ? "Bonne réponse ! " : choix === null ? `Temps écoulé ! La bonne réponse est : ${q.reponse}. ` : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `;
+        const detail = cfg.mode === "partie" ? ` (${(ecoule / 1000).toFixed(1)} s${correct ? `, +${gain} pts` : ""})` : "";
+        const debutMsg = correct ? `Bonne réponse !${detail} ` : choix === null ? `Temps écoulé ! La bonne réponse est : ${q.reponse}. ` : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `;
         const suivant = el("button", "btn btn-primary", index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →");
         suivant.type = "button";
         suivant.style.marginTop = "14px";
         suivant.addEventListener("click", () => { index++; afficherQuestion(); });
-        zone.append(el("p", "quiz-feedback", debut + q.explication), suivant);
+        zone.append(el("p", "quiz-feedback", debutMsg + q.explication), suivant);
       }
 
       async function afficherFin() {
@@ -941,7 +989,7 @@
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
         zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${score / 10} bonne(s) réponse(s) sur ${selection.length}`));
-        if (cfg.mode === "partie") { await cfg.surFin(score, zone); return; }
+        if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
           zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
@@ -1054,21 +1102,36 @@
       const id = ++compteurBloc;
       const bloc = el("div", "qbloc");
       const tete = el("div", "qhead");
+      const type = el("select", "q-type");
+      type.append(new Option("Choix multiples", "qcm"), new Option("Question ouverte", "ouverte"));
       const supprimer = el("button", "btn btn-secondary btn-small", "Supprimer");
       supprimer.type = "button";
       supprimer.addEventListener("click", () => { bloc.remove(); numeroterBlocs(); });
-      tete.append(el("strong", "", "Question"), supprimer);
+      const droite = el("div");
+      droite.append(type, supprimer);
+      tete.append(el("strong", "", "Question"), droite);
       const texte = el("input", "q-texte");
       texte.type = "text"; texte.maxLength = 200; texte.placeholder = "Ta question";
-      bloc.append(tete, texte);
+      const qcm = el("div", "q-qcm");
       for (let i = 0; i < 4; i++) {
         const ligne = el("div", "opt");
         const radio = el("input"); radio.type = "radio"; radio.name = "bonne-" + id; radio.value = String(i); radio.title = "Bonne réponse";
         if (i === 0) radio.checked = true;
         const champ = el("input", "q-choix"); champ.type = "text"; champ.maxLength = 100; champ.placeholder = `Réponse ${"ABCD"[i]}` + (i === 0 ? " (coche la bonne)" : "");
         ligne.append(radio, champ);
-        bloc.append(ligne);
+        qcm.append(ligne);
       }
+      const ouvert = el("div", "q-ouvert hidden");
+      const reps = el("input", "q-reponses");
+      reps.type = "text"; reps.maxLength = 200; reps.placeholder = "Réponse(s) acceptée(s), séparées par ;  (ex : Dakar; la ville de Dakar)";
+      const aide = el("p", "muted", "Le joueur tape sa réponse. Les accents, majuscules et petites fautes de frappe sont tolérés.");
+      aide.style.fontSize = ".85rem";
+      ouvert.append(reps, aide);
+      type.addEventListener("change", () => {
+        qcm.classList.toggle("hidden", type.value === "ouverte");
+        ouvert.classList.toggle("hidden", type.value !== "ouverte");
+      });
+      bloc.append(tete, texte, qcm, ouvert);
       conteneur.append(bloc);
       numeroterBlocs();
     }
@@ -1082,11 +1145,18 @@
       const questions = [];
       for (const [i, bloc] of [...$("blocsQuestions").children].entries()) {
         const texte = bloc.querySelector(".q-texte").value.trim();
+        if (!texte) throw new Error(`Question ${i + 1} : écris la question.`);
+        if (bloc.querySelector(".q-type").value === "ouverte") {
+          const reponses = bloc.querySelector(".q-reponses").value.split(";").map(r => r.trim()).filter(Boolean).slice(0, 10);
+          if (!reponses.length) throw new Error(`Question ${i + 1} : indique au moins une réponse acceptée.`);
+          questions.push({ type: "ouverte", question: texte, reponses, reponse: reponses[0], choix: [], explication: "" });
+          continue;
+        }
         const choix = [...bloc.querySelectorAll(".q-choix")].map(c => c.value.trim());
         const idx = Number(bloc.querySelector('input[type="radio"]:checked')?.value ?? 0);
-        if (!texte || choix.some(c => !c)) throw new Error(`Question ${i + 1} : remplis la question et les 4 réponses.`);
+        if (choix.some(c => !c)) throw new Error(`Question ${i + 1} : remplis les 4 réponses.`);
         if (new Set(choix.map(c => c.toLowerCase())).size < 4) throw new Error(`Question ${i + 1} : les 4 réponses doivent être différentes.`);
-        questions.push({ question: texte, choix, reponse: choix[idx], explication: "" });
+        questions.push({ type: "qcm", question: texte, choix, reponse: choix[idx], explication: "" });
       }
       if (!questions.length) throw new Error("Ajoute au moins une question.");
       return questions;
@@ -1147,7 +1217,7 @@
           const ligne = el("div", "rank-item");
           const gauche = el("div", "rank-left");
           gauche.append(el("span", "rank-number", String(i + 1)), el("strong", "", j.pseudonyme || "Joueur"));
-          ligne.append(gauche, el("span", "rank-points", `${j.score} / ${j.nombre_questions * 10} pts`));
+          ligne.append(gauche, el("span", "rank-points", `${j.score} / ${j.nombre_questions * 10} pts · ${((j.total_time_ms || 0) / 1000).toFixed(1)} s`));
           return ligne;
         }));
       }
@@ -1183,16 +1253,16 @@
       commencer.addEventListener("click", () => lancerQuiz({
         zone, titre: room.title, mode: "partie", chrono: room.chrono,
         selection: melangerListe(room.questions).map(q => ({ ...q, choix: melangerListe(q.choix) })),
-        surFin: async (score, z) => {
+        surFin: async (score, z, temps) => {
           const info = el("p", "muted", "Enregistrement de ton score...");
           z.append(info);
-          const { error: err } = await supabase.rpc("submit_room_score", { p_code: code, p_score: score });
+          const { error: err } = await supabase.rpc("submit_room_score", { p_code: code, p_score: score, p_time_ms: Math.round(temps) });
           if (err) { info.className = "error"; info.textContent = "Score non enregistré : " + err.message; return; }
           info.remove();
           afficherClassementPartie(code, z);
         }
       }));
-      zone.replaceChildren(el("h3", "", room.title), el("p", "muted", `Organisée par ${room.host_pseudonyme} · ${n} question(s) · ${room.chrono} s par question. Une seule participation par joueur.`), commencer);
+      zone.replaceChildren(el("h3", "", room.title), el("p", "muted", `Organisée par ${room.host_pseudonyme} · ${n} question(s) · ${room.chrono} s par question. Plus tu réponds vite, plus tu gagnes de points (5 à 10 par bonne réponse). Une seule participation par joueur.`), commencer);
     }
     $("rejoindrePartie").addEventListener("click", () => rejoindrePartie($("codePartie").value));
 
