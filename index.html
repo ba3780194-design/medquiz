@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#071426">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>MedQuiz — Apprendre, jouer, progresser</title>
   <style>
     :root {
@@ -198,6 +202,15 @@
     .pay-methods { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
     .pay-methods span { padding: 9px 15px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.04); font-weight: 700; }
     @media (max-width: 600px) { .pricing { grid-template-columns: 1fr; } }
+    .chrono { height: 7px; background: rgba(255,255,255,.1); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+    .chrono i { display: block; height: 100%; background: var(--teal); transition: width 1s linear; }
+    .chrono-text { color: var(--teal); font-weight: 800; margin-bottom: 6px; }
+    .chrono-text.urgent { color: var(--danger); }
+    .daily { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; border-color: rgba(242,198,109,.4); }
+    .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 14px; }
+    .badge { text-align: center; padding: 14px 8px; border: 1px solid rgba(242,198,109,.4); border-radius: 14px; background: rgba(242,198,109,.07); font-size: .85rem; }
+    .badge span { display: block; font-size: 1.8rem; }
+    .badge.locked { opacity: .35; filter: grayscale(1); border-color: var(--line); background: none; }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -239,6 +252,7 @@
         <p class="hero-copy">Bienvenue sur MedQuiz, ton espace pour apprendre, jouer et progresser en médecine et en culture générale. Réponds aux questions, gagne des points et retrouve ta place dans le classement.</p>
         <div class="actions">
           <a class="btn btn-primary" href="#quiz">Commencer un quiz <span>→</span></a>
+          <a class="btn btn-gold" href="#quiz" id="defiAccueil">🔥 Défi du jour</a>
           <a class="btn btn-secondary" href="#compte">Créer mon compte</a>
         </div>
         <div class="stats">
@@ -270,6 +284,10 @@
           <div class="card-icon">🏆</div><h3 class="gold-text">Classement</h3><p>Découvre les joueurs qui accumulent le plus de points.</p>
         </article>
       </div>
+      <div class="panel daily">
+        <div><h3>🔥 Défi du jour</h3><p class="muted">5 questions chronométrées, les mêmes pour tout le monde. Un nouveau défi chaque jour.</p></div>
+        <button class="btn btn-gold" id="defiJour" type="button">Relever le défi</button>
+      </div>
       <div class="quiz-layout">
         <div class="panel">
           <h3>Paramètres du quiz</h3>
@@ -289,12 +307,25 @@
             </select>
           </div>
           <div class="field">
+            <label for="themeQuiz">Thème</label>
+            <select id="themeQuiz"><option value="">Tous les thèmes</option></select>
+          </div>
+          <div class="field">
             <label for="nombreQuiz">Nombre de questions</label>
             <select id="nombreQuiz">
               <option value="5">5 questions</option>
               <option value="10">10 questions</option>
               <option value="20">20 questions</option>
               <option value="30">30 questions</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="chronoQuiz">Chronomètre par question</label>
+            <select id="chronoQuiz">
+              <option value="0">Désactivé</option>
+              <option value="15">15 secondes</option>
+              <option value="20">20 secondes</option>
+              <option value="30">30 secondes</option>
             </select>
           </div>
           <button class="btn btn-primary" id="demarrerQuiz" style="width:100%">Commencer le quiz →</button>
@@ -376,6 +407,12 @@
         <div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800">Chargement...</div></div>
         <div class="panel"><p class="muted">Mes points cumulés</p><div class="profile-number" id="profilePoints">0</div></div>
       </div>
+      <div class="panel" style="margin-bottom:22px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap">
+          <h3>Mon niveau</h3><strong id="niveauJoueur" class="gold-text">Étudiant</strong>
+        </div>
+        <div class="badges" id="badgesListe"></div>
+      </div>
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:10px">
           <h3>Mon historique de quiz</h3>
@@ -401,7 +438,10 @@
 
     const $ = (id) => document.getElementById(id);
     const message = $("message");
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+    let compteurQuiz = 0;
     let utilisateurActuel = null;
+    let pseudoActuel = "Un ami";
 
     function afficherPage(id) {
       const destination = id === "compte" && utilisateurActuel ? "member" : (id === "member" && !utilisateurActuel ? "compte" : id);
@@ -503,6 +543,7 @@
 
       if (error) console.error("Erreur profil :", error.message);
       const pseudo = profil?.pseudonyme || user.user_metadata?.pseudonyme || user.email || "Joueur";
+      pseudoActuel = pseudo;
       $("welcome").textContent = `Bonjour ${pseudo} !`;
       $("profilePseudo").textContent = pseudo;
       $("profilePoints").textContent = profil?.points ?? 0;
@@ -525,12 +566,14 @@
         return;
       }
       if (!data || data.length === 0) {
+        afficherBadges([], 0);
         liste.textContent = "Tu n'as pas encore effectué de quiz.";
         $("profilePoints").textContent = "0";
         return;
       }
       const total = data.reduce((sum, item) => sum + (Number(item.score) || 0), 0);
       $("profilePoints").textContent = total;
+      afficherBadges(data, total);
       liste.replaceChildren();
       data.forEach(resultat => {
         const item = document.createElement("div");
@@ -668,9 +711,9 @@
 
     (function genererQuestions() {
       const melanger = a => [...a].sort(() => Math.random() - 0.5);
-      const ajouter = (categorie, niveau, question, bonne, pool, explication) => {
+      const ajouter = (categorie, niveau, question, bonne, pool, explication, theme) => {
         const faux = melanger([...new Set(pool)].filter(x => x !== bonne)).slice(0, 3);
-        questionsMedQuiz.push({ categorie, niveau, question, choix: melanger([bonne, ...faux]), reponse: bonne, explication });
+        questionsMedQuiz.push({ categorie, niveau, question, choix: melanger([bonne, ...faux]), reponse: bonne, explication, theme });
       };
       const capitales = {
         facile: [["de l'Italie","Rome"],["de l'Espagne","Madrid"],["de l'Allemagne","Berlin"],["du Royaume-Uni","Londres"],["du Japon","Tokyo"],["de l'Égypte","Le Caire"],["de la Chine","Pékin"],["de la Russie","Moscou"],["du Maroc","Rabat"],["du Mali","Bamako"],["de l'Algérie","Alger"],["de la Guinée","Conakry"],["de la Mauritanie","Nouakchott"],["de la Gambie","Banjul"],["des États-Unis","Washington"]],
@@ -679,7 +722,7 @@
       };
       const toutesCap = Object.values(capitales).flat().map(x => x[1]).concat(["Dakar","Paris","Lagos","Casablanca","Abidjan"]);
       for (const [niv, liste] of Object.entries(capitales))
-        liste.forEach(([pays, cap]) => ajouter("culture", niv, `Quelle est la capitale ${pays} ?`, cap, toutesCap, `${cap} est la capitale ${pays}.`));
+        liste.forEach(([pays, cap]) => ajouter("culture", niv, `Quelle est la capitale ${pays} ?`, cap, toutesCap, `${cap} est la capitale ${pays}.`, "Géographie"));
 
       const elements = {
         moyen: [["l'oxygène","O"],["l'hydrogène","H"],["le carbone","C"],["le sodium","Na"],["le potassium","K"],["l'azote","N"]],
@@ -687,7 +730,7 @@
       };
       const symboles = Object.values(elements).flat().map(x => x[1]).concat(["Fe","Au","He"]);
       for (const [niv, liste] of Object.entries(elements))
-        liste.forEach(([nom, sym]) => ajouter("culture", niv, `Quel est le symbole chimique de ${nom} ?`, sym, symboles, `${sym} est le symbole de ${nom}.`));
+        liste.forEach(([nom, sym]) => ajouter("culture", niv, `Quel est le symbole chimique de ${nom} ?`, sym, symboles, `${sym} est le symbole de ${nom}.`, "Sciences"));
 
       const oeuvres = {
         moyen: [["Le Petit Prince","Antoine de Saint-Exupéry"],["Roméo et Juliette","William Shakespeare"],["Une si longue lettre","Mariama Bâ"],["L'Étranger","Albert Camus"],["Le Rouge et le Noir","Stendhal"],["Germinal","Émile Zola"]],
@@ -695,7 +738,7 @@
       };
       const auteurs = Object.values(oeuvres).flat().map(x => x[1]).concat(["Molière","Léopold Sédar Senghor"]);
       for (const [niv, liste] of Object.entries(oeuvres))
-        liste.forEach(([titre, auteur]) => ajouter("culture", niv, `Qui est l'auteur de « ${titre} » ?`, auteur, auteurs, `« ${titre} » a été écrit par ${auteur}.`));
+        liste.forEach(([titre, auteur]) => ajouter("culture", niv, `Qui est l'auteur de « ${titre} » ?`, auteur, auteurs, `« ${titre} » a été écrit par ${auteur}.`, "Littérature"));
 
       const corps = {
         facile: [["permet d'entendre","L'oreille"],["permet de goûter les aliments","La langue"],["contrôle la pensée et les mouvements","Le cerveau"],["stocke l'urine","La vessie"],["conduit les aliments de la bouche à l'estomac","L'œsophage"],["protège le cœur et les poumons","La cage thoracique"],["soutient le corps et protège la moelle épinière","La colonne vertébrale"]],
@@ -707,13 +750,19 @@
         liste.forEach(([desc, rep]) => {
           const pool = rep.startsWith("La vitamine") ? toutCorps.filter(x => x.startsWith("La vitamine")) : liste.map(x => x[1]).filter(x => !x.startsWith("La vitamine")).concat(niv === "facile" ? [] : toutCorps.filter(x => !x.startsWith("La vitamine")));
           const vit = rep.startsWith("La vitamine");
-          ajouter("medecine", niv, vit ? `Quelle vitamine ${desc} ?` : `Qu'est-ce qui ${desc} ?`, rep, pool, `Bonne réponse : ${rep}.`);
+          ajouter("medecine", niv, vit ? `Quelle vitamine ${desc} ?` : `Qu'est-ce qui ${desc} ?`, rep, pool, `Bonne réponse : ${rep}.`, vit ? "Vitamines" : "Anatomie");
         });
+    questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
     })();
 
     function majOptionsNombre() {
       const cat = $("categorieQuiz").value, niv = $("niveauQuiz").value;
-      const dispo = questionsMedQuiz.filter(q => q.categorie === cat && q.niveau === niv).length;
+      const base = questionsMedQuiz.filter(q => q.categorie === cat && q.niveau === niv);
+      const themes = [...new Set(base.map(q => q.theme))];
+      const selTheme = $("themeQuiz"), ancienTheme = selTheme.value;
+      selTheme.replaceChildren(new Option("Tous les thèmes", ""), ...themes.map(t => new Option(t, t)));
+      selTheme.value = themes.includes(ancienTheme) ? ancienTheme : "";
+      const dispo = selTheme.value ? base.filter(q => q.theme === selTheme.value).length : base.length;
       const select = $("nombreQuiz");
       const ancien = select.value;
       const valeurs = [5, 10, 20, 30].filter(n => n <= dispo);
@@ -722,130 +771,227 @@
       valeurs.forEach(n => {
         const opt = document.createElement("option");
         opt.value = String(n);
-        opt.textContent = n === dispo && !([5,10,20,30].includes(n)) ? `Toutes (${n} questions)` : `${n} questions`;
+        opt.textContent = n === dispo && ![5, 10, 20, 30].includes(n) ? `Toutes (${n} questions)` : `${n} questions`;
         select.append(opt);
       });
       select.value = valeurs.map(String).includes(ancien) ? ancien : String(valeurs[0]);
     }
+    $("themeQuiz").addEventListener("change", majOptionsNombre);
     $("categorieQuiz").addEventListener("change", majOptionsNombre);
     $("niveauQuiz").addEventListener("change", majOptionsNombre);
     majOptionsNombre();
 
-    $("demarrerQuiz").addEventListener("click", () => {
-      const categorie = $("categorieQuiz").value;
-      const niveau = $("niveauQuiz").value;
-      const nombreDemande = Number($("nombreQuiz").value);
-      const disponibles = questionsMedQuiz.filter(q => q.categorie === categorie && q.niveau === niveau);
-      const zone = $("zoneQuiz");
-      if (!disponibles.length) {
-        zone.textContent = "Aucune question disponible pour ce choix.";
-        return;
-      }
-      const selection = [...disponibles].sort(() => Math.random() - 0.5).slice(0, nombreDemande);
-      let index = 0;
-      let score = 0;
+    // ---------- Badges et niveaux ----------
+    const NIVEAUX = [["Étudiant", 0], ["Interne", 100], ["Docteur", 300], ["Professeur", 800]];
+    const BADGES = [
+      ["🎯", "Premier quiz", h => h.length >= 1],
+      ["🔁", "10 quiz terminés", h => h.length >= 10],
+      ["💯", "Score parfait", h => h.some(x => x.nombre_questions >= 5 && x.score === x.nombre_questions * 10)],
+      ["⭐", "100 points", (h, t) => t >= 100],
+      ["🏅", "500 points", (h, t) => t >= 500],
+      ["👑", "1000 points", (h, t) => t >= 1000]
+    ];
+    function afficherBadges(historique, total) {
+      $("niveauJoueur").textContent = [...NIVEAUX].reverse().find(n => total >= n[1])[0];
+      const zone = $("badgesListe");
+      zone.replaceChildren();
+      BADGES.forEach(([icone, nom, test]) => {
+        const b = el("div", "badge" + (test(historique, total) ? "" : " locked"));
+        b.append(el("span", "", icone), document.createTextNode(nom));
+        zone.append(b);
+      });
+    }
+
+    // ---------- Quiz : tirage reproductible (défi du jour, duels) ----------
+    function prng(graine) {
+      let a = graine >>> 0;
+      return () => {
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function choisirQuestions(pool, n, graine) {
+      const r = prng(graine);
+      return pool.map(q => ({ q, k: r() })).sort((x, y) => x.k - y.k).slice(0, n).map(x => x.q);
+    }
+    const filtrer = (c, n, t) => questionsMedQuiz.filter(q => q.categorie === c && q.niveau === n && (!t || q.theme === t));
+    const cleDefi = () => "medquiz_defi_" + new Date().toISOString().slice(0, 10);
+    const lireLocal = k => { try { return localStorage.getItem(k); } catch { return null; } };
+    const ecrireLocal = (k, v) => { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } };
+    const urlSite = () => window.location.href.split(/[?#]/)[0];
+    function lienDuel(cfg, score) {
+      const p = new URLSearchParams({ duel: "1", s: cfg.seed, c: cfg.categorie, n: cfg.niveau, t: cfg.theme || "", q: cfg.selection.length, p: score, u: pseudoActuel });
+      return urlSite() + "?" + p;
+    }
+
+    function lancerQuiz(cfg) {
+      const zone = $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
+      let index = 0, score = 0, minuteur = null;
+      zone.scrollIntoView({ behavior: "smooth", block: "start" });
       afficherQuestion();
 
+      function arreter() { clearInterval(minuteur); minuteur = null; }
+
       function afficherQuestion() {
-        if (index >= selection.length) {
-          afficherFin();
-          return;
-        }
+        if (index >= selection.length) { afficherFin(); return; }
         const q = selection[index];
-        zone.replaceChildren();
-        const titre = document.createElement("h3");
-        titre.textContent = `Question ${index + 1} / ${selection.length}`;
-        const question = document.createElement("p");
-        question.textContent = q.question;
+        zone.replaceChildren(el("h3", "", `${cfg.titre} — Question ${index + 1} / ${selection.length}`));
+        let barre, texte;
+        if (cfg.chrono > 0) {
+          texte = el("p", "chrono-text", `⏱ ${cfg.chrono} s`);
+          const piste = el("div", "chrono");
+          barre = el("i");
+          barre.style.width = "100%";
+          piste.append(barre);
+          zone.append(texte, piste);
+        }
+        const question = el("p", "", q.question);
         question.style.marginBottom = "15px";
-        zone.append(titre, question);
-        q.choix.forEach((choix, i) => {
-          const bouton = document.createElement("button");
-          bouton.type = "button";
-          bouton.className = "quiz-answer";
-          bouton.textContent = choix;
-          bouton.addEventListener("click", () => {
-            zone.querySelectorAll(".quiz-answer").forEach(b => b.disabled = true);
-            const correct = choix === q.reponse;
-            if (correct) {
-              score += 10;
-              bouton.classList.add("correct");
-            } else {
-              bouton.classList.add("wrong");
-              zone.querySelectorAll(".quiz-answer").forEach(b => {
-                if (b.textContent === q.reponse) b.classList.add("correct");
-              });
-            }
-            const feedback = document.createElement("p");
-            feedback.className = "quiz-feedback";
-            feedback.textContent = (correct ? "Bonne réponse ! " : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `) + q.explication;
-            const suivant = document.createElement("button");
-            suivant.type = "button";
-            suivant.className = "btn btn-primary";
-            suivant.style.marginTop = "14px";
-            suivant.textContent = index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →";
-            suivant.addEventListener("click", () => { index++; afficherQuestion(); });
-            zone.append(feedback, suivant);
-          });
-          zone.append(bouton);
+        zone.append(question);
+        q.choix.forEach(choix => {
+          const b = el("button", "quiz-answer", choix);
+          b.type = "button";
+          b.addEventListener("click", () => repondre(choix, q));
+          zone.append(b);
         });
+        if (cfg.chrono > 0) {
+          let reste = cfg.chrono;
+          minuteur = setInterval(() => {
+            if (jeton !== compteurQuiz) { arreter(); return; }
+            reste--;
+            texte.textContent = `⏱ ${reste} s`;
+            texte.classList.toggle("urgent", reste <= 5);
+            barre.style.width = (reste / cfg.chrono * 100) + "%";
+            if (reste <= 0) repondre(null, q);
+          }, 1000);
+        }
+      }
+
+      function repondre(choix, q) {
+        if (zone.querySelector(".quiz-feedback")) return;
+        arreter();
+        const correct = choix === q.reponse;
+        if (correct) score += 10;
+        zone.querySelectorAll(".quiz-answer").forEach(b => {
+          b.disabled = true;
+          if (b.textContent === q.reponse) b.classList.add("correct");
+          else if (b.textContent === choix) b.classList.add("wrong");
+        });
+        const debut = correct ? "Bonne réponse ! " : choix === null ? `Temps écoulé ! La bonne réponse est : ${q.reponse}. ` : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `;
+        const suivant = el("button", "btn btn-primary", index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →");
+        suivant.type = "button";
+        suivant.style.marginTop = "14px";
+        suivant.addEventListener("click", () => { index++; afficherQuestion(); });
+        zone.append(el("p", "quiz-feedback", debut + q.explication), suivant);
       }
 
       async function afficherFin() {
-        zone.replaceChildren();
-        const titre = document.createElement("h3");
-        titre.textContent = "Quiz terminé ! 🎉";
-        const resultat = document.createElement("p");
-        resultat.style.fontSize = "1.2rem";
-        resultat.style.margin = "10px 0";
-        resultat.textContent = `Ton score : ${score} / ${selection.length * 10} points`;
-        const bonnes = document.createElement("p");
-        bonnes.className = "muted";
-        bonnes.textContent = `${score / 10} bonne(s) réponse(s) sur ${selection.length}`;
-        zone.append(titre, resultat, bonnes);
+        arreter();
+        const max = selection.length * 10;
+        const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
+        resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
+        zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${score / 10} bonne(s) réponse(s) sur ${selection.length}`));
+        if (cfg.mode === "duel") {
+          const d = cfg.duel;
+          zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
+        }
+        if (cfg.mode === "defi") ecrireLocal(cleDefi(), String(score));
 
+        const lien = cfg.mode === "defi" ? urlSite() : lienDuel(cfg, score);
+        const message = cfg.mode === "defi"
+          ? `🔥 J'ai fait ${score}/${max} au défi du jour MedQuiz ! Fais mieux : ${lien}`
+          : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
+        const actions = el("div", "actions");
+        actions.style.margin = "14px 0";
+        const wa = el("a", "btn btn-gold", cfg.mode === "defi" ? "Partager sur WhatsApp" : "⚔️ Défier un ami");
+        wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+        wa.target = "_blank";
+        wa.rel = "noopener";
+        const copier = el("button", "btn btn-secondary", "Copier le message");
+        copier.type = "button";
+        copier.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+          catch { window.prompt("Copie ce message :", message); }
+        });
+        actions.append(wa, copier);
+        zone.append(actions);
+
+        const info = el("p", "muted");
+        zone.append(info);
         if (!utilisateurActuel) {
-          const info = document.createElement("p");
           info.className = "notice";
           info.textContent = "Connecte-toi pour enregistrer ton score dans ton historique.";
-          zone.append(info);
-          const lien = document.createElement("a");
-          lien.href = "#compte";
-          lien.className = "btn btn-primary";
-          lien.style.marginTop = "15px";
-          lien.textContent = "Me connecter";
-          lien.addEventListener("click", (e) => { e.preventDefault(); afficherPage("compte"); });
-          zone.append(lien);
+          const lienCompte = el("a", "btn btn-primary", "Me connecter");
+          lienCompte.href = "#compte";
+          lienCompte.addEventListener("click", e => { e.preventDefault(); afficherPage("compte"); });
+          zone.append(lienCompte);
           return;
         }
-
-        const info = document.createElement("p");
-        info.className = "muted";
         info.textContent = "Enregistrement de ton score...";
-        zone.append(info);
-        const { error } = await supabase.from("quiz_history").insert({
-          user_id: utilisateurActuel.id,
-          score,
-          nombre_questions: selection.length
-        });
+        const { error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length });
         if (error) {
           console.error("Erreur d'enregistrement :", error.message);
           info.textContent = "Ton résultat est affiché, mais son enregistrement a échoué.";
           info.classList.add("error");
         } else {
-          info.textContent = "Ton score a été enregistré dans ton historique !";
           info.className = "notice";
-          const actualiser = document.createElement("button");
-          actualiser.type = "button";
-          actualiser.className = "btn btn-secondary";
-          actualiser.style.marginTop = "14px";
-          actualiser.textContent = "Voir mon historique";
-          actualiser.addEventListener("click", () => { afficherPage("member"); });
-          zone.append(actualiser);
+          info.textContent = "Ton score a été enregistré dans ton historique !";
+          const histo = el("button", "btn btn-secondary", "Voir mon historique et mes badges");
+          histo.type = "button";
+          histo.addEventListener("click", () => afficherPage("member"));
+          zone.append(histo);
           await chargerHistorique();
         }
       }
+    }
+
+    $("demarrerQuiz").addEventListener("click", () => {
+      const categorie = $("categorieQuiz").value, niveau = $("niveauQuiz").value, theme = $("themeQuiz").value;
+      const n = Number($("nombreQuiz").value), chrono = Number($("chronoQuiz").value);
+      const pool = filtrer(categorie, niveau, theme);
+      if (!pool.length) { $("zoneQuiz").textContent = "Aucune question disponible pour ce choix."; return; }
+      const seed = Math.floor(Math.random() * 1e9);
+      lancerQuiz({ titre: "Quiz", mode: "normal", categorie, niveau, theme, seed, chrono, selection: choisirQuestions(pool, n, seed) });
     });
+
+    // ---------- Défi du jour ----------
+    function lancerDefi() {
+      const zone = $("zoneQuiz"), fait = lireLocal(cleDefi());
+      if (fait !== null) {
+        zone.replaceChildren(el("h3", "", "Défi du jour déjà relevé ✅"), el("p", "muted", `Ton score aujourd'hui : ${fait} / 50. Reviens demain pour un nouveau défi !`));
+        zone.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const seed = Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""));
+      lancerQuiz({ titre: "🔥 Défi du jour", mode: "defi", seed, chrono: 20, selection: choisirQuestions(questionsMedQuiz, 5, seed) });
+    }
+    $("defiJour").addEventListener("click", lancerDefi);
+    $("defiAccueil").addEventListener("click", lancerDefi);
+
+    // ---------- Duel : défi reçu par lien ----------
+    function afficherDuelEntrant() {
+      const u = new URLSearchParams(window.location.search);
+      if (u.get("duel") !== "1") return false;
+      const nb = Math.min(Math.max(Number(u.get("q")) || 5, 1), 30);
+      const cfg = {
+        titre: "⚔️ Duel", mode: "duel", seed: Number(u.get("s")), categorie: u.get("c"), niveau: u.get("n"), theme: u.get("t") || "", chrono: 0,
+        duel: { pseudo: (u.get("u") || "Un ami").slice(0, 30), score: Number(u.get("p")) || 0 }
+      };
+      const pool = filtrer(cfg.categorie, cfg.niveau, cfg.theme);
+      if (!pool.length || !Number.isFinite(cfg.seed)) return false;
+      cfg.selection = choisirQuestions(pool, nb, cfg.seed);
+      const bouton = el("button", "btn btn-primary", "Relever le défi →");
+      bouton.type = "button";
+      bouton.style.marginTop = "14px";
+      bouton.addEventListener("click", () => lancerQuiz(cfg));
+      $("zoneQuiz").replaceChildren(el("h3", "", `⚔️ ${cfg.duel.pseudo} te défie !`), el("p", "muted", `Il a fait ${cfg.duel.score} points sur ${cfg.selection.length * 10}. Réponds aux mêmes ${cfg.selection.length} questions pour le battre.`), bouton);
+      return true;
+    }
+
+    if ("serviceWorker" in navigator && /^https?:$/.test(window.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
 
     window.addEventListener("hashchange", () => {
       const id = window.location.hash.slice(1);
@@ -868,8 +1014,10 @@
       $("accountNav").textContent = "Mon profil";
     }
     {
+      const duelOuvert = afficherDuelEntrant();
       const hash = window.location.hash.slice(1);
-      if (hash && $(hash)) afficherPage(hash);
+      if (duelOuvert) afficherPage("quiz");
+      else if (hash && $(hash)) afficherPage(hash);
       else afficherPage("accueil");
     }
   </script>
