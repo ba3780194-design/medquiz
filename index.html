@@ -228,6 +228,14 @@
     .salle-question { font-size: clamp(1.3rem, 4vw, 2rem); margin: 18px 0 22px; line-height: 1.3; }
     .rank-item.moi { border-color: var(--teal); }
     .gros-chiffre { font-size: 4rem; font-weight: 900; color: var(--gold); text-align: center; }
+    .chat { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .chat-liste { max-height: 260px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+    .chat-liste:empty::before { content: "Aucun message pour le moment. Dis bonjour ! 👋"; color: var(--muted); font-size: .9rem; }
+    .chat-msg { padding: 5px 4px; word-break: break-word; }
+    .chat-msg.moi strong { color: var(--teal); }
+    .chat-saisie { display: flex; gap: 8px; }
+    .chat-emojis { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .emoji-btn { background: none; border: 1px solid var(--line); border-radius: 8px; font-size: 1.2rem; padding: 2px 6px; }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -2172,7 +2180,8 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         salleEtat = data;
         salleFin = performance.now() + (data.remaining || 0) * 1000;
         rendreSalle();
-        if (data.phase === "finished") return;
+        if (data.phase === "closed") return;
+        if (data.chat) await chargerMessages(jeton);
       }
       sallePoll = setTimeout(() => sondageSalle(jeton), 1000);
     }
@@ -2199,7 +2208,8 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       salleCle = cle;
       salleTotal = e.phase === "question" ? e.chrono : e.phase === "reveal" ? 8 : e.phase === "countdown" ? 5 : 1;
       const c = $("salleContenu");
-      if (e.status === "lobby") vueSalleAttente(c, e);
+      if (e.phase === "closed") vueSalleFermee(c);
+      else if (e.status === "lobby") vueSalleAttente(c, e);
       else if (e.phase === "countdown") vueSalleDecompte(c);
       else if (e.phase === "question") vueSalleQuestion(c, e, repondu);
       else vueSalleClassement(c, e);
@@ -2217,7 +2227,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         el("div", "code-partie", salleCode),
         el("p", "muted", `${e.n} question(s) · ${e.chrono} s par question`),
         joueurs);
-      if (!e.is_host) return;
+      if (!e.is_host) { c.append(panneauChat()); return; }
       const wa = el("a", "btn btn-gold", "Inviter sur WhatsApp");
       wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
       wa.target = "_blank"; wa.rel = "noopener";
@@ -2237,13 +2247,13 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       const actions = el("div", "actions");
       actions.style.marginTop = "14px";
       actions.append(wa, copier, lancer);
-      c.append(actions);
+      c.append(actions, panneauChat());
     }
 
     function vueSalleDecompte(c) {
       const t = el("div", "gros-chiffre", "5 s");
       t.id = "salleTemps";
-      c.replaceChildren(el("p", "muted", "La partie commence dans"), t, el("p", "muted", "Prépare-toi !"));
+      c.replaceChildren(el("p", "muted", "La partie commence dans"), t, el("p", "muted", "Prépare-toi ! 💬 Le chat est fermé jusqu'à la fin de la partie."));
       son("demarrer");
     }
 
@@ -2299,6 +2309,63 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       }
     }
 
+    let chatDernier = 0;
+    function panneauChat() {
+      chatDernier = 0;
+      const boite = el("div", "chat");
+      boite.append(el("h3", "", "💬 Discussion"));
+      const liste = el("div", "chat-liste");
+      liste.id = "chatListe";
+      const champ = el("input");
+      champ.type = "text"; champ.maxLength = 300; champ.placeholder = "Écris un message..."; champ.autocomplete = "off";
+      const envoyer = el("button", "btn btn-primary btn-small", "Envoyer");
+      envoyer.type = "button";
+      const erreur = el("p", "error");
+      erreur.style.fontSize = ".85rem";
+      const aller = async () => {
+        const texte = champ.value.trim();
+        if (!texte) return;
+        champ.value = ""; erreur.textContent = "";
+        const { error } = await supabase.rpc("send_room_message", { p_code: salleCode, p_body: texte });
+        if (error) { champ.value = texte; erreur.textContent = error.message; return; }
+        chargerMessages(salleJeton);
+      };
+      envoyer.addEventListener("click", aller);
+      champ.addEventListener("keydown", ev => { if (ev.key === "Enter") aller(); });
+      const saisie = el("div", "chat-saisie");
+      saisie.append(champ, envoyer);
+      const emojis = el("div", "chat-emojis");
+      ["😀", "😂", "😍", "👏", "🔥", "💪", "🤔", "😅", "😢", "👍", "🎉", "🏆"].forEach(em => {
+        const b = el("button", "emoji-btn", em);
+        b.type = "button";
+        b.addEventListener("click", () => { champ.value += em; champ.focus(); });
+        emojis.append(b);
+      });
+      boite.append(liste, saisie, emojis, erreur);
+      return boite;
+    }
+    async function chargerMessages(jeton) {
+      if (!$("chatListe")) return;
+      const { data, error } = await supabase.rpc("get_room_messages", { p_code: salleCode, p_after: chatDernier });
+      const liste = $("chatListe");
+      if (error || !data || !liste || jeton !== salleJeton) return;
+      const enBas = liste.scrollHeight - liste.scrollTop - liste.clientHeight < 40;
+      data.forEach(m => {
+        chatDernier = Math.max(chatDernier, m.id);
+        const ligne = el("div", "chat-msg" + (m.is_me ? " moi" : ""));
+        ligne.append(el("strong", "", m.pseudonyme + " "), document.createTextNode(m.body));
+        liste.append(ligne);
+      });
+      if (data.length && enBas) liste.scrollTop = liste.scrollHeight;
+    }
+    function vueSalleFermee(c) {
+      const q = el("button", "btn btn-primary", "Quitter");
+      q.type = "button";
+      q.style.marginTop = "14px";
+      q.addEventListener("click", quitterSalle);
+      c.replaceChildren(el("h3", "", "🔒 Salle fermée"), el("p", "muted", "La discussion a été supprimée. Merci d'avoir joué !"), q);
+    }
+
     function vueSalleClassement(c, e) {
       const fin = e.phase === "finished";
       c.replaceChildren();
@@ -2326,7 +2393,16 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         q.style.marginTop = "16px";
         q.addEventListener("click", quitterSalle);
         c.append(q);
+        if (e.is_host) {
+          const f = el("button", "btn btn-secondary", "🔒 Fermer la salle (supprime le chat)");
+          f.type = "button";
+          f.style.marginLeft = "10px";
+          f.addEventListener("click", async () => { await supabase.rpc("close_room", { p_code: salleCode }); quitterSalle(); });
+          c.append(f);
+        }
+        c.append(el("p", "muted", "La salle se ferme automatiquement 30 minutes après la fin de la partie."), panneauChat());
       } else {
+        c.append(el("p", "muted", "💬 Le chat est fermé pendant la partie, il rouvre à la fin."));
         const t = el("strong", "chrono-text", e.remaining + " s");
         t.id = "salleTemps";
         const p = el("p", "muted", e.idx + 1 >= e.n ? "Résultat final dans " : "Prochaine question dans ");
