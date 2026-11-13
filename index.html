@@ -347,6 +347,7 @@
               <option value="30">30 secondes</option>
             </select>
           </div>
+          <p class="muted" style="font-size:.85rem;margin-bottom:12px">Barème par bonne réponse : facile = 1 point, moyen = 5 points, difficile = 10 points.</p>
           <button class="btn btn-primary" id="demarrerQuiz" style="width:100%">Commencer le quiz →</button>
           <p class="muted" style="font-size:.82rem;margin-top:12px">Chaque bonne réponse rapporte 10 points.</p>
         </div>
@@ -627,7 +628,7 @@
       liste.textContent = "Chargement de ton historique...";
       const { data, error } = await supabase
         .from("quiz_history")
-        .select("score, nombre_questions, created_at")
+        .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -650,7 +651,7 @@
         const item = document.createElement("div");
         item.className = "history-item";
         const detail = document.createElement("span");
-        detail.textContent = `${resultat.score} points sur ${resultat.nombre_questions * 10}`;
+        detail.textContent = `${resultat.score} points sur ${resultat.score_max ?? resultat.nombre_questions * 10}` + (resultat.niveau ? ` · ${resultat.niveau}` : "");
         const date = document.createElement("span");
         date.className = "muted";
         date.textContent = new Date(resultat.created_at).toLocaleString("fr-FR");
@@ -1673,12 +1674,17 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     $("niveauQuiz").addEventListener("change", majOptionsNombre);
     majOptionsNombre();
 
+    // ---------- Barème : facile = 1 point, moyen = 5 points, difficile = 10 points ----------
+    const POINTS_NIVEAU = { facile: 1, moyen: 5, difficile: 10 };
+    const pointsQuestion = q => POINTS_NIVEAU[q.niveau] ?? 10;
+    const totalPoints = liste => liste.reduce((t, q) => t + pointsQuestion(q), 0);
+
     // ---------- Badges et niveaux ----------
     const NIVEAUX = [["Étudiant", 0], ["Interne", 100], ["Docteur", 300], ["Professeur", 800]];
     const BADGES = [
       ["🎯", "Premier quiz", h => h.length >= 1],
       ["🔁", "10 quiz terminés", h => h.length >= 10],
-      ["💯", "Score parfait", h => h.some(x => x.nombre_questions >= 5 && x.score === x.nombre_questions * 10)],
+      ["💯", "Score parfait", h => h.some(x => x.nombre_questions >= 5 && x.score === (x.score_max ?? x.nombre_questions * 10))],
       ["⭐", "100 points", (h, t) => t >= 100],
       ["🏅", "500 points", (h, t) => t >= 500],
       ["👑", "1000 points", (h, t) => t >= 1000]
@@ -1788,7 +1794,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
 
     function lancerQuiz(cfg) {
       const zone = cfg.zone || $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
-      let index = 0, score = 0, minuteur = null, debut = 0, tempsTotal = 0;
+      let index = 0, score = 0, bonnes = 0, minuteur = null, debut = 0, tempsTotal = 0;
       zone.scrollIntoView({ behavior: "smooth", block: "start" });
       son("demarrer");
       afficherQuestion();
@@ -1851,8 +1857,9 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         const correct = choix !== null && (q.type === "ouverte" ? reponseOuverteCorrecte(choix, q.reponses) : choix === q.reponse);
         son(correct ? "bon" : "mauvais");
         const rapide = cfg.mode === "partie" && cfg.chrono > 0;
-        const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : 10;
+        const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : pointsQuestion(q);
         score += gain;
+        if (correct) bonnes++;
         zone.querySelectorAll(".quiz-answer, .reponse-libre, .valider").forEach(b => { b.disabled = true; });
         zone.querySelectorAll(".quiz-answer").forEach(b => {
           if (b.textContent === q.reponse) b.classList.add("correct");
@@ -1869,11 +1876,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
 
       async function afficherFin() {
         arreter();
-        son(score >= selection.length * 5 ? "victoire" : "fin");
-        const max = selection.length * 10;
+        const max = totalPoints(selection);
+        son(score >= max / 2 ? "victoire" : "fin");
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
-        zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${score / 10} bonne(s) réponse(s) sur ${selection.length}`));
+        zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${bonnes} bonne(s) réponse(s) sur ${selection.length}`));
         if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
@@ -1912,7 +1919,9 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           return;
         }
         info.textContent = "Enregistrement de ton score...";
-        const { error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length });
+        let { error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length, bonnes_reponses: bonnes, score_max: max, niveau: cfg.niveau || (cfg.mode === "defi" ? "mixte" : null) });
+        // Si le script points.sql n'a pas encore été exécuté, on enregistre au format simple
+        if (error) ({ error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length }));
         if (error) {
           console.error("Erreur d'enregistrement :", error.message);
           info.textContent = "Ton résultat est affiché, mais son enregistrement a échoué.";
@@ -1941,8 +1950,9 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     // ---------- Défi du jour ----------
     function lancerDefi() {
       const zone = $("zoneQuiz"), fait = lireLocal(cleDefi());
+      const maxDefi = totalPoints(choisirQuestions(questionsMedQuiz, 5, Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""))));
       if (fait !== null) {
-        zone.replaceChildren(el("h3", "", "Défi du jour déjà relevé ✅"), el("p", "muted", `Ton score aujourd'hui : ${fait} / 50. Reviens demain pour un nouveau défi !`));
+        zone.replaceChildren(el("h3", "", "Défi du jour déjà relevé ✅"), el("p", "muted", `Ton score aujourd'hui : ${Math.min(Number(fait), maxDefi)} / ${maxDefi}. Reviens demain pour un nouveau défi !`));
         zone.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
@@ -1968,7 +1978,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       bouton.type = "button";
       bouton.style.marginTop = "14px";
       bouton.addEventListener("click", () => lancerQuiz(cfg));
-      $("zoneQuiz").replaceChildren(el("h3", "", `⚔️ ${cfg.duel.pseudo} te défie !`), el("p", "muted", `Il a fait ${cfg.duel.score} points sur ${cfg.selection.length * 10}. Réponds aux mêmes ${cfg.selection.length} questions pour le battre.`), bouton);
+      $("zoneQuiz").replaceChildren(el("h3", "", `⚔️ ${cfg.duel.pseudo} te défie !`), el("p", "muted", `Il a fait ${cfg.duel.score} points sur ${totalPoints(cfg.selection)}. Réponds aux mêmes ${cfg.selection.length} questions pour le battre.`), bouton);
       return true;
     }
 
