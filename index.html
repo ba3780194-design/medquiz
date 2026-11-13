@@ -1421,6 +1421,215 @@ d|L'absorption du chlore est passive dans :|L'intestin proximal|L'intestin dista
           const [n, q, bonne, ...faux] = ligne.split("|");
           ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Physiologie");
         });
+      const cardiologie = {
+        "Rétrécissement mitral": `
+f|Le rétrécissement mitral est une sténose de l'orifice :|Auriculo-ventriculaire gauche|Auriculo-ventriculaire droit|Aortique|Pulmonaire
+f|Quelle est la principale étiologie du rétrécissement mitral ?|Le rhumatisme articulaire aigu|L'endocardite|L'infarctus|L'hypertension
+f|Quel est le maître symptôme du rétrécissement mitral ?|La dyspnée|La douleur thoracique|La syncope|Les œdèmes
+m|Dans le rétrécissement mitral, la surface de l'orifice est réduite à moins de :|2,5 cm²|4 cm²|6 cm²|0,5 cm²
+m|Quel examen est clé pour le diagnostic du rétrécissement mitral ?|L'échocardiographie-Doppler|La radiographie|Le scanner|La coronarographie
+m|Le rétrécissement mitral prédomine chez :|La femme|L'homme|Le nourrisson|Le vieillard seulement
+m|Le fasciès mitral associe :|Érythrose et cyanose des pommettes|Pâleur|Ictère|Œdème du visage
+m|Le frémissement diastolique apexien est appelé :|Frémissement cataire|Frémissement de Harzer|Frémissement systolique|Signe de Carvalho
+m|Le rythme à 3 temps du rétrécissement mitral est dit de :|Durozier|Harzer|Ortner|Kerley
+m|Le claquement d'ouverture de la mitrale est situé :|Après B2|Avant B1|Pendant la systole|Avant B2
+m|Le roulement diastolique du RM est :|Apexien et irradie vers l'aisselle gauche|Basal|Systolique|Au foyer aortique
+m|L'éclat de B1 correspond à la fermeture :|Du foyer mitral|Du foyer aortique|Du foyer pulmonaire|Du foyer tricuspidien
+m|Le rétrécissement mitral respecte :|La systole et le ventricule gauche|La diastole|L'oreillette gauche|La valve mitrale
+m|Quel signe électrique traduit l'hypertrophie de l'oreillette gauche ?|L'onde P mitrale (large)|L'onde Q|Le sus-décalage de ST|L'onde T géante
+m|La silhouette cardiaque radiologique du RM est :|Triangulaire (mitrale)|En sabot|Globuleuse en carafe|Normale
+m|Le roulement de Flint est lié à :|L'insuffisance aortique|L'insuffisance mitrale|La sténose aortique|La CIA
+m|Le RM œdémateux touche surtout :|La femme|L'homme|Le nouveau-né|Le sujet âgé
+m|Quel antibiotique prévient les récidives de RAA ?|La pénicilline|La gentamicine|La ciprofloxacine|La vancomycine
+m|La commissurotomie mitrale percutanée utilise :|Le ballon d'Inoué|Un stent|Un laser|Un défibrillateur
+m|La prévention du RAA repose sur le traitement des angines par :|La pénicilline|Les corticoïdes|Les diurétiques|Les bêtabloquants
+d|Sur la radiographie de face, l'arc moyen gauche du RM est :|Saillant et convexe|Concave|Absent|Calcifié
+d|Au profil, l'œsophage baryté est refoulé :|Vers l'arrière|Vers l'avant|À gauche|Vers le bas
+d|En mode TM, la grande valve mitrale a l'aspect :|En créneau (borne kilométrique)|En dôme|En cloche|En zigzag
+d|En échographie bidimensionnelle, l'orifice mitral rétréci a l'aspect :|En gueule de requin|En œil de chat|En anneau|En fente en croix
+d|En bidimensionnelle, la grande valve mitrale a l'aspect :|En genou fléchi (battoir)|En dôme|En bouton|En fuseau
+d|La surface mitrale se mesure en 2D par :|Planimétrie|Manométrie|Spirométrie|Oscillométrie
+d|L'échographie transœsophagienne recherche notamment :|Les thromboses de l'oreillette|Les calcifications osseuses|Les varices|Les fractures
+d|Le syndrome d'Ortner est :|Une paralysie laryngée par compression du récurrent gauche|Une fibrillation auriculaire|Un œdème pulmonaire|Une embolie cérébrale
+d|La complication rythmique la plus fréquente du RM est :|La fibrillation auriculaire|La tachycardie ventriculaire|Le bloc de branche|La bradycardie sinusale
+d|Quelle est l'embolie systémique la plus fréquente du RM ?|Cérébrale (AVC ischémique)|Pulmonaire|Rénale|Mésentérique
+d|Quel est le stade terminal du RM ?|L'insuffisance cardiaque droite|L'OAP|La fibrillation auriculaire|L'AVC
+d|La broncho-pneumopathie mitrale associe RM, HTAP et :|Dyspnée permanente et bronchites à répétition|Hémoptysie unique|Angor|Syncope
+d|Le RM avec HTAP touche surtout :|L'enfant|La femme enceinte|L'homme âgé|L'adulte jeune
+d|Le stade 2 de l'hypertension veineuse pulmonaire montre :|Des stries de Kerley B|Des ailes de papillon|Une redistribution apicale|Un pneumothorax
+d|L'œdème alvéolaire radiologique a l'aspect en :|Ailes de papillon|Verre dépoli seul|Nid d'abeille|Doigt de gant
+d|Le syndrome de Lutembacher associe :|CIA et RM rhumatismal|CIV et IM|CIA et IA|Canal artériel et RM
+d|Le retard staturo-pondéral du RM de l'enfant s'appelle :|Nanisme mitral|Rachitisme|Gigantisme|Hypotrophie fœtale
+d|Chez la femme enceinte, le RM expose à :|Un risque d'avortement et de prématurité|Aucun risque|Une hypertension gravidique seule|Une hémorragie du post-partum seule
+d|Quelle affection est un diagnostic différentiel du RM ?|Le myxome de l'oreillette gauche|L'infarctus du myocarde|L'angor stable|La BPCO
+d|Quel est l'agent du RAA ?|Le streptocoque bêta-hémolytique du groupe A|Le staphylocoque doré|Le pneumocoque|Le gonocoque
+d|Un RM serré a une surface mitrale :|< 1,1 cm²|Entre 1,1 et 1,5 cm²|Entre 1,5 et 2,5 cm²|> 2,5 cm²
+d|Un RM lâche a une surface mitrale :|Entre 1,5 et 2,5 cm²|< 1,1 cm²|Entre 1,1 et 1,5 cm²|> 3 cm²
+d|Un RM moyennement serré a une surface mitrale :|Entre 1,1 et 1,5 cm²|< 1,1 cm²|Entre 1,5 et 2,5 cm²|> 2,5 cm²
+d|Pour des valves scléro-calcifiées, on réalise :|Un remplacement valvulaire mitral|Une commissurotomie|Une simple surveillance|Un pontage
+d|Pour des valves souples, on réalise :|Une valvuloplastie ou commissurotomie|Un remplacement valvulaire|Une transplantation|Un pontage
+d|Quels anticoagulants sont utilisés dans le RM ?|AVK et HBPM|Aspirine seule|Statines|Diurétiques
+`,
+        "Hypertension artérielle": `
+f|Selon l'OMS, l'HTA de l'adulte est définie par une PAS ≥ :|140 mmHg|120 mmHg|160 mmHg|180 mmHg
+f|Selon l'OMS, l'HTA de l'adulte est définie par une PAD ≥ :|90 mmHg|80 mmHg|100 mmHg|110 mmHg
+f|Quelle est la cause la plus fréquente d'HTA ?|L'HTA essentielle|Le phéochromocytome|La sténose de l'artère rénale|La coarctation de l'aorte
+f|L'HTA est :|La 1ère affection chronique dans le monde|Une maladie rare|Toujours symptomatique|Toujours secondaire
+m|Le diagnostic d'HTA nécessite des mesures lors d'au moins :|2 consultations espacées d'une semaine|Une seule consultation|3 mois de suivi|1 an de suivi
+m|Avant la mesure de la TA, le patient doit être au repos pendant :|10 minutes|1 minute|1 heure|30 secondes
+m|Le brassard est gonflé à combien au-dessus du pouls huméral ?|20 mmHg|5 mmHg|50 mmHg|100 mmHg
+m|Le 1er bruit entendu lors de la mesure correspond à :|La PAS|La PAD|La PA moyenne|La pression pulsée
+m|Le dernier bruit entendu correspond à :|La PAD|La PAS|La PA moyenne|La pression pulsée
+m|La MAPA est aussi appelée :|Holter tensionnel|Auto-mesure|Fond d'œil|Scanner
+m|Les signes de Dieulafoy sont :|Céphalées, vertiges, acouphènes, flou visuel|Douleur thoracique|Dyspnée|Œdèmes
+m|L'HTA grade 1 correspond à une PAS entre :|140 et 159 mmHg|160 et 179 mmHg|180 et 199 mmHg|120 et 139 mmHg
+m|L'HTA grade 2 correspond à une PAS entre :|160 et 179 mmHg|140 et 159 mmHg|180 et 199 mmHg|120 et 139 mmHg
+m|L'HTA grade 3 correspond à une PAS ≥ :|180 mmHg|160 mmHg|140 mmHg|200 mmHg
+m|L'HTA grade 3 correspond à une PAD ≥ :|110 mmHg|100 mmHg|90 mmHg|120 mmHg
+m|Quel examen pose le diagnostic d'AVC ?|Le scanner (TDM)|La radiographie|L'ECG|L'échographie abdominale
+m|Quel est le retentissement cardiaque direct de l'HTA ?|L'hypertrophie ventriculaire gauche|Le rétrécissement mitral|La CIA|La péricardite
+m|La coarctation de l'aorte donne une HTA :|Aux membres supérieurs avec pouls fémoraux diminués|Aux membres inférieurs|Pulmonaire|Portale
+m|Le syndrome de Cushing est un excès de :|Cortisol|Aldostérone|Adrénaline|Thyroxine
+m|Quel est le but tensionnel du traitement ?|< 140/90 mmHg|< 180/110 mmHg|< 100/60 mmHg|< 160/100 mmHg
+m|Quelle mesure non pharmacologique fait partie du traitement ?|Un régime désodé|Un régime riche en sel|Un repos permanent|Un tabagisme modéré
+d|Une urgence hypertensive associe une TA ≥ 180/110 et :|Une souffrance viscérale|Des céphalées seules|Du stress|Une prise de poids
+d|La poussée hypertensive est :|Une élévation rapide et transitoire de la TA sans souffrance viscérale|Une HTA sévère avec encéphalopathie|Une HTA maligne|Une HTA secondaire
+d|Quel médicament IV est cité dans les urgences hypertensives ?|La nicardipine (Loxen)|L'aspirine|Le furosémide oral|Le captopril
+d|L'HTA maligne associe une PAD ≥ :|130 mmHg|110 mmHg|90 mmHg|150 mmHg
+d|L'HTA maligne comprend une rétinopathie de stade :|III ou IV|I|II|0
+d|La rétinopathie hypertensive est classée selon :|Kirkendall|Killip|La NYHA|Durozier
+d|Au stade III de la rétinopathie, on observe un engainement artériel et :|Une thrombose veineuse|Des hémorragies seules|Un rétrécissement artériel seul|Une papille normale
+d|L'encéphalopathie hypertensive comprend une rétinopathie de stade :|IV|I|II|0
+d|Quelle est l'atteinte rénale de l'HTA ?|La néphro-angiosclérose|La glomérulonéphrite|Le syndrome néphrotique|La polykystose
+d|L'HTA blouse blanche est :|Une élévation de la PA seulement en consultation|Une HTA sévère|Une HTA secondaire|Une HTA nocturne
+d|Une bradycardie sévère augmente la :|PAS|PAD|Fréquence cardiaque|Diurèse
+d|L'insuffisance aortique donne une HTA avec :|Un élargissement de la différentielle|Un pincement de la différentielle|Une PAS basse|Une bradycardie
+d|La maladie de Takayasu est la maladie de :|La femme sans pouls|L'homme jeune|L'enfant|Le vieillard
+d|Le syndrome de Conn est :|Un hyperaldostéronisme primaire|Un hypercorticisme|Un phéochromocytome|Une hyperthyroïdie
+d|Quelles causes médicamenteuses d'HTA sont citées ?|Œstroprogestatifs, AINS, corticoïdes|Pénicilline|Paracétamol|Vitamine C
+d|Quel type d'obésité est le plus lié à l'HTA essentielle ?|L'obésité androïde|L'obésité gynoïde|La maigreur|Aucune
+d|Quels médicaments sont privilégiés chez le sujet âgé ?|Les diurétiques et les inhibiteurs calciques|Les alpha-bloquants|Les vasodilatateurs directs|Les bêtabloquants seuls
+d|IEC et ARA II sont privilégiés dans :|La néphropathie diabétique et l'insuffisance cardiaque|L'angor seul|L'asthme|La grossesse
+d|Les bêtabloquants sont privilégiés dans :|L'angor, l'infarctus, l'arythmie et l'insuffisance cardiaque|L'asthme|La bradycardie|Le bloc auriculo-ventriculaire
+d|Le traitement de l'HTA essentielle est :|À vie|De 3 mois|D'1 an|Ponctuel
+d|L'HTA secondaire nécessite un traitement :|Étiologique|À vie uniquement|Symptomatique seul|Aucun
+d|L'auto-mesure de la PA permet :|De répéter les mesures dans la journée|Une mesure unique|De remplacer l'ECG|D'éviter le médecin
+`,
+        "Syndrome coronarien aigu": `
+f|Le SCA résulte d'une occlusion brutale :|Partielle ou complète d'une artère coronaire|Des veines pulmonaires|De l'aorte|Des artères rénales
+f|Quelle est la cause principale du SCA ?|L'athérosclérose|La syphilis|Le traumatisme|La vascularite
+f|Quel est le maître symptôme du SCA ?|La douleur thoracique|La dyspnée|La toux|La fièvre
+f|L'infarctus du myocarde est une nécrose de nature :|Ischémique|Infectieuse|Tumorale|Traumatique
+f|Quelle prévention est la plus efficace ?|La lutte contre les facteurs de risque cardio-vasculaires|Le repos au lit permanent|Le jeûne|Les antibiotiques
+m|La douleur du SCA est :|Rétrosternale, constrictive, résistante à la trinitrine|Brève et calmée par la trinitrine|Positionnelle|Pleurale
+m|La douleur du SCA cède sous :|Les morphiniques|La trinitrine|Le repos seul|Les antalgiques simples
+m|Le SCA ST+ se caractérise par :|Un sus-décalage persistant du segment ST|Un sous-décalage de ST|Une onde P large|Un bloc complet
+m|Quel est le marqueur biologique clé du SCA ?|La troponine|La CRP|La créatinine|La glycémie
+m|L'ECG du SCA doit être fait :|En urgence, avec 18 dérivations|Après 24 heures|Après la coronarographie|Seulement au repos
+m|Le territoire inférieur correspond aux dérivations :|DII, DIII, aVF|V1, V2|V7, V8, V9|D1, aVL
+m|Le territoire postérieur correspond aux dérivations :|V7, V8, V9|DII, DIII, aVF|V1, V2|V5, V6
+m|Le territoire septal correspond à :|V3|V1-V2|V4|V7
+m|Le territoire apical correspond à :|V4|V3|V1|V9
+m|Le territoire latéral haut correspond à :|D1, aVL|V5, V6|DII, DIII|V7, V8
+m|Le territoire latéral bas correspond à :|V5, V6|D1, aVL|DII, DIII|V1, V2
+m|Le territoire antérieur correspond à :|V1, V2|V5, V6|DII, DIII|V7, V8
+m|L'angor de novo est un angor apparu depuis moins de :|6 semaines|1 an|6 mois|2 jours
+m|Dans l'angor instable, la troponine est :|Normale|Élevée|Effondrée|Non mesurable
+m|Un infarctus sans onde Q associe douleur et :|Élévation de la troponine sans sus-décalage ST|Sus-décalage ST|Onde Q|Troponine normale
+m|L'angor stable est une douleur :|À l'effort, cédant à l'arrêt et à la trinitrine|Au repos prolongée|Résistante à la trinitrine|Fébrile
+m|Quelle part des SCA est due à l'athérosclérose ?|95%|50%|20%|5%
+m|Quel est un facteur de risque non modifiable ?|L'âge > 45 ans chez l'homme|Le tabac|L'HTA|La sédentarité
+m|Quel est un facteur de risque modifiable ?|Le diabète|Le sexe masculin|L'hérédité|L'âge
+m|Quel est le but principal du traitement du SCA ?|Reperméabiliser l'artère rapidement|Calmer la toux|Faire baisser la fièvre|Réduire le poids
+m|La mise en condition du SCA comprend l'hospitalisation en :|USIC|Médecine générale|Consultation|Pédiatrie
+d|Au stade I (H1) de l'ECG, on observe :|Une onde T géante positive|Une onde Q|Un sus-décalage de ST|Une onde T négative
+d|L'onde monophasique de Pardee apparaît au stade :|II (H24-H48)|I|III|IV
+d|Au stade III (S1), on observe :|Une onde T négative et l'apparition d'une onde Q|Une onde T géante|Un ST normal|Un bloc de branche
+d|Au stade IV (S3-S4), on observe :|Onde Q et ischémie sous-épicardique maximales|Une onde T géante|L'onde de Pardee|Un ECG normal
+d|Quelle classification évalue l'insuffisance cardiaque aiguë de l'IDM ?|La classification de Killip|La classification NYHA|La classification de Kirkendall|La classification de Kerley
+d|Une CIV post-infarctus est due à :|La rupture du septum interventriculaire|La rupture de cordage|La rupture de la paroi libre|La péricardite
+d|Une dissociation électromécanique est due à :|La rupture de la paroi libre du VG|La rupture du septum|La rupture de cordage|Un anévrisme
+d|Une IM aiguë post-infarctus est due à :|La rupture de cordage|La rupture du septum|La rupture de la paroi libre|La péricardite
+d|Le syndrome de Dressler est :|Une péricardite tardive|Une IM aiguë|Un anévrisme du VG|Une fibrillation ventriculaire
+d|Le syndrome épaule-main est :|Une neuro-algodystrophie du membre supérieur|Une paralysie du bras|Une luxation|Une fracture
+d|L'angor post-infarctus survient :|2 semaines après un IDM|2 ans après un IDM|2 jours avant un IDM|Jamais
+d|L'angor de Prinzmetal est dû à :|Un spasme coronaire|Une thrombose|Une embolie|Une dissection
+d|Dans la péricardite aiguë, la douleur est calmée par :|L'antéflexion|La trinitrine|Le décubitus|La morphine seule
+d|Dans l'embolie pulmonaire, l'examen de référence est :|L'angio-TDM thoracique|L'ECG seul|La radiographie|L'échographie abdominale
+d|Dans la dissection aortique, on observe :|Une asymétrie des pouls|Un pouls symétrique|Une bradycardie|Un souffle systolique
+d|Les « urgences de Mondor » comprennent :|La pancréatite aiguë et la crise ulcéreuse hyperalgique|L'embolie pulmonaire|La péricardite|Le pneumothorax
+d|La lipasémie dans la pancréatite aiguë est :|> 3 fois la normale|Normale|< 1 fois la normale|Indosable
+d|L'âge de risque chez la femme est :|> 55 ans|> 30 ans|> 70 ans|> 18 ans
+d|Les dissections coronaires surviennent notamment dans :|Les maladies de Marfan et d'Ehlers-Danlos|La grippe|L'asthme|Le diabète
+d|Les thrombolytiques sont efficaces dans les :|12 heures|48 heures|1 semaine|5 minutes
+d|Quelles molécules sont des thrombolytiques ?|Streptokinase, altéplase, ténectéplase|Aspirine, clopidogrel|Bisoprolol, aténolol|Captopril, ramipril
+d|Quels sont les antiagrégants plaquettaires cités ?|Aspirine et clopidogrel|HNF et HBPM|Pravastatine|Captopril
+d|La morphine en IV se donne à la dose de :|4 à 8 mg, renouvelable|50 mg|100 mg|1 mg
+d|L'angioplastie primaire est indiquée si le délai estimé est :|< 120 minutes|< 24 heures|< 5 minutes|> 12 heures
+d|La thrombolyse est indiquée si l'angioplastie n'est pas réalisable dans les :|2 heures|12 heures|24 heures|7 jours
+d|Dans le SCA sans sus-décalage de ST, la thrombolyse est :|Sans indication|Systématique|Indiquée en 1ère intention|Facultative
+d|La double antiagrégation plaquettaire associe :|Aspirine + clopidogrel|Aspirine + HNF|Clopidogrel + statine|Aspirine + AVK
+d|La surveillance d'une thrombolyse comprend :|Le fibrinogène et le TCA|La glycémie|Le NT-proBNP|Le potassium
+d|Quelles statines sont citées ?|Pravastatine, simvastatine|Furosémide|Bisoprolol|Fondaparinux
+d|Quels bêtabloquants sont cités dans le SCA ?|Aténolol, bisoprolol|Captopril|Nicardipine|Amiodarone
+d|Quels IEC sont cités dans le SCA ?|Captopril, ramipril|Losartan|Atorvastatine|Furosémide
+`,
+        "Insuffisance cardiaque": `
+f|L'insuffisance cardiaque est l'incapacité du cœur à assurer :|Un débit cardiaque suffisant aux besoins de l'organisme|Une fréquence normale|Une pression nulle|Un rythme sinusal
+f|Quel est le symptôme majeur de l'IC gauche ?|La dyspnée|La douleur|Les palpitations|Les syncopes
+f|Quel dosage biologique aide au diagnostic de l'IC ?|Le BNP ou NT-proBNP|La troponine|La CRP|La glycémie
+f|Quel régime est conseillé dans l'IC ?|Hyposodé|Hypersodé|Riche en graisses|Sans protéines
+m|L'orthopnée est une dyspnée :|De décubitus|D'effort|De repos seulement|Nocturne seulement
+m|Le stade I de la NYHA correspond à :|Une cardiopathie asymptomatique|Une gêne pour efforts importants|Une gêne aux efforts minimes|Une gêne au repos
+m|Le stade II de la NYHA correspond à :|Une gêne pour efforts importants et inhabituels|Aucune gêne|Une gêne aux efforts minimes|Une gêne permanente
+m|Le stade III de la NYHA correspond à :|Une gêne aux efforts minimes de la vie courante|Une gêne au repos|Aucune gêne|Une gêne seulement aux efforts importants
+m|Le stade IV de la NYHA correspond à :|Une gêne permanente au repos ou au moindre effort|Aucune gêne|Une gêne aux efforts importants|Une gêne aux efforts habituels
+m|Le bruit de galop gauche est un bruit :|Surajouté (B3 ou B4)|Systolique|Continu|Absent
+m|Le B3 est :|Protodiastolique|Télédiastolique|Systolique|Continu
+m|Le B4 est :|Télédiastolique|Protodiastolique|Systolique|Continu
+m|Le BNP est élevé au-delà de :|200 pg/ml|20 pg/ml|2000 pg/ml|5 pg/ml
+m|Le BNP a une excellente valeur prédictive :|Négative|Positive|Diagnostique unique|Nulle
+m|L'ICT radiologique de cardiomégalie est :|> 0,50|< 0,50|= 0,30|< 0,20
+m|L'écho-Doppler confirme l'IC systolique par une FE :|< 45%|> 55%|> 70%|= 60%
+m|Le signe de Harzer est :|Un battement du VD dans le creux épigastrique|Un frémissement cataire|Un claquement mitral|Un bruit de galop gauche
+m|Le reflux hépato-jugulaire est un signe d'IC :|Droite|Gauche|Systolique seulement|Diastolique seulement
+m|Les OMI de l'IC droite sont :|Mous, prenant le godet, bilatéraux|Durs|Unilatéraux|Douloureux
+m|Quelle affection cause un œdème avec protéinurie > 3 g/24 h ?|Le syndrome néphrotique|La cirrhose|La malnutrition|L'insuffisance cardiaque
+m|Devant une dyspnée chronique avec tabagisme chronique, on évoque :|La BPCO|L'asthme|L'embolie pulmonaire|Le pneumothorax
+m|Quel est un facteur de décompensation de l'IC ?|L'écart de régime ou de traitement|Le repos|Le régime hyposodé|Les diurétiques
+m|Quel diurétique de l'anse est cité ?|Le furosémide|La spironolactone|L'hydrochlorothiazide|Le losartan
+m|Quel inhibiteur de l'aldostérone est cité ?|La spironolactone|Le furosémide|Le captopril|Le bisoprolol
+m|Quelle classe est majeure et indiquée à tous les stades de l'IC ?|Les IEC|Les dérivés nitrés|Les inhibiteurs calciques|Les digitaliques
+m|Quels bêtabloquants sont indiqués dans l'IC ?|Bisoprolol, carvedilol, métoprolol, nébivolol|Aténolol seul|Propranolol seul|Aucun
+m|Quelle est la prévention primaire de l'IC ?|Corriger les facteurs de risque cardio-vasculaires|Opérer tous les patients|Donner des antibiotiques|Éviter les efforts
+d|L'hépatalgie de l'IC droite est due à :|Un foie de stase|Une hépatite|Une cirrhose biliaire|Une lithiase
+d|Le signe de Carvalho est :|Un souffle d'IT augmenté en inspiration profonde|Un frémissement mitral|Un bruit de galop|Un souffle d'IM
+d|Le TAPSE explore la fonction :|Ventriculaire droite|Ventriculaire gauche|Auriculaire gauche|Valvulaire aortique
+d|Le TAPSE est pathologique quand il est :|< 15 mm|> 25 mm|= 20 mm|> 30 mm
+d|L'état d'anasarque associe :|OMI en poteau, ascite et pleurésie bilatérale|Dyspnée seule|OAP|Syncope
+d|La grande crise d'OAP est :|Une urgence médicale|Un signe bénin|Une forme chronique|Un signe d'IC droite
+d|Le pseudo-asthme cardiaque est une dyspnée :|Expiratoire et sifflante|Inspiratoire|Absente|Positionnelle seule
+d|L'IC diastolique correspond à :|Une fonction systolique conservée avec défaut de remplissage|Une FE < 30%|Une IC droite pure|Une IC aiguë
+d|L'IC de l'enfant est dominée par :|Les cardiopathies congénitales|L'HTA|Les coronaropathies|Les valvulopathies rhumatismales
+d|La triade de l'IC de l'enfant associe hépatomégalie, tachycardie et :|Cardiomégalie|Cyanose|Souffle diastolique|Œdèmes
+d|Chez le sujet âgé, la classification NYHA est :|Difficilement utilisable|Plus précise|Inutile|Obligatoire
+d|Les crachats perlés de Laennec évoquent :|L'asthme|La BPCO|L'embolie pulmonaire|L'OAP
+d|Quelle est une étiologie fréquente de l'IC gauche ?|L'infarctus du myocarde|L'embolie pulmonaire|La BPCO|La bronchite
+d|Quelle cause entraîne une IC droite ?|L'HTAP|L'asthme seul|Le diabète|La grippe
+d|La constriction péricardique est une cause d'IC :|Droite|Gauche seule|Aiguë uniquement|Aucune
+d|Quel traitement est une alternative aux IEC en cas d'intolérance ?|Les ARA II (losartan)|Les AVK|Les statines|La digoxine
+d|Quels inotropes positifs sont cités ?|Dobutamine, dopamine, adrénaline|Furosémide|Captopril|Aspirine
+d|Le traitement de l'OAP associe position semi-assise, oxygène et :|Furosémide IV et dérivés nitrés|Bêtabloquants|AVK|Corticoïdes
+d|Les dérivés nitrés IV dans l'OAP nécessitent :|L'absence d'hypotension|Une hypotension|Un jeûne|Un bloc auriculo-ventriculaire
+d|Quels traitements interventionnels sont cités ?|Défibrillateur implantable et resynchronisation cardiaque|Pontage seul|Lithotritie|Dialyse
+d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardiaque|La splénectomie|L'appendicectomie|La cholécystectomie
+`,
+      };
+      for (const [titre, texte] of Object.entries(cardiologie))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Cardiologie");
+        });
     questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
     })();
 
