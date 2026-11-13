@@ -222,6 +222,12 @@
     .son-btn { background: none; border: 1px solid var(--line); color: inherit; border-radius: 999px; width: 40px; height: 40px; font-size: 1.1rem; }
     .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
     .tabs .btn.actif { background: var(--teal); color: #05202a; border-color: var(--teal); }
+    body.mode-jeu .site-header, body.mode-jeu footer { display: none; }
+    .salle-barre { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    .salle-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; }
+    .salle-question { font-size: clamp(1.3rem, 4vw, 2rem); margin: 18px 0 22px; line-height: 1.3; }
+    .rank-item.moi { border-color: var(--teal); }
+    .gros-chiffre { font-size: 4rem; font-weight: 900; color: var(--gold); text-align: center; }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -408,6 +414,14 @@
           <p id="msgPartie" class="muted" style="margin-top:12px" aria-live="polite"></p>
         </div>
       </div>
+    </section>
+
+    <section class="page" id="salle">
+      <div class="salle-barre">
+        <div><strong id="salleTitre">Partie</strong> <span class="muted" id="salleCodeBarre"></span></div>
+        <button class="btn btn-secondary btn-small" id="quitterSalle" type="button">Quitter</button>
+      </div>
+      <div class="panel" id="salleContenu" aria-live="polite"></div>
     </section>
 
     <section class="page" id="premium">
@@ -2050,7 +2064,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         return;
       }
       msg.textContent = "";
-      afficherPartieCreee(data, titre);
+      ouvrirSalle(data);
     });
 
     function afficherPartieCreee(code, titre) {
@@ -2103,37 +2117,213 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       if (!utilisateurActuel) { zone.replaceChildren(el("p", "error", "Connecte-toi pour rejoindre une partie.")); return; }
       if (!/^[A-Z0-9]{4,10}$/.test(code)) { zone.replaceChildren(el("p", "error", "Entre un code valide (6 caractères).")); return; }
       zone.replaceChildren(el("p", "muted", "Recherche de la partie..."));
-      const { data, error } = await supabase.rpc("get_room", { p_code: code });
+      const { error } = await supabase.rpc("join_room", { p_code: code });
       if (error) {
         console.error("Erreur partie :", error.message);
-        zone.replaceChildren(el("p", "error", "Impossible de charger la partie. Vérifie que le script parties.sql a été exécuté dans Supabase."));
+        zone.replaceChildren(el("p", "error", /Aucune partie|terminée/.test(error.message) ? error.message : "Impossible de rejoindre la partie. Vérifie que le script parties_v3.sql a été exécuté dans Supabase."));
         return;
       }
-      const room = data && data[0];
-      if (!room) { zone.replaceChildren(el("p", "error", "Aucune partie avec ce code.")); return; }
-      zone.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (room.is_host || room.already_played) {
-        zone.replaceChildren(el("h3", "", room.title), el("p", "muted", room.is_host ? "Tu es l'organisateur : le classement se met à jour tout seul." : "Tu as déjà joué cette partie. Voici le classement."));
-        afficherClassementPartie(code, zone);
+      ouvrirSalle(code);
+    }
+
+    // ---------- Salle de jeu en direct ----------
+    let salleCode = null, salleJeton = 0, salleCle = "", salleEtat = null, salleFin = 0, salleTotal = 1, salleRepondu = -1, sallePoll = null, salleTick = null;
+
+    function ouvrirSalle(code) {
+      salleCode = code; salleJeton++; salleCle = ""; salleEtat = null; salleRepondu = -1;
+      document.body.classList.add("mode-jeu");
+      afficherPage("salle");
+      $("salleTitre").textContent = "Partie";
+      $("salleCodeBarre").textContent = "· Code " + code;
+      $("salleContenu").replaceChildren(el("p", "muted", "Connexion à la partie..."));
+      clearTimeout(sallePoll); clearInterval(salleTick);
+      salleTick = setInterval(tickSalle, 250);
+      sondageSalle(salleJeton);
+    }
+    function quitterSalle() {
+      salleJeton++; clearTimeout(sallePoll); clearInterval(salleTick);
+      document.body.classList.remove("mode-jeu");
+      afficherPage("parties");
+    }
+    $("quitterSalle").addEventListener("click", quitterSalle);
+
+    async function sondageSalle(jeton) {
+      if (jeton !== salleJeton) return;
+      const { data, error } = await supabase.rpc("get_room_state", { p_code: salleCode });
+      if (jeton !== salleJeton) return;
+      if (error) {
+        console.error("Erreur salle :", error.message);
+        $("salleContenu").replaceChildren(el("p", "error", "Connexion perdue, nouvelle tentative..."));
+        salleCle = "";
+      } else if (!data) {
+        $("salleContenu").replaceChildren(el("p", "error", "Partie introuvable."));
+        return;
+      } else {
+        salleEtat = data;
+        salleFin = performance.now() + (data.remaining || 0) * 1000;
+        rendreSalle();
+        if (data.phase === "finished") return;
+      }
+      sallePoll = setTimeout(() => sondageSalle(jeton), 1000);
+    }
+
+    function tickSalle() {
+      const t = $("salleTemps"), b = $("salleBarre");
+      if (!t || !salleEtat) return;
+      const reste = Math.max(0, (salleFin - performance.now()) / 1000);
+      t.textContent = Math.ceil(reste) + " s";
+      t.classList.toggle("urgent", salleEtat.phase === "question" && reste <= 5);
+      if (b) b.style.width = Math.min(100, reste / salleTotal * 100) + "%";
+    }
+
+    function rendreSalle() {
+      const e = salleEtat;
+      $("salleTitre").textContent = e.title;
+      const repondu = !!(e.my && e.my.answered) || salleRepondu === e.idx;
+      const cle = [e.status, e.phase, e.idx, repondu, e.is_host].join("|");
+      if (cle === salleCle) {
+        if ($("salleJoueurs")) $("salleJoueurs").textContent = texteJoueurs(e);
+        if ($("salleRepondu")) $("salleRepondu").textContent = `${e.answered_count} / ${e.players.length} joueur(s) ont répondu`;
         return;
       }
-      const n = room.questions.length;
-      const commencer = el("button", "btn btn-primary", "Commencer →");
-      commencer.type = "button";
-      commencer.style.marginTop = "14px";
-      commencer.addEventListener("click", () => lancerQuiz({
-        zone, titre: room.title, mode: "partie", chrono: room.chrono,
-        selection: melangerListe(room.questions).map(q => ({ ...q, choix: melangerListe(q.choix) })),
-        surFin: async (score, z, temps) => {
-          const info = el("p", "muted", "Enregistrement de ton score...");
-          z.append(info);
-          const { error: err } = await supabase.rpc("submit_room_score", { p_code: code, p_score: score, p_time_ms: Math.round(temps) });
-          if (err) { info.className = "error"; info.textContent = "Score non enregistré : " + err.message; return; }
-          info.remove();
-          afficherClassementPartie(code, z);
-        }
-      }));
-      zone.replaceChildren(el("h3", "", room.title), el("p", "muted", `Organisée par ${room.host_pseudonyme} · ${n} question(s) · ${room.chrono} s par question. Plus tu réponds vite, plus tu gagnes de points (5 à 10 par bonne réponse). Une seule participation par joueur.`), commencer);
+      salleCle = cle;
+      salleTotal = e.phase === "question" ? e.chrono : e.phase === "reveal" ? 8 : e.phase === "countdown" ? 5 : 1;
+      const c = $("salleContenu");
+      if (e.status === "lobby") vueSalleAttente(c, e);
+      else if (e.phase === "countdown") vueSalleDecompte(c);
+      else if (e.phase === "question") vueSalleQuestion(c, e, repondu);
+      else vueSalleClassement(c, e);
+    }
+
+    const texteJoueurs = e => e.players.length ? `👥 ${e.players.length} joueur(s) : ${e.players.map(j => j.pseudonyme).join(", ")}` : "👥 Aucun joueur pour le moment";
+
+    function vueSalleAttente(c, e) {
+      const lien = `${urlSite()}?partie=${salleCode}`;
+      const message = `🎮 Rejoins ma partie MedQuiz « ${e.title} » ! Code : ${salleCode}\n${lien}`;
+      const joueurs = el("p", "", texteJoueurs(e));
+      joueurs.id = "salleJoueurs";
+      c.replaceChildren(
+        el("p", "muted", e.is_host ? "Partage ce code avec tes amis, puis lance la partie quand ils sont là." : `Organisée par ${e.host}. En attente du lancement...`),
+        el("div", "code-partie", salleCode),
+        el("p", "muted", `${e.n} question(s) · ${e.chrono} s par question`),
+        joueurs);
+      if (!e.is_host) return;
+      const wa = el("a", "btn btn-gold", "Inviter sur WhatsApp");
+      wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+      wa.target = "_blank"; wa.rel = "noopener";
+      const copier = el("button", "btn btn-secondary", "Copier l'invitation");
+      copier.type = "button";
+      copier.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+        catch { window.prompt("Copie ce message :", message); }
+      });
+      const lancer = el("button", "btn btn-primary", "▶ Lancer la partie");
+      lancer.type = "button";
+      lancer.addEventListener("click", async () => {
+        lancer.disabled = true;
+        const { error } = await supabase.rpc("start_room", { p_code: salleCode });
+        if (error) { lancer.disabled = false; lancer.textContent = "Erreur : " + error.message; }
+      });
+      const actions = el("div", "actions");
+      actions.style.marginTop = "14px";
+      actions.append(wa, copier, lancer);
+      c.append(actions);
+    }
+
+    function vueSalleDecompte(c) {
+      const t = el("div", "gros-chiffre", "5 s");
+      t.id = "salleTemps";
+      c.replaceChildren(el("p", "muted", "La partie commence dans"), t, el("p", "muted", "Prépare-toi !"));
+      son("demarrer");
+    }
+
+    function vueSalleQuestion(c, e, repondu) {
+      const q = e.question;
+      const temps = el("strong", "chrono-text", e.remaining + " s");
+      temps.id = "salleTemps";
+      const entete = el("div", "salle-entete");
+      entete.append(el("span", "", `Question ${e.idx + 1} / ${e.n}`), temps);
+      const barre = el("i");
+      barre.id = "salleBarre";
+      barre.style.width = "100%";
+      const piste = el("div", "chrono");
+      piste.append(barre);
+      c.replaceChildren(entete, piste, el("h2", "salle-question", q.question));
+      if (e.is_host) {
+        const r = el("p", "notice", `${e.answered_count} / ${e.players.length} joueur(s) ont répondu`);
+        r.id = "salleRepondu";
+        c.append(r);
+        return;
+      }
+      if (repondu) { c.append(el("p", "notice", "✅ Réponse envoyée ! Résultat à la fin du temps...")); return; }
+      if (q.type === "ouverte") {
+        const champ = el("input", "reponse-libre");
+        champ.type = "text"; champ.maxLength = 100; champ.placeholder = "Tape ta réponse"; champ.autocomplete = "off";
+        const valider = el("button", "btn btn-primary", "Valider");
+        valider.type = "button";
+        valider.style.marginTop = "12px";
+        const envoyer = () => { if (champ.value.trim()) envoyerReponse(champ.value, e.idx); };
+        valider.addEventListener("click", envoyer);
+        champ.addEventListener("keydown", ev => { if (ev.key === "Enter") envoyer(); });
+        c.append(champ, valider);
+        champ.focus();
+      } else {
+        q.choix.forEach(choix => {
+          const b = el("button", "quiz-answer", choix);
+          b.type = "button";
+          b.addEventListener("click", () => envoyerReponse(choix, e.idx));
+          c.append(b);
+        });
+      }
+    }
+
+    async function envoyerReponse(reponse, idx) {
+      salleRepondu = idx; salleCle = "";
+      rendreSalle();
+      const { error } = await supabase.rpc("submit_room_answer", { p_code: salleCode, p_q: idx, p_ans: reponse });
+      if (error) {
+        console.error("Erreur réponse :", error.message);
+        salleRepondu = -1; salleCle = "";
+        const msg = el("p", "error", "Réponse non enregistrée : " + error.message);
+        $("salleContenu").append(msg);
+      }
+    }
+
+    function vueSalleClassement(c, e) {
+      const fin = e.phase === "finished";
+      c.replaceChildren();
+      if (!e.is_host && !fin) {
+        const m = e.my || {};
+        const ok = m.answered && m.correct;
+        c.append(el("h3", "", ok ? `✅ Bonne réponse ! +${m.points} pts` : m.answered ? "❌ Mauvaise réponse" : "⏱ Pas de réponse"));
+        son(ok ? "bon" : "mauvais");
+      }
+      if (e.reveal && !fin) c.append(el("p", "notice", `Bonne réponse : ${e.reveal.reponse}`));
+      c.append(el("h3", "", fin ? "🏁 Partie terminée !" : `🏆 Classement après la question ${e.idx + 1}`));
+      const lb = e.leaderboard || [];
+      if (!lb.length) c.append(el("p", "muted", "Aucun joueur pour le moment."));
+      lb.forEach((j, i) => {
+        const ligne = el("div", "rank-item" + (j.pseudonyme === e.me && !e.is_host ? " moi" : ""));
+        const gauche = el("div", "rank-left");
+        gauche.append(el("span", "rank-number", ["🥇", "🥈", "🥉"][i] || String(i + 1)), el("strong", "", j.pseudonyme));
+        ligne.append(gauche, el("span", "rank-points", `${j.score} pts · ${(j.temps / 1000).toFixed(1)} s`));
+        c.append(ligne);
+      });
+      if (fin) {
+        son("victoire");
+        const q = el("button", "btn btn-primary", "Quitter la partie");
+        q.type = "button";
+        q.style.marginTop = "16px";
+        q.addEventListener("click", quitterSalle);
+        c.append(q);
+      } else {
+        const t = el("strong", "chrono-text", e.remaining + " s");
+        t.id = "salleTemps";
+        const p = el("p", "muted", e.idx + 1 >= e.n ? "Résultat final dans " : "Prochaine question dans ");
+        p.style.marginTop = "14px";
+        p.append(t);
+        c.append(p);
+      }
     }
     $("rejoindrePartie").addEventListener("click", () => rejoindrePartie($("codePartie").value));
 
