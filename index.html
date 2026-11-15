@@ -211,7 +211,7 @@
     .badge { text-align: center; padding: 14px 8px; border: 1px solid rgba(242,198,109,.4); border-radius: 14px; background: rgba(242,198,109,.07); font-size: .85rem; }
     .badge span { display: block; font-size: 1.8rem; }
     .badge.locked { opacity: .35; filter: grayscale(1); border-color: var(--line); background: none; }
-    input[type="radio"] { width: auto; min-height: 0; accent-color: var(--teal); flex: none; }
+    input[type="radio"], input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); flex: none; }
     .qbloc { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 14px 0; background: rgba(255,255,255,.03); }
     .qhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
     .qhead div { display: flex; gap: 8px; align-items: center; }
@@ -236,6 +236,12 @@
     .chat-saisie { display: flex; gap: 8px; }
     .chat-emojis { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
     .emoji-btn { background: none; border: 1px solid var(--line); border-radius: 8px; font-size: 1.2rem; padding: 2px 6px; }
+    textarea { width: 100%; padding: 11px 13px; color: var(--white); background: #091b30; border: 1px solid var(--line); border-radius: 10px; outline: none; font: inherit; resize: vertical; }
+    textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(34,211,197,.1); }
+    .import-panel { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 12px 0; background: rgba(255,255,255,.03); }
+    .dropzone { display: block; padding: 26px 16px; text-align: center; border: 2px dashed rgba(34,211,197,.5); border-radius: 14px; cursor: pointer; background: rgba(34,211,197,.05); margin: 12px 0; }
+    .dropzone.survol { background: rgba(34,211,197,.16); }
+    .q-attendue { min-height: 64px; margin-bottom: 8px; }
     footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
     .hidden { display: none !important; }
     @media (max-width: 850px) {
@@ -414,12 +420,30 @@
           <div class="field"><label for="partieChrono">Temps par question</label>
             <select id="partieChrono"><option value="10">10 secondes</option><option value="15">15 secondes</option><option value="20" selected>20 secondes</option><option value="30">30 secondes</option><option value="45">45 secondes</option></select>
           </div>
-          <p class="muted" style="font-size:.88rem">Choisis pour chaque question : choix multiples (coche la bonne réponse) ou question ouverte (le joueur tape sa réponse). Maximum 30 questions.</p>
+          <p class="muted" style="font-size:.88rem">Choisis pour chaque question : choix multiples (coche la bonne réponse) ou question ouverte (le joueur tape sa réponse). Maximum 50 questions.</p>
+          <div class="actions" style="margin-bottom:10px">
+            <button class="btn btn-primary" id="ouvrirImport" type="button">📄 Importer mes questions</button>
+          </div>
+          <div id="importPanel" class="import-panel hidden">
+            <p class="muted" style="font-size:.9rem">Ton document est lu <strong>sur ton appareil</strong> : il n'est envoyé nulle part. Seules les questions que tu valides sont enregistrées, et elles restent privées à ta partie.</p>
+            <label class="dropzone" id="importZone" for="importFichier">
+              <strong>Dépose ton document ici</strong> ou touche pour le choisir<br>
+              <span class="muted" style="font-size:.85rem">Word (.docx), PDF, photos JPG ou PNG · 10 Mo et 15 pages maximum · plusieurs photos possibles</span>
+            </label>
+            <input type="file" id="importFichier" class="hidden" multiple accept=".docx,.pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <div id="importProgres" class="hidden">
+              <p id="importEtat" class="muted"></p>
+              <div class="chrono"><i id="importBarre" style="width:0%"></i></div>
+              <button class="btn btn-secondary btn-small" id="importAnnuler" type="button">Annuler</button>
+            </div>
+            <p id="importMsg" class="muted" style="margin-top:10px" aria-live="polite"></p>
+          </div>
           <div id="blocsQuestions"></div>
           <div class="actions">
             <button class="btn btn-secondary" id="ajouterQuestion" type="button">+ Ajouter une question</button>
             <button class="btn btn-primary" id="creerPartie" type="button">Créer la partie</button>
           </div>
+          <div id="recapPartie" class="import-panel hidden"></div>
           <p id="msgPartie" class="muted" style="margin-top:12px" aria-live="polite"></p>
         </div>
       </div>
@@ -2001,7 +2025,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
 
     function ajouterBlocQuestion() {
       const conteneur = $("blocsQuestions");
-      if (conteneur.children.length >= 30) return;
+      if (conteneur.children.length >= 50) return;
       const id = ++compteurBloc;
       const bloc = el("div", "qbloc");
       const tete = el("div", "qhead");
@@ -2014,22 +2038,27 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       droite.append(type, supprimer);
       tete.append(el("strong", "", "Question"), droite);
       const texte = el("input", "q-texte");
-      texte.type = "text"; texte.maxLength = 200; texte.placeholder = "Ta question";
+      texte.type = "text"; texte.maxLength = 500; texte.placeholder = "Ta question";
       const qcm = el("div", "q-qcm");
       for (let i = 0; i < 4; i++) {
         const ligne = el("div", "opt");
         const radio = el("input"); radio.type = "radio"; radio.name = "bonne-" + id; radio.value = String(i); radio.title = "Bonne réponse";
         if (i === 0) radio.checked = true;
-        const champ = el("input", "q-choix"); champ.type = "text"; champ.maxLength = 100; champ.placeholder = `Réponse ${"ABCD"[i]}` + (i === 0 ? " (coche la bonne)" : "");
+        const champ = el("input", "q-choix"); champ.type = "text"; champ.maxLength = 200; champ.placeholder = `Réponse ${"ABCD"[i]}` + (i === 0 ? " (coche la bonne)" : "");
         ligne.append(radio, champ);
         qcm.append(ligne);
       }
       const ouvert = el("div", "q-ouvert hidden");
+      const attendue = el("textarea", "q-attendue");
+      attendue.maxLength = 1000; attendue.rows = 2; attendue.placeholder = "Réponse attendue (obligatoire)";
       const reps = el("input", "q-reponses");
-      reps.type = "text"; reps.maxLength = 200; reps.placeholder = "Réponse(s) acceptée(s), séparées par ;  (ex : Dakar; la ville de Dakar)";
-      const aide = el("p", "muted", "Le joueur tape sa réponse. Les accents, majuscules et petites fautes de frappe sont tolérés.");
+      reps.type = "text"; reps.maxLength = 300; reps.placeholder = "Autres réponses acceptées (facultatif), séparées par ;";
+      const verifLigne = el("div", "opt");
+      const verif = el("input", "q-verif"); verif.type = "checkbox";
+      verifLigne.append(verif, el("span", "", "Je vérifie moi-même si la réponse du joueur est différente de la réponse attendue"));
+      const aide = el("p", "muted", "Sans cette case, une réponse différente est comptée fausse. Les accents, majuscules et petites fautes de frappe restent tolérés.");
       aide.style.fontSize = ".85rem";
-      ouvert.append(reps, aide);
+      ouvert.append(attendue, reps, verifLigne, aide);
       type.addEventListener("change", () => {
         qcm.classList.toggle("hidden", type.value === "ouverte");
         ouvert.classList.toggle("hidden", type.value !== "ouverte");
@@ -2049,32 +2078,349 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       for (const [i, bloc] of [...$("blocsQuestions").children].entries()) {
         const texte = bloc.querySelector(".q-texte").value.trim();
         if (!texte) throw new Error(`Question ${i + 1} : écris la question.`);
+        if (texte.length > 500) throw new Error(`Question ${i + 1} : énoncé trop long (500 caractères maximum).`);
         if (bloc.querySelector(".q-type").value === "ouverte") {
-          const reponses = bloc.querySelector(".q-reponses").value.split(";").map(r => r.trim()).filter(Boolean).slice(0, 10);
-          if (!reponses.length) throw new Error(`Question ${i + 1} : indique au moins une réponse acceptée.`);
-          questions.push({ type: "ouverte", question: texte, reponses, reponse: reponses[0], choix: [], explication: "" });
+          const attendue = bloc.querySelector(".q-attendue").value.trim();
+          const variantes = bloc.querySelector(".q-reponses").value.split(";").map(r => r.trim()).filter(Boolean).slice(0, 10);
+          const reponse = attendue || variantes[0] || "";
+          if (!reponse) throw new Error(`Question ${i + 1} : indique la réponse attendue.`);
+          const q = { type: "ouverte", question: texte, reponse, reponses: variantes, choix: [] };
+          if (bloc.querySelector(".q-verif").checked) q.verif = "organisateur";
+          questions.push(q);
           continue;
         }
         const choix = [...bloc.querySelectorAll(".q-choix")].map(c => c.value.trim());
-        const idx = Number(bloc.querySelector('input[type="radio"]:checked')?.value ?? 0);
+        const coche = bloc.querySelector('input[type="radio"]:checked');
+        if (!coche && bloc.dataset.import) throw new Error(`Question ${i + 1} : choisis toi-même la bonne réponse (case à gauche de la proposition).`);
+        const idx = Number(coche?.value ?? 0);
         if (choix.some(c => !c)) throw new Error(`Question ${i + 1} : remplis les 4 réponses.`);
         if (new Set(choix.map(c => c.toLowerCase())).size < 4) throw new Error(`Question ${i + 1} : les 4 réponses doivent être différentes.`);
-        questions.push({ type: "qcm", question: texte, choix, reponse: choix[idx], explication: "" });
+        questions.push({ type: "qcm", question: texte, choix, reponse: choix[idx] });
       }
       if (!questions.length) throw new Error("Ajoute au moins une question.");
       return questions;
     }
 
-    $("creerPartie").addEventListener("click", async () => {
+    // ---------- Importer mes questions : lecture dans le navigateur (gratuit, sans IA, rien n'est envoyé) ----------
+    const IMPORT_MAX = 50;
+const nettoyerOption = t => t.replace(/\s*(?:\*+|✓|✔|✅|☑|\((?:bonne r[ée]ponse|correcte?|vrai|juste|x)\))\s*$/i, "").trim();
+
+function analyserQuestions(texte) {
+  const res = { questions: [], detectees: 0, tronque: false, ignorees: 0 };
+  const lignes = String(texte || "").replace(/\r/g, "\n").replace(/[\u00a0\u2007\u202f]/g, " ").replace(/[\u200b\ufeff]/g, "")
+    .split("\n").map(l => l.replace(/[\t ]+/g, " ").trim().replace(/^[^\p{L}\p{N}(]+/u, "").replace(/[‘’“”|~_]+$/u, "").trim());
+  const RE_Q = /^(?:(?:question|quest\.?|q)\s*)?(\d{1,3})\s*(?:[.):\-–—]|\s-\s)\s*(\S.*)$/i;
+  const RE_QSEUL = /^(?:question|quest\.?|q)\s*(\d{1,3})\s*[.):\-–—]?\s*$/i;
+  const RE_OPT = /^\(?([A-Da-d])\s*[.):\-–—,;]\s*(\S.*)$/;
+  const RE_EXTRA = /^\(?[E-He-h]\s*[.):\-–—]\s*\S/;
+  const RE_REP = /^(?:r[ée]ponses?|bonnes?\s+r[ée]ponses?|corrig[ée]s?|correction|solutions?|justifications?|explications?|commentaires?|remarques?|r[ée]p|answers?)\s*(?:[:：\-–—]|$)/i;
+  const RE_FIN = /^(?:corrig[ée]s?|correction|solutions?|bar[èe]me|cl[ée]s? de correction)(?:\s+(?:du|des|de la|de l')?\s*\w+){0,3}\s*:?$/i;
+  const RE_CLE = /^(?:(?:question\s*)?\d{1,3}\s*[-:.)=]?\s*[A-Da-d](?:\s*[,/]\s*[A-Da-d])*\s*[;,.]?\s*)+$/i;
+  const RE_CLE_COURTE = /^[A-Da-d](?:\s*[,/]\s*[A-Da-d])*\.?$/;
+  const RE_PAGE = /^(?:page\s*)?\d{1,3}(?:\s*\/\s*\d{1,3})?$|^[-–—]\s*\d{1,3}\s*[-–—]$/i;
+  const nbOpts = c => ["A", "B", "C", "D"].filter(k => c.opts[k] !== undefined).length;
+  const dedup = new Set();
+
+  const ajouter = c => {
+    let q = c.stem.replace(/^[•·▪\-–—*\s]+/, "").replace(/\s+/g, " ").trim();
+    if (q.length < 3) return;
+    const cle = q.toLowerCase().replace(/[^a-z0-9à-ÿ]/g, "");
+    if (dedup.has(cle)) { res.ignorees++; return; }
+    dedup.add(cle);
+    const n = nbOpts(c), avert = [];
+    if (c.extra) avert.push("Plus de 4 propositions : seules A à D ont été gardées.");
+    if (n >= 2) {
+      if (n < 4) avert.push(`Il manque ${4 - n} proposition(s) : complète-les.`);
+      res.questions.push({ type: "qcm", question: q, choix: ["A", "B", "C", "D"].map(k => c.opts[k] || ""), avert });
+    } else {
+      if (n === 1) q += " " + c.opts.A;
+      res.questions.push({ type: "ouverte", question: q, choix: [], avert });
+    }
+  };
+
+  // Propositions A, B, C, D (éventuellement plusieurs sur la même ligne). Renvoie true si la ligne a été utilisée.
+  const lireOption = (c, ligne) => {
+    const m0 = RE_OPT.exec(ligne);
+    if (!m0 || m0[1].toUpperCase() !== "ABCD"[nbOpts(c)]) return false;
+    let reste = ligne;
+    for (;;) {
+      const mm = RE_OPT.exec(reste), k = nbOpts(c);
+      if (!mm || k > 3 || mm[1].toUpperCase() !== "ABCD"[k]) break;
+      const texte = mm[2], suivante = "ABCD"[k + 1];
+      let coupe = -1;
+      if (suivante) { const f = new RegExp("\\s\\(?" + suivante + "\\s*[.):\\-–—,;]\\s*\\S", "i").exec(texte); if (f) coupe = f.index; }
+      c.opts["ABCD"[k]] = nettoyerOption(coupe > 0 ? texte.slice(0, coupe) : texte);
+      c.last = "ABCD"[k];
+      if (coupe > 0) reste = texte.slice(coupe + 1).trim(); else break;
+    }
+    return true;
+  };
+  const suite = (c, ligne, apresVide) => {
+    if (lireOption(c, ligne)) return;
+    if (nbOpts(c) === 4 && RE_EXTRA.test(ligne)) { c.extra = true; c.last = "extra"; return; }
+    if (c.last === "extra") return;
+    if (c.last !== "stem" && apresVide) return;               // titre de section après une question : on l'ignore
+    if (c.last === "stem") c.stem += " " + ligne;
+    else if (/^[a-zà-ÿ0-9(,;]/.test(ligne)) c.opts[c.last] += " " + ligne;   // un titre en majuscule n'est pas collé à la proposition
+  };
+  const stemAvecOptions = c => {                               // "1. Question ? A) x B) y C) z D) w" sur une seule ligne
+    const f = /\s\(?A\s*[.):\-–—]\s*\S/.exec(c.stem);
+    if (f) { const reste = c.stem.slice(f.index + 1).trim(); c.stem = c.stem.slice(0, f.index); lireOption(c, reste); }
+  };
+
+  let cur = null, last = 0, fin = false, ignorer = false, vide = false;
+  for (const ligne of lignes) {
+    if (!ligne) { vide = true; continue; }
+    const apresVide = vide; vide = false;
+    if (fin) break;
+    if (RE_FIN.test(ligne) && (cur || res.questions.length)) { if (cur) { ajouter(cur); cur = null; } fin = true; continue; }
+    if (RE_CLE.test(ligne) || RE_PAGE.test(ligne)) continue;
+    const mq = RE_Q.exec(ligne), ms = RE_QSEUL.exec(ligne);
+    if (mq || ms) {
+      const n = parseInt((mq || ms)[1], 10), reste = mq ? mq[2] : "";
+      const sequence = last === 0 || n === last + 1 || (n > last && n <= last + 3) ||
+        (n === 1 && cur && (nbOpts(cur) >= 2 || /\?\s*$/.test(cur.stem)));
+      if (RE_CLE_COURTE.test(reste)) continue;                 // ligne de corrigé du type « 3. B »
+      if (cur && nbOpts(cur) < 2 && ((cur.sousListe && n === cur.sub + 1) || (n === 1 && /[:;]\s*$/.test(cur.stem)))) {
+        cur.sousListe = true; cur.sub = n; cur.stem += " " + ligne; continue;   // élément de liste dans l'énoncé
+      }
+      if (sequence) {
+        if (cur) ajouter(cur);
+        cur = { n, stem: reste, opts: {}, last: "stem", extra: false };
+        last = n; ignorer = false; stemAvecOptions(cur);
+        continue;
+      }
+    }
+    if (RE_REP.test(ligne)) { ignorer = true; continue; }       // « Réponse : B », « Explication : … » : jamais récupérés
+    if (ignorer || !cur) continue;
+    suite(cur, ligne, apresVide);
+  }
+  if (cur) ajouter(cur);
+
+  if (!res.questions.length) {                                  // document sans numérotation : blocs séparés par des lignes vides
+    const blocs = []; let b = [];
+    for (const l of lignes) { if (!l) { if (b.length) blocs.push(b); b = []; } else b.push(l); }
+    if (b.length) blocs.push(b);
+    for (const bloc of blocs) {
+      if (RE_REP.test(bloc[0]) || RE_FIN.test(bloc[0])) continue;
+      const c = { n: 0, stem: "", opts: {}, last: "stem", extra: false };
+      for (const l of bloc) {
+        if (RE_REP.test(l)) break;
+        if (!c.stem) { c.stem = l; stemAvecOptions(c); } else suite(c, l, false);
+      }
+      if (c.stem.length >= 8 && (nbOpts(c) >= 2 || /\?\s*$/.test(c.stem))) ajouter(c);
+    }
+  }
+  res.detectees = res.questions.length;
+  if (res.questions.length > IMPORT_MAX) { res.questions.length = IMPORT_MAX; res.tronque = true; }
+  return res;
+}
+
+// Reconstruit les lignes d'une page PDF à partir des morceaux de texte fournis par PDF.js
+function lignesDePage(items) {
+  const m = items.filter(i => typeof i.str === "string" && i.str !== "").map(i => ({ s: i.str, x: i.transform[4], y: i.transform[5], w: i.width || 0 }));
+  m.sort((a, b) => (Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x));
+  const lignes = []; let cur = null;
+  for (const it of m) {
+    if (!cur || Math.abs(cur.y - it.y) > 3) { cur = { y: it.y, parts: [] }; lignes.push(cur); }
+    cur.parts.push(it);
+  }
+  return lignes.map(l => {
+    l.parts.sort((a, b) => a.x - b.x);
+    let t = "", fin = null;
+    for (const p of l.parts) { if (fin !== null && p.x - fin > 1.5 && !/^\s/.test(p.s) && !/\s$/.test(t)) t += " "; t += p.s; fin = p.x + p.w; }
+    return t.trim();
+  }).filter(Boolean);
+}
+
+    class ErreurImport extends Error {}
+    const IMPORT_TAILLE_MAX = 10 * 1024 * 1024, IMPORT_PAGES_MAX = 15;
+    let importActif = false, importAnnule = false, importWorker = null;
+    const BIBLIOS = {
+      mammoth: { url: "https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js", pret: () => window.mammoth },
+      pdfjs: { url: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", pret: () => window.pdfjsLib },
+      tesseract: { url: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", pret: () => window.Tesseract }
+    };
+    const chargerBiblio = nom => new Promise((resoudre, refuser) => {
+      if (BIBLIOS[nom].pret()) { resoudre(); return; }
+      const sc = document.createElement("script");
+      sc.src = BIBLIOS[nom].url;
+      sc.onload = () => resoudre();
+      sc.onerror = () => refuser(new ErreurImport("Impossible de charger l'outil de lecture. Vérifie ta connexion Internet et réessaie."));
+      document.head.append(sc);
+    });
+    const progresImport = (pct, texte) => {
+      $("importBarre").style.width = Math.max(0, Math.min(100, pct)) + "%";
+      if (texte) $("importEtat").textContent = texte;
+    };
+    const verifierAnnulation = () => { if (importAnnule) throw new ErreurImport("__annule__"); };
+
+    async function typeReel(f) {                       // on lit les premiers octets : un fichier renommé est refusé
+      const h = [...new Uint8Array(await f.slice(0, 8).arrayBuffer())].map(x => x.toString(16).padStart(2, "0")).join("");
+      const ext = f.name.split(".").pop().toLowerCase();
+      if (h.startsWith("504b0304") && ext === "docx") return "docx";
+      if (h.startsWith("25504446") && ext === "pdf") return "pdf";
+      if ((h.startsWith("89504e47") && ext === "png") || (h.startsWith("ffd8ff") && ["jpg", "jpeg"].includes(ext))) return "image";
+      return null;
+    }
+    async function preparerImage(blob) {                // gris + contraste, taille adaptée : aide la lecture du texte
+      let bmp;
+      try { bmp = await createImageBitmap(blob, { imageOrientation: "from-image" }); } catch { bmp = await createImageBitmap(blob); }
+      const largeur = Math.min(2400, Math.max(1500, bmp.width)), k = largeur / bmp.width;
+      const c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext("2d");
+      g.filter = "grayscale(1) contrast(1.3)";
+      g.drawImage(bmp, 0, 0, c.width, c.height);
+      if (bmp.close) bmp.close();
+      return c;
+    }
+    async function ocrCanvas(canvas, surProgres) {
+      await chargerBiblio("tesseract");
+      if (!importWorker) {
+        surProgres(0, "Préparation de la lecture (la 1re fois, la langue française se télécharge)...");
+        importWorker = await window.Tesseract.createWorker("fra", 1, {
+          logger: m => { if (m.status === "recognizing text") surProgres(m.progress); }
+        });
+      }
+      verifierAnnulation();
+      const { data } = await importWorker.recognize(canvas);
+      return data.text;
+    }
+    async function lireWord(f) {
+      await chargerBiblio("mammoth");
+      progresImport(40, "Lecture du document Word...");
+      const r = await window.mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+      return r.value;
+    }
+    async function lirePdf(f) {
+      await chargerBiblio("pdfjs");
+      const lib = window.pdfjsLib;
+      lib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const pdf = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      if (pdf.numPages > IMPORT_PAGES_MAX) throw new ErreurImport(`Ce PDF a ${pdf.numPages} pages ; le maximum est ${IMPORT_PAGES_MAX}. Découpe-le en plusieurs fichiers.`);
+      const pages = [], sansTexte = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        verifierAnnulation();
+        progresImport(p / pdf.numPages * 40, `Lecture de la page ${p} / ${pdf.numPages}...`);
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        pages[p - 1] = lignesDePage(tc.items).join("\n");
+        if (pages[p - 1].replace(/\s/g, "").length < 25) sansTexte.push(p);
+      }
+      for (const [i, p] of sansTexte.entries()) {          // pages scannées (sans texte) : lecture par OCR
+        verifierAnnulation();
+        const page = await pdf.getPage(p), vp = page.getViewport({ scale: 2 });
+        const c = document.createElement("canvas");
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        pages[p - 1] = await ocrCanvas(c, (pct, txt) => progresImport(40 + (i + (pct || 0)) / sansTexte.length * 60, txt || `Lecture de la page scannée ${p} (${i + 1}/${sansTexte.length})...`));
+      }
+      return pages.join("\n");
+    }
+    async function lireImages(liste) {
+      let texte = "";
+      for (const [i, f] of liste.entries()) {
+        verifierAnnulation();
+        const c = await preparerImage(f);
+        texte += await ocrCanvas(c, (pct, txt) => progresImport((i + (pct || 0)) / liste.length * 100, txt || `Lecture de la photo ${i + 1} / ${liste.length}...`)) + "\n";
+      }
+      return texte;
+    }
+
+    function blocVide(b) {
+      return !b.querySelector(".q-texte").value.trim() && ![...b.querySelectorAll(".q-choix")].some(c => c.value.trim()) && !b.querySelector(".q-attendue").value.trim();
+    }
+    function remplirBloc(bloc, q) {
+      bloc.dataset.import = "1";
+      bloc.querySelector(".q-texte").value = q.question;
+      const type = bloc.querySelector(".q-type");
+      type.value = q.type;
+      type.dispatchEvent(new Event("change"));
+      const notes = [...q.avert];
+      if (q.type === "qcm") {
+        bloc.querySelectorAll(".q-choix").forEach((c, i) => { c.value = q.choix[i] || ""; });
+        bloc.querySelectorAll('input[type="radio"]').forEach(r => { r.checked = false; });   // la bonne réponse n'est JAMAIS reprise du document
+        notes.push("Choisis toi-même la bonne réponse.");
+      } else {
+        bloc.querySelector(".q-verif").checked = true;
+        notes.push("Écris la réponse attendue.");
+      }
+      const note = el("p", "error", "⚠️ " + notes.join(" "));
+      note.style.fontSize = ".85rem";
+      bloc.querySelector(".q-texte").after(note);
+    }
+    function injecterQuestions(analyse) {
+      const conteneur = $("blocsQuestions");
+      [...conteneur.children].forEach(b => { if (blocVide(b)) b.remove(); });
+      let n = 0;
+      for (const q of analyse.questions) {
+        if (conteneur.children.length >= IMPORT_MAX) break;
+        ajouterBlocQuestion();
+        remplirBloc(conteneur.lastElementChild, q);
+        n++;
+      }
+      numeroterBlocs();
+      importActif = true;
+      return n;
+    }
+
+    async function importerFichiers(fichiers) {
+      const liste = [...fichiers], msg = $("importMsg");
+      if (!liste.length) return;
+      msg.className = "muted"; msg.textContent = "";
+      importAnnule = false;
+      $("importProgres").classList.remove("hidden");
+      progresImport(2, "Vérification du fichier...");
+      try {
+        if (liste.length > IMPORT_PAGES_MAX) throw new ErreurImport(`Maximum ${IMPORT_PAGES_MAX} photos à la fois.`);
+        const types = [];
+        for (const f of liste) {
+          if (f.size > IMPORT_TAILLE_MAX) throw new ErreurImport(`« ${f.name} » dépasse 10 Mo.`);
+          const t = await typeReel(f);
+          if (!t) throw new ErreurImport(`« ${f.name} » n'est pas un fichier accepté (Word .docx, PDF, JPG ou PNG).`);
+          types.push(t);
+        }
+        if (liste.length > 1 && types.some(t => t !== "image")) throw new ErreurImport("Pour importer plusieurs fichiers, choisis uniquement des photos (JPG ou PNG).");
+        const texte = types[0] === "docx" ? await lireWord(liste[0]) : types[0] === "pdf" ? await lirePdf(liste[0]) : await lireImages(liste);
+        progresImport(100, "Analyse du texte...");
+        const analyse = analyserQuestions(texte);
+        if (!analyse.questions.length) throw new ErreurImport("Aucune question n'a été reconnue. Vérifie que chaque question est numérotée (1. 2. 3. …) et que les propositions commencent par A. B. C. D. Pour une photo, prends-la bien à plat, bien éclairée et nette.");
+        const n = injecterQuestions(analyse);
+        const nQcm = analyse.questions.filter(q => q.type === "qcm").length;
+        const incomplets = analyse.questions.filter(q => q.avert.length).length;
+        let resume = `✅ ${n} question(s) importée(s) (${nQcm} QCM, ${analyse.questions.length - nQcm} ouvertes). Vérifie chaque question et choisis toi-même les bonnes réponses.`;
+        if (analyse.tronque) resume += ` ${analyse.detectees} questions détectées : seules les ${IMPORT_MAX} premières sont gardées.`;
+        if (incomplets) resume += ` ${incomplets} question(s) à compléter (⚠️).`;
+        msg.textContent = resume;
+        $("blocsQuestions").scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        if (e.message === "__annule__") msg.textContent = "Import annulé.";
+        else {
+          console.error("Import :", e);
+          msg.className = "error";
+          msg.textContent = e instanceof ErreurImport ? e.message : "Ce document n'a pas pu être lu. Essaie un autre fichier ou une photo plus nette.";
+        }
+      } finally {
+        if (importWorker) { try { await importWorker.terminate(); } catch { /* déjà arrêté */ } importWorker = null; }
+        $("importProgres").classList.add("hidden");
+        $("importFichier").value = "";
+      }
+    }
+    $("ouvrirImport").addEventListener("click", () => $("importPanel").classList.toggle("hidden"));
+    $("importFichier").addEventListener("change", e => importerFichiers(e.target.files));
+    $("importAnnuler").addEventListener("click", () => { importAnnule = true; if (importWorker) importWorker.terminate().catch(() => {}); });
+    ["dragenter", "dragover"].forEach(ev => $("importZone").addEventListener(ev, e => { e.preventDefault(); $("importZone").classList.add("survol"); }));
+    ["dragleave", "drop"].forEach(ev => $("importZone").addEventListener(ev, e => { e.preventDefault(); $("importZone").classList.remove("survol"); }));
+    $("importZone").addEventListener("drop", e => importerFichiers(e.dataTransfer.files));
+
+    // ---------- Création de la partie (avec récapitulatif quand des questions ont été importées) ----------
+    async function envoyerCreation(titre, questions) {
       const msg = $("msgPartie");
       msg.className = "muted";
-      if (!utilisateurActuel) { msg.textContent = "Connecte-toi d'abord."; return; }
-      let questions;
-      try { questions = lireQuestionsFormulaire(); }
-      catch (e) { msg.textContent = e.message; msg.className = "error"; return; }
       msg.textContent = "Création de la partie...";
-      const titre = $("partieTitre").value.trim() || `Partie de ${pseudoActuel}`;
-      const { data, error } = await supabase.rpc("create_room", { p_title: titre, p_chrono: Number($("partieChrono").value), p_questions: questions });
+      const args = { p_title: titre, p_chrono: Number($("partieChrono").value), p_questions: questions };
+      if (importActif) args.p_source = "import";
+      const { data, error } = await supabase.rpc("create_room", args);
       if (error) {
         console.error("Erreur création partie :", error.message);
         msg.textContent = "Impossible de créer la partie : " + error.message;
@@ -2082,7 +2428,49 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         return;
       }
       msg.textContent = "";
+      $("recapPartie").classList.add("hidden");
+      importActif = false;
       ouvrirSalle(data);
+    }
+    function afficherRecap(titre, questions) {
+      const r = $("recapPartie"), chrono = Number($("partieChrono").value);
+      const nQcm = questions.filter(q => q.type === "qcm").length, nOuv = questions.length - nQcm;
+      const nVerif = questions.filter(q => q.verif === "organisateur").length;
+      const champ = el("input");
+      champ.type = "number"; champ.min = 1; champ.max = questions.length; champ.value = questions.length; champ.id = "recapNombre";
+      const duree = el("p", "muted");
+      const maj = () => { const n = Math.min(Math.max(parseInt(champ.value, 10) || 1, 1), questions.length); duree.textContent = `Durée estimée : ${Math.ceil(n * (chrono + 8) / 60)} min environ.` + (n < questions.length ? ` ${n} questions seront tirées au hasard parmi tes ${questions.length}.` : ""); };
+      champ.addEventListener("input", maj); maj();
+      const confirmer = el("button", "btn btn-primary", "✅ Créer la partie");
+      confirmer.type = "button";
+      confirmer.addEventListener("click", () => {
+        const n = Math.min(Math.max(parseInt(champ.value, 10) || questions.length, 1), questions.length);
+        envoyerCreation(titre, n < questions.length ? melangerListe(questions).slice(0, n) : questions);
+      });
+      const modifier = el("button", "btn btn-secondary", "Modifier mes questions");
+      modifier.type = "button";
+      modifier.addEventListener("click", () => r.classList.add("hidden"));
+      const actions = el("div", "actions");
+      actions.append(modifier, confirmer);
+      r.replaceChildren(
+        el("h3", "", "📋 Récapitulatif avant le lancement"),
+        el("p", "", `« ${titre} » : ${questions.length} question(s) — ${nQcm} QCM, ${nOuv} question(s) ouverte(s)` + (nVerif ? ` (dont ${nVerif} que tu vérifieras toi-même)` : "") + `, ${chrono} s par question.`),
+        el("label", "", "Nombre de questions à jouer"), champ, duree,
+        el("p", "muted", "🔒 Ces questions restent privées à cette partie : elles ne sont jamais ajoutées à la banque de questions de MedQuiz."),
+        actions);
+      r.classList.remove("hidden");
+      r.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    $("creerPartie").addEventListener("click", async () => {
+      const msg = $("msgPartie");
+      msg.className = "muted";
+      if (!utilisateurActuel) { msg.textContent = "Connecte-toi d'abord."; return; }
+      let questions;
+      try { questions = lireQuestionsFormulaire(); }
+      catch (e) { msg.textContent = e.message; msg.className = "error"; return; }
+      msg.textContent = "";
+      const titre = $("partieTitre").value.trim() || `Partie de ${pseudoActuel}`;
+      if (importActif) afficherRecap(titre, questions); else await envoyerCreation(titre, questions);
     });
 
     function afficherPartieCreee(code, titre) {
@@ -2145,10 +2533,10 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     }
 
     // ---------- Salle de jeu en direct ----------
-    let salleCode = null, salleJeton = 0, salleCle = "", salleEtat = null, salleFin = 0, salleTotal = 1, salleRepondu = -1, sallePoll = null, salleTick = null;
+    let salleSig = "", salleRevueN = -1, salleCode = null, salleJeton = 0, salleCle = "", salleEtat = null, salleFin = 0, salleTotal = 1, salleRepondu = -1, sallePoll = null, salleTick = null;
 
     function ouvrirSalle(code) {
-      salleCode = code; salleJeton++; salleCle = ""; salleEtat = null; salleRepondu = -1;
+      salleCode = code; salleJeton++; salleCle = ""; salleEtat = null; salleRepondu = -1; salleSig = ""; salleRevueN = -1;
       document.body.classList.add("mode-jeu");
       afficherPage("salle");
       $("salleTitre").textContent = "Partie";
@@ -2200,12 +2588,14 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       $("salleTitre").textContent = e.title;
       const repondu = !!(e.my && e.my.answered) || salleRepondu === e.idx;
       const cle = [e.status, e.phase, e.idx, repondu, e.is_host].join("|");
+      const sig = JSON.stringify([e.my && e.my.verdict, e.leaderboard, e.to_review]);
       if (cle === salleCle) {
         if ($("salleJoueurs")) $("salleJoueurs").textContent = texteJoueurs(e);
         if ($("salleRepondu")) $("salleRepondu").textContent = `${e.answered_count} / ${e.players.length} joueur(s) ont répondu`;
+        if (sig !== salleSig) { salleSig = sig; majResultatSalle(e); }   // décision de l'organisateur : on met à jour sans recréer l'écran (le chat reste intact)
         return;
       }
-      salleCle = cle;
+      salleCle = cle; salleSig = sig;
       salleTotal = e.phase === "question" ? e.chrono : e.phase === "reveal" ? 8 : e.phase === "countdown" ? 5 : 1;
       const c = $("salleContenu");
       if (e.phase === "closed") vueSalleFermee(c);
@@ -2366,26 +2756,88 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       c.replaceChildren(el("h3", "", "🔒 Salle fermée"), el("p", "muted", "La discussion a été supprimée. Merci d'avoir joué !"), q);
     }
 
-    function vueSalleClassement(c, e) {
-      const fin = e.phase === "finished";
-      c.replaceChildren();
-      if (!e.is_host && !fin) {
-        const m = e.my || {};
-        const ok = m.answered && m.correct;
-        c.append(el("h3", "", ok ? `✅ Bonne réponse ! +${m.points} pts` : m.answered ? "❌ Mauvaise réponse" : "⏱ Pas de réponse"));
-        son(ok ? "bon" : "mauvais");
-      }
-      if (e.reveal && !fin) c.append(el("p", "notice", `Bonne réponse : ${e.reveal.reponse}`));
-      c.append(el("h3", "", fin ? "🏁 Partie terminée !" : `🏆 Classement après la question ${e.idx + 1}`));
+    function texteResultat(e) {
+      const m = e.my || {};
+      if (m.verdict === "a_verifier") return "⏳ À vérifier par l'organisateur : tes points seront ajoutés après sa décision";
+      if (m.verdict === "partiel") return `🟡 Réponse partielle ! +${m.points} pts`;
+      if (m.answered && m.correct) return `✅ Bonne réponse ! +${m.points} pts`;
+      return m.answered ? "❌ Mauvaise réponse" : "⏱ Pas de réponse";
+    }
+    function dessinerClassement(zone, e) {
+      zone.replaceChildren();
       const lb = e.leaderboard || [];
-      if (!lb.length) c.append(el("p", "muted", "Aucun joueur pour le moment."));
+      if (!lb.length) zone.append(el("p", "muted", "Aucun joueur pour le moment."));
       lb.forEach((j, i) => {
         const ligne = el("div", "rank-item" + (j.pseudonyme === e.me && !e.is_host ? " moi" : ""));
         const gauche = el("div", "rank-left");
         gauche.append(el("span", "rank-number", ["🥇", "🥈", "🥉"][i] || String(i + 1)), el("strong", "", j.pseudonyme));
         ligne.append(gauche, el("span", "rank-points", `${j.score} pts · ${(j.temps / 1000).toFixed(1)} s`));
-        c.append(ligne);
+        zone.append(ligne);
       });
+    }
+    function majResultatSalle(e) {
+      const r = $("salleResultat"), z = $("salleClassement");
+      if (r) r.textContent = texteResultat(e);
+      if (z) dessinerClassement(z, e);
+      if (e.is_host && $("salleRevue") && e.to_review !== salleRevueN) chargerRevue();
+    }
+    // Réponses « à vérifier » : l'organisateur décide (correct, partiel à 50 %, incorrect)
+    async function chargerRevue() {
+      const zone = $("salleRevue");
+      if (!zone) return;
+      const { data, error } = await supabase.rpc("get_review_queue", { p_code: salleCode });
+      if (error || !data || !$("salleRevue")) return;
+      salleRevueN = data.length;
+      zone.replaceChildren();
+      if (!data.length) return;
+      zone.append(el("h3", "", `🔎 ${data.length} réponse(s) à vérifier`),
+        el("p", "muted", "Compare avec la réponse attendue, puis décide. Le comptage de mots n'est qu'une aide : ce n'est pas une correction."));
+      data.forEach(rv => {
+        const carte = el("div", "qbloc");
+        const actions = el("div", "actions");
+        const info = el("p", "error");
+        [["✅ Correct", "correct"], ["🟡 Partiel (50 %)", "partiel"], ["❌ Incorrect", "incorrect"]].forEach(([texte, verdict]) => {
+          const b = el("button", "btn btn-secondary btn-small", texte);
+          b.type = "button";
+          b.addEventListener("click", async () => {
+            actions.querySelectorAll("button").forEach(x => { x.disabled = true; });
+            const { error: err } = await supabase.rpc("resolve_review", { p_code: salleCode, p_answer_id: rv.answer_id, p_verdict: verdict });
+            if (err) { info.textContent = err.message; actions.querySelectorAll("button").forEach(x => { x.disabled = false; }); return; }
+            chargerRevue();
+          });
+          actions.append(b);
+        });
+        carte.append(el("strong", "", `Question ${rv.q_index + 1} — ${rv.pseudonyme}`), el("p", "", rv.question),
+          el("p", "notice", `Réponse attendue : ${rv.expected}`), el("p", "", `Réponse du joueur : ${rv.answer_text}`),
+          el("p", "muted", `Mots importants retrouvés : ${rv.mots_cles}`), actions, info);
+        zone.append(carte);
+      });
+    }
+
+    function vueSalleClassement(c, e) {
+      const fin = e.phase === "finished";
+      c.replaceChildren();
+      if (!e.is_host && !fin) {
+        const h = el("h3", "", texteResultat(e));
+        h.id = "salleResultat";
+        c.append(h);
+        const v = e.my && e.my.verdict;
+        if (v === "a_verifier") { /* pas de son : le résultat n'est pas encore connu */ }
+        else son(e.my && (e.my.correct || v === "partiel") ? "bon" : "mauvais");
+      }
+      if (e.reveal && !fin) c.append(el("p", "notice", `Bonne réponse : ${e.reveal.reponse}`));
+      c.append(el("h3", "", fin ? "🏁 Partie terminée !" : `🏆 Classement après la question ${e.idx + 1}`));
+      const zoneClassement = el("div");
+      zoneClassement.id = "salleClassement";
+      dessinerClassement(zoneClassement, e);
+      c.append(zoneClassement);
+      if (e.is_host) {
+        const revue = el("div");
+        revue.id = "salleRevue";
+        revue.style.marginTop = "16px";
+        c.append(revue);
+        chargerRevue();
+      }
       if (fin) {
         son("victoire");
         const q = el("button", "btn btn-primary", "Quitter la partie");
