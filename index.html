@@ -1677,6 +1677,405 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           const [n, q, bonne, ...faux] = ligne.split("|");
           ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Cardiologie");
         });
+      const gynecologie = {
+        "Anatomie et physiologie de l'appareil génital féminin": `
+f|Où se situent les organes génitaux internes féminins ?|Dans le petit bassin, entre la vessie et le rectum|Dans l'abdomen, au-dessus de l'ombilic|Dans le périnée antérieur|Dans la région lombaire
+f|Quels organes forment les organes génitaux internes ?|Ovaires, trompes utérines, utérus et vagin|Vulve, clitoris et petites lèvres|Uniquement l'utérus et la vessie|Ovaires, rectum et vessie
+f|Les organes génitaux externes forment :|La vulve, au niveau du périnée antérieur|Le vagin|Les trompes|Le ligament large
+f|Comment appelle-t-on le cul-de-sac péritonéal situé en arrière de l'utérus ?|Le cul-de-sac recto-utérin (Douglas)|Le cul-de-sac vésico-utérin|Le cul-de-sac de Retzius|Le fornix antérieur
+f|Quel péritoine forme les ligaments larges ?|Le péritoine pelvien|Le péritoine pariétal antérieur|Le mésentère|Le grand épiploon
+m|Le cul-de-sac recto-utérin est :|Le point le plus déclive de la cavité péritonéale|Le point le plus haut de la cavité péritonéale|Situé en avant de l'utérus|Situé entre la vessie et le pubis
+m|Le « cri du Douglas » au toucher vaginal évoque :|Un hémopéritoine, par exemple une grossesse extra-utérine rompue|Un fibrome|Une grossesse normale|Un kyste de l'ovaire simple
+m|Quel diamètre du détroit supérieur mesure 10,5 cm ?|Le promonto-rétro-pubien (conjugué vrai)|Le transverse médian|Les obliques|Le bi-ischiatique
+m|Le diamètre transverse médian du détroit supérieur mesure :|12,5 cm|10,5 cm|11 cm|9 cm
+m|Le diamètre bi-épineux (bi-sciatique) du détroit moyen mesure :|10,5 cm|12,5 cm|11 cm|9,5 cm
+m|Le diamètre sous-sacro-sous-pubien du détroit inférieur mesure :|11 cm|10,5 cm|12,5 cm|9 cm
+m|L'indice de Magnin est égal à :|Promonto-rétro-pubien + transverse médian|Promonto-rétro-pubien − transverse médian|Bi-épineux + bi-ischiatique|Oblique + transverse
+m|Un indice de Magnin ≥ 23 correspond à un bassin :|Favorable|De pronostic incertain|Chirurgical|Impossible à évaluer
+d|Un indice de Magnin de 21 à 23 correspond à :|Un pronostic incertain (épreuve du travail)|Un bassin favorable|Un bassin chirurgical|Une indication de césarienne systématique
+d|Un indice de Magnin ≤ 20 correspond à :|Un bassin chirurgical|Un bassin favorable|Un pronostic incertain|Un bassin normal
+m|Le diaphragme pelvien est formé par :|Le muscle releveur de l'anus et le coccygien|Les bulbo-spongieux et ischio-caverneux|Les transverses superficiels|Le sphincter externe de l'anus seul
+m|Le périnée superficiel comprend notamment :|Les bulbo-spongieux, ischio-caverneux et transverses superficiels|Le pubo-coccygien|L'ilio-coccygien|Le pubo-rectal
+m|Le noyau fibreux central est :|Le point de convergence musculaire, clé de la statique pelvienne|Un ligament de l'utérus|Une artère du périnée|Un nerf du périnée
+d|Les muscles du releveur de l'anus sont :|Pubo-coccygien, ilio-coccygien, pubo-rectal|Bulbo-spongieux, ischio-caverneux, transverse|Obturateur interne, piriforme, coccygien|Grand fessier, moyen fessier, petit fessier
+m|Les déchirures périnéales sont classées de :|1er à 4e degré (classification RCOG)|1er à 6e degré|A à D|Stade I à III
+d|Une lésion méconnue du sphincter anal expose à :|L'incontinence anale|La stérilité|Une hémorragie du post-partum|Une grossesse extra-utérine
+m|Quel est le rôle du plancher pelvien ?|Soutien des viscères, continence et guidage de la rotation de la présentation|Sécrétion des hormones sexuelles|Production du liquide amniotique|Drainage lymphatique du col
+f|Quelle est la forme de l'utérus ?|Un organe musculaire creux en forme de cône tronqué|Un organe plein et sphérique|Un organe entièrement fibreux|Un organe pair et symétrique
+m|La longueur de l'utérus chez la nullipare est de :|7 à 8 cm|4 à 5 cm|12 à 14 cm|2 à 3 cm
+m|Le poids de l'utérus chez la nullipare est d'environ :|50 à 70 g|10 à 20 g|200 à 300 g|500 g
+d|La longueur de l'utérus chez la multipare est de :|8 à 9 cm|5 à 6 cm|10 à 12 cm|3 à 4 cm
+f|Les trois parties de l'utérus sont :|Le corps, l'isthme et le col|Le fond, la trompe et le vagin|Le col, le vagin et la vulve|Le corps, l'ovaire et le col
+m|L'isthme utérin mesure environ :|0,5 cm|3 cm|5 cm|10 cm
+m|Au 3e trimestre, l'isthme devient :|Le segment inférieur|Le col|Le fond utérin|La corne utérine
+m|La position normale de l'utérus est :|Antéversion – antéflexion|Rétroversion – rétroflexion|Antéversion – rétroflexion|Latéroversion
+d|L'orifice externe du col est transversal chez :|La multipare|La nullipare|La petite fille|La femme sous contraception
+m|L'endomètre est une muqueuse :|Hormonodépendante|Indépendante des hormones|Uniquement musculaire|Séreuse
+m|La couche de l'endomètre qui desquame est :|La couche fonctionnelle|La couche basale|Le myomètre|La séreuse
+d|La couche de l'endomètre qui régénère est :|La couche basale|La couche fonctionnelle|La couche plexiforme|La séreuse
+m|Le myomètre comporte combien de couches musculaires ?|3|2|4|1
+m|Comment appelle-t-on la couche moyenne du myomètre ?|Plexiforme (fibres en 8)|Longitudinale|Circulaire|Striée
+d|Les fibres en 8 de la couche plexiforme entourent :|Les vaisseaux|Les nerfs|Les trompes|Les ligaments
+m|Les « ligatures vivantes » correspondent à :|La rétraction de la couche plexiforme après la délivrance|La ligature chirurgicale des artères utérines|La suture du périnée|La fermeture du col
+m|La première cause d'hémorragie du post-partum est :|L'atonie utérine|La rupture utérine|Les déchirures périnéales|Les troubles de la coagulation
+d|Le col utérin est riche en :|Collagène, avec peu de fibres musculaires|Fibres musculaires lisses|Tissu adipeux|Glandes sébacées
+f|Quel organe se trouve en avant de l'utérus ?|La vessie|Le rectum|Le sacrum|Le côlon sigmoïde
+f|Quel organe se trouve en arrière de l'utérus ?|Le rectum|La vessie|Le pubis|L'urètre
+m|L'artère utérine croise l'uretère à quelle distance du col ?|1,5 à 2 cm|5 à 6 cm|10 cm|0,2 cm
+m|Les culs-de-sac vaginaux sont aussi appelés :|Les fornix|Les glandes vestibulaires|Les paramètres|Les cornes
+m|Quels sont les principaux amarrages du col utérin ?|Les ligaments cardinaux, utéro-sacrés et pubo-vésico-utérins|Les ligaments ronds seuls|Les ligaments propres de l'ovaire|Les ligaments larges seuls
+m|Les ligaments larges, ronds et propres de l'ovaire assurent :|La suspension de l'utérus (soutien faible)|Le soutènement du col|Le soutien essentiel|La vascularisation de l'ovaire
+m|Quel est le soutien essentiel de l'utérus ?|Le plancher pelvien|Le ligament rond|Le ligament large|Le ligament propre de l'ovaire
+d|Le prolapsus génital résulte de :|La faillite associée des ligaments et du plancher pelvien|Une infection du col|Une malformation de l'ovaire|Une hypersécrétion d'œstrogènes
+d|Quel facteur favorise le prolapsus génital ?|La multiparité, les accouchements traumatiques et la ménopause|La nulliparité|La grossesse unique sans complication|La contraception orale
+d|L'artère utérine naît de quel tronc de l'iliaque interne ?|Le tronc antérieur|Le tronc postérieur|La bifurcation de l'aorte|L'artère fémorale
+m|Les segments de l'artère utérine sont :|Pariétal, paramétrial et latéro-utérin|Cervical, corporéal et tubaire|Rétro-ligamentaire seulement|Sous-péritonéal seulement
+d|Les artères du corps utérin se succèdent dans l'ordre :|Arquées, radiées, spiralées|Spiralées, radiées, arquées|Radiées, arquées, spiralées|Arquées, spiralées, radiées
+d|L'artère utérine s'anastomose avec l'artère ovarienne :|Au niveau de la corne utérine|Au niveau de l'isthme|Au niveau du col|Au niveau du vagin
+d|Le débit utérin à terme est de :|500 à 700 mL/min|50 à 70 mL/min|1 à 2 L/min|5 à 10 mL/min
+m|Quel geste de sauvetage de l'hémorragie du post-partum est cité ?|La triple ligature de Tsirulnikov|La cure de prolapsus|La ligature tubaire|La biopsie du col
+d|Quel est le danger de la ligature des artères utérines ?|La lésion de l'uretère|La lésion du nerf pudendal|La lésion de l'urètre seul|La lésion du rectum seul
+f|Où se situe l'ovaire ?|Dans la fosse ovarienne contre la paroi pelvienne latérale|Dans le Douglas|Dans le canal inguinal|Sous le diaphragme
+m|Les dimensions de l'ovaire sont d'environ :|3-4 × 2 × 1 cm|10 × 8 × 5 cm|1 × 1 × 1 cm|6 × 6 × 3 cm
+m|Quel ligament de l'ovaire contient les vaisseaux ovariens ?|Le ligament suspenseur|Le ligament propre|Le mésovarium|Le ligament rond
+m|L'artère ovarienne naît :|De l'aorte abdominale (L2)|De l'artère iliaque interne|De l'artère rénale|De l'artère utérine
+m|La veine ovarienne droite se draine dans :|La veine cave inférieure|La veine rénale droite|La veine iliaque interne|La veine porte
+m|La veine ovarienne gauche se draine dans :|La veine rénale gauche|La veine cave inférieure|La veine iliaque interne|La veine iliaque commune
+d|Les lymphatiques de l'ovaire se drainent vers :|Les nœuds lombo-aortiques|Les nœuds inguinaux|Les nœuds obturateurs|Les nœuds axillaires
+d|Le cortex de l'ovaire contient :|Les follicules|Les gros vaisseaux|Les nerfs|Le tissu musculaire strié
+d|La médullaire de l'ovaire contient :|Les vaisseaux|Les follicules|Les ovogonies|Le colostrum
+m|La torsion d'annexe est :|Une urgence chirurgicale|Une affection bénigne sans urgence|Un signe de grossesse|Une complication de la ménopause
+f|La trompe utérine mesure environ :|10 à 12 cm|2 à 3 cm|20 à 25 cm|1 cm
+m|Les quatre segments de la trompe sont :|Interstitiel, isthme, ampoule, pavillon|Corne, col, fond, isthme|Ampoule, fornix, isthme, fimbria|Interne, externe, moyen, distal
+m|Quel segment tubaire est le lieu de la fécondation ?|L'ampoule|L'isthme|Le segment interstitiel|Le pavillon
+m|Quel segment est le site de la ligature tubaire ?|L'isthme|L'ampoule|Le pavillon|Le segment interstitiel
+m|Quel segment tubaire est étroit et musculeux ?|L'isthme|L'ampoule|Le pavillon|Le segment interstitiel
+m|Quel segment tubaire est situé dans la paroi utérine ?|Le segment interstitiel|L'isthme|L'ampoule|Le pavillon
+m|Le pavillon tubaire a pour rôle :|La captation de l'ovocyte|La fécondation|La ligature|La sécrétion de progestérone
+d|L'ampoule est le siège de quel pourcentage des grossesses extra-utérines ?|70 à 80 %|10 à 20 %|30 à 40 %|95 à 99 %
+d|La GEU interstitielle est caractérisée par :|Une rupture tardive et hémorragique|Une rupture précoce et bénigne|Une résorption spontanée constante|Une absence de douleur
+d|La trompe est située dans :|Le mésosalpinx|Le mésovarium|Le mésomètre seulement|Le paramètre
+m|La longueur du vagin est d'environ :|8 cm|2 cm|15 cm|20 cm
+m|Quel est le pH vaginal normal ?|3,8 à 4,5|6,5 à 7|8 à 9|1 à 2
+m|Quelle flore protège le vagin ?|La flore de Döderlein|La flore de Bartholin|La flore de Douglas|La flore de Magnin
+m|Le cul-de-sac vaginal postérieur est au contact :|Du Douglas|De la vessie|Du pubis|De l'urètre
+m|Quelles glandes sont à 5 h et 7 h de la vulve ?|Les glandes vestibulaires majeures (Bartholin)|Les glandes de Skene|Les glandes sudoripares|Les glandes de Döderlein
+d|La vulve est vascularisée par :|Les artères pudendales|L'artère utérine|L'artère ovarienne|L'artère rénale
+m|La vulve est innervée par :|Le nerf pudendal|Le nerf obturateur|Le nerf fémoral|Le nerf sciatique
+m|Quelle complication survient après un travail prolongé ?|Des fistules vésico- et recto-vaginales|Une torsion d'annexe|Un fibrome|Une endométriose
+m|Quel geste anesthésique s'utilise pour la réparation périnéale ?|Le bloc pudendal|La rachianesthésie haute|L'anesthésie générale systématique|Le bloc sciatique
+d|Quelle est l'artère du vagin ?|Vaginale, cervico-vaginale et rectale moyenne|Ovarienne seulement|Pudendale seulement|Fémorale
+d|La trompe est vascularisée par :|L'arcade tubaire (utérine et ovarienne)|L'artère rénale|L'artère mésentérique|L'artère pudendale seule
+d|La vulve et le périnée sont vascularisés par :|Les artères pudendales interne et externes|L'artère ovarienne|L'artère utérine|L'aorte directement
+m|Le col utérin et le haut du vagin se drainent vers les nœuds :|Iliaques externes, internes, obturateurs et du promontoire|Inguinaux superficiels|Lombo-aortiques seulement|Axillaires
+m|La vulve et le tiers inférieur du vagin se drainent vers les nœuds :|Inguinaux superficiels puis profonds|Lombo-aortiques|Obturateurs|Du promontoire
+d|Le corps utérin se draine vers les nœuds :|Iliaques et lombo-aortiques, avec des voies inguinales par le ligament rond|Inguinaux uniquement|Axillaires|Obturateurs uniquement
+m|La douleur du 1er stade du travail emprunte :|Les afférences T10-L1|Le nerf pudendal (S2-S4)|Le nerf obturateur|Le nerf fémoral
+m|La douleur du 2e stade du travail emprunte :|Le nerf pudendal (S2-S4)|Les afférences T10-L1|Le nerf sciatique|Le nerf fémoral
+m|La péridurale cible la douleur du :|1er stade du travail|2e stade du travail|Post-partum seulement|Troisième trimestre seulement
+d|Le bloc pudendal cible la douleur du :|2e stade du travail|1er stade du travail|1er trimestre|Période d'engagement seulement
+d|Le nerf pudendal contourne :|L'épine sciatique|Le promontoire|La symphyse pubienne|Le coccyx
+d|À l'origine de la douleur du 1er stade, on trouve :|Les contractions utérines et la dilatation du col|La distension du vagin et du périnée|La traction sur les ligaments ronds seulement|La rupture des membranes
+d|À l'origine de la douleur du 2e stade, on trouve :|La distension du vagin et du périnée|Les contractions utérines|La dilatation du col|La contraction du myomètre seul
+f|Quelle hormone hypothalamique commande l'axe gonadotrope ?|La GnRH|La FSH|La LH|La progestérone
+m|La GnRH est sécrétée de façon :|Pulsatile|Continue|Uniquement nocturne|Uniquement pendant les règles
+m|Quelle hormone assure la croissance folliculaire ?|La FSH|La LH|La progestérone|L'hCG
+m|Quelle hormone déclenche l'ovulation ?|La LH|La FSH|La progestérone|La prolactine
+m|Quelles hormones sont sécrétées par l'ovaire ?|Œstradiol, progestérone, inhibine B, AMH|FSH, LH, GnRH|TSH, T3, T4|Insuline, glucagon
+d|Le rétrocontrôle positif exige un œstradiol élevé et soutenu d'environ :|200 pg/mL pendant environ 48 h|20 pg/mL pendant 2 h|1 000 pg/mL pendant 1 semaine|50 pg/mL pendant 24 h
+m|Le rétrocontrôle négatif est exercé par :|Œstradiol et progestérone sur FSH et LH|La FSH sur la GnRH uniquement|La LH sur l'ovaire|L'hCG sur la GnRH
+d|La GnRH administrée en continu :|Bloque l'axe gonadotrope (agonistes)|Stimule l'ovulation|Provoque un pic de LH|Augmente la FSH
+d|Quels facteurs suppriment la pulsatilité de la GnRH et provoquent une aménorrhée ?|Le stress, l'amaigrissement et l'hyperprolactinémie|La prise de poids modérée|L'exercice léger|Un cycle de 28 jours
+f|La durée du cycle de référence est de :|28 jours|21 jours|35 jours|45 jours
+m|La seule phase du cycle dont la durée varie est :|La phase folliculaire|La phase lutéale|La phase ovulatoire|La phase menstruelle
+m|La durée de la phase lutéale est :|Fixe, d'environ 14 jours|Variable selon la femme|De 7 jours|Égale à la phase folliculaire
+m|Le follicule dominant mesure environ :|20 mm|2 mm|60 mm|1 mm
+m|L'ovulation survient :|24 à 36 h après le début du pic de LH|Avant le pic de LH|10 jours après le pic de LH|Pendant les règles
+m|Le corps jaune sécrète :|De la progestérone et de l'œstradiol|De la FSH|De la LH|De l'AMH seulement
+m|Sans fécondation, le corps jaune subit :|Une lutéolyse, suivie des règles|Une croissance|Une ovulation|Une transformation en follicule
+m|En cas de fécondation, quelle hormone maintient le corps jaune ?|L'hCG|La FSH|La LH|La GnRH
+d|La date d'ovulation est environ égale à :|La durée du cycle − 14 jours|La durée du cycle + 14 jours|La durée du cycle ÷ 2|J10 quel que soit le cycle
+d|Un cycle de 35 jours décale l'ovulation de :|Environ une semaine|Environ un jour|Environ un mois|Aucun décalage
+d|À l'ovulation, l'ovocyte II est bloqué en :|Métaphase II|Prophase I|Anaphase I|Télophase II
+m|Le plateau thermique lutéal est de :|+0,3 à +0,5 °C|+2 à +3 °C|−0,5 °C|+0,05 °C
+m|L'endomètre prolifère sous l'action :|Des œstrogènes|De la progestérone|De la FSH seule|De l'hCG
+m|L'endomètre devient sécrétoire sous l'action :|De la progestérone|Des œstrogènes seuls|De la LH|De la prolactine
+d|La glaire cervicale péri-ovulatoire est :|Filante, transparente et perméable|Épaisse et imperméable|Absente|Jaunâtre et malodorante
+d|La glaire cervicale de la phase sécrétoire est :|Épaisse et imperméable|Filante et transparente|Abondante et perméable|Absente
+d|L'endomètre péri-ovulatoire est :|Trilaminaire, d'environ 8 à 12 mm|Mince, de 1 à 2 mm|Très épais, de 30 mm|Absent
+d|Pendant la phase sécrétoire, les glandes de l'endomètre sont :|Tortueuses, avec sécrétion de glycogène|Droites|Atrophiques|Absentes
+d|Un plateau thermique prolongé au-delà de 16 jours évoque :|Une grossesse|Une infection urinaire|Une ménopause|Une ovulation retardée
+m|Le pic du stock d'ovogonies est d'environ :|6 à 7 millions vers 20 SA de vie fœtale|1 million à la puberté|400 à la naissance|10 millions à la ménopause
+d|Le nombre d'ovocytes à la puberté est d'environ :|400 000|7 millions|1 000|50 millions
+m|Une femme ovule environ au cours de sa vie :|400 à 500 fois|50 fois|5 000 fois|40 000 fois
+d|L'ovocyte I est bloqué en :|Prophase de méiose I|Métaphase II|Anaphase II|Télophase I
+d|La méiose s'achève :|À la fécondation|À la naissance|À la puberté|À l'ovulation
+m|La ménopause survient vers :|50 ans|30 ans|65 ans|20 ans
+d|Le vieillissement ovocytaire augmente le risque de :|Aneuploïdies, comme la trisomie 21|Cancer du col|Fibrome|Prolapsus
+m|La fécondation a lieu dans :|L'ampoule tubaire|L'utérus|Le vagin|Le col
+m|La durée de vie de l'ovocyte est de :|12 à 24 h|3 à 5 jours|7 jours|48 heures
+m|La durée de vie des spermatozoïdes est de :|3 à 5 jours|12 à 24 h|1 heure|10 jours
+d|La migration tubaire de l'œuf dure :|4 à 5 jours|24 heures|10 jours|15 jours
+m|L'implantation a lieu :|6 à 7 jours après la fécondation|1 jour après la fécondation|15 jours après la fécondation|À la naissance
+d|L'hCG est sécrétée par :|Le syncytiotrophoblaste|L'ovaire|L'hypophyse|L'endomètre
+d|Le relais placentaire de la progestérone se fait vers :|8 à 10 SA|20 SA|30 SA|3 SA
+d|L'isthme utérin devenu segment inférieur est le site de :|La césarienne|La ligature tubaire|La biopsie de l'endomètre|L'hystérosalpingographie
+m|Quelle structure est concernée par une GEU et son traitement possible ?|L'ampoule tubaire (salpingectomie, salpingotomie, méthotrexate)|Le col utérin|Le noyau fibreux central|Le périnée
+d|Quelle structure est concernée par la culdocentèse ?|Le cul-de-sac recto-utérin|Le cul-de-sac vésico-utérin|Le fornix antérieur|Le canal cervical
+d|Quel geste chirurgical s'effectue au niveau du segment inférieur ?|L'hystérotomie segmentaire transversale|La ligature tubaire|La myomectomie du fond|La colporraphie
+d|Le risque urétéral concerne :|Les ligatures et l'embolisation en cas d'hémorragie du post-partum|La péridurale|La salpingectomie|La biopsie du col
+d|L'accouchement traumatique peut léser :|Le releveur de l'anus, avec risque de prolapsus et d'incontinence|L'ovaire|Le ligament rond seul|La trompe
+m|Le terme moderne de « trompe de Fallope » est :|Trompe utérine|Canal déférent|Ligament rond|Mésosalpinx
+m|Le terme moderne de « ligament de Mackenrodt » est :|Ligament cardinal (paramètre)|Ligament rond|Ligament propre de l'ovaire|Ligament large
+m|Le terme moderne de « glandes de Bartholin » est :|Glandes vestibulaires majeures|Glandes de Skene|Glandes sébacées|Glandes de Döderlein
+m|Le terme moderne de « nerf honteux interne » est :|Nerf pudendal|Nerf obturateur|Nerf génito-fémoral|Nerf sciatique
+d|Le terme moderne de « cul-de-sac de Douglas » est :|Cul-de-sac recto-utérin|Cul-de-sac vésico-utérin|Fornix postérieur|Cul-de-sac de Retzius
+d|Le terme moderne de « ligament lombo-ovarien » est :|Ligament suspenseur de l'ovaire|Ligament propre de l'ovaire|Ligament rond|Ligament cardinal
+d|Le terme moderne d'« artère hypogastrique » est :|Artère iliaque interne|Artère iliaque externe|Artère utérine|Artère fémorale
+`,
+        "Modifications physiologiques de la grossesse": `
+f|Quelles hormones et facteurs sont des moteurs des changements de la grossesse ?|Progestérone, œstrogènes, hCG, hPL, relaxine et compression utérine|Insuline, glucagon et cortisol uniquement|FSH et LH uniquement|Adrénaline et noradrénaline uniquement
+m|Les trois besoins auxquels répondent les adaptations sont :|Nourrir le fœtus, protéger la mère de l'hémorragie, préparer l'accouchement|Éviter la grossesse, nourrir la mère, éviter l'accouchement|Augmenter le poids, ralentir le cœur, dilater les veines|Fabriquer du lait, du sang et des os
+m|Le poids de l'utérus passe d'environ :|70 g à 1 100 g|7 g à 100 g|200 g à 5 kg|1 kg à 10 kg
+m|La capacité de l'utérus passe d'environ :|10 mL à 5 L|1 mL à 100 mL|100 mL à 500 mL|1 L à 20 L
+m|L'utérus grossit surtout parce que :|Ses fibres musculaires augmentent de volume|Son nombre de cellules est multiplié par 100|Il se remplit de sang|Le col s'allonge
+m|Les contractions de Braxton Hicks sont :|Indolores et irrégulières|Douloureuses et régulières|Toujours annonciatrices du travail|Présentes seulement à 40 SA
+m|Le col utérin pendant la grossesse :|Se ramollit et prend une teinte violacée|Devient dur et pâle|S'ouvre dès le 1er mois|Disparaît
+m|La symphyse pubienne correspond à une hauteur utérine d'environ :|12 SA|20 SA|28 SA|36 SA
+m|L'ombilic correspond à une hauteur utérine d'environ :|20 à 22 SA|12 SA|30 SA|40 SA
+m|L'appendice xiphoïde correspond à une hauteur utérine d'environ :|36 SA|20 SA|12 SA|8 SA
+m|Entre 20 et 36 SA, la hauteur utérine en cm est égale à :|L'âge gestationnel en SA (± 2 à 3 cm)|Le double des SA|La moitié des SA|Le nombre de mois × 10
+m|La règle de McDonald concerne :|La hauteur utérine|La tension artérielle|Le poids|La fréquence cardiaque fœtale
+m|Les tubercules de Montgomery se trouvent :|Sur l'aréole du sein|Sur le col|Dans le vagin|Sur l'abdomen
+m|Le colostrum peut couler dès :|Le 2e trimestre|Le 1er jour|La 4e semaine|Le 9e mois seulement
+m|Le volume sanguin augmente de :|40 à 50 %|5 à 10 %|100 à 150 %|0 %
+m|Le volume sanguin est maximal vers :|32 à 34 SA|8 SA|16 SA|40 SA
+d|L'augmentation du volume sanguin correspond à environ :|1,2 à 1,6 L|0,1 L|5 L|0,5 mL
+m|Les globules rouges augmentent de :|20 à 30 %|40 à 50 %|100 %|0 %
+m|L'« anémie physiologique » est due à :|Une augmentation du plasma supérieure à celle des globules rouges|Un manque de fer uniquement|Une destruction des globules rouges|Une infection
+m|Le débit cardiaque augmente de :|30 à 50 %|5 %|100 %|Il diminue de 20 %
+m|La fréquence cardiaque augmente de :|10 à 15 battements par minute|40 à 50 battements par minute|1 à 2 battements par minute|Elle diminue de 20
+m|La tension artérielle au 2e trimestre :|Diminue|Augmente de 30 mmHg|Reste identique|Dépasse 140/90
+m|Une tension artérielle ≥ 140/90 mmHg pendant la grossesse est :|Toujours anormale|Normale au 3e trimestre|Normale chez la primipare|Un signe de grossesse
+m|Un souffle systolique doux est :|Fréquent et fonctionnel|Toujours pathologique|Un signe de prééclampsie|Un signe de mort fœtale
+m|Un souffle diastolique pendant la grossesse est :|Anormal|Normal|Fréquent|Un signe de grossesse
+d|Une cardiopathie peut se décompenser :|Au 3e trimestre, au travail et dans le post-partum|Uniquement au 1er trimestre|Jamais pendant la grossesse|Uniquement avant 12 SA
+m|Le syndrome de compression aorto-cave survient :|Après 20 SA, en décubitus dorsal|Avant 8 SA, debout|En décubitus latéral gauche|Pendant le 1er mois
+m|Dans la compression aorto-cave, l'utérus comprime :|La veine cave inférieure|L'aorte thoracique|La veine porte|La veine jugulaire
+m|Que faire en cas de malaise par compression aorto-cave ?|Coucher la femme sur le côté gauche|La coucher sur le côté droit|La faire asseoir|La coucher à plat sur le dos
+m|La grossesse est un état d'hypercoagulabilité avec un fibrinogène de :|4 à 6 g/L|1 à 2 g/L|0,5 g/L|10 à 12 g/L
+d|Le risque de thrombose est multiplié par :|4 à 5|1,2|20|100
+d|Le risque de thrombose est maximal :|Dans le post-partum|Au 1er trimestre|Au 2e trimestre|Il n'y a pas de risque
+m|Le principal avantage de l'hypercoagulabilité est :|Limiter l'hémorragie à la délivrance|Éviter les nausées|Diminuer la tension|Augmenter les globules blancs
+m|Les globules blancs augmentent jusqu'à environ :|15 000/mm³|2 000/mm³|40 000/mm³|5 000/mm³
+m|Les plaquettes pendant la grossesse :|Baissent un peu|Doublent|Sont nulles|Augmentent fortement
+d|Les besoins en fer sur toute la grossesse sont d'environ :|1 g|10 mg|100 g|5 mg
+m|L'OMS recommande quotidiennement :|Du fer et de l'acide folique|Du calcium et de la vitamine C seulement|Des corticoïdes|De l'aspirine
+m|Les œdèmes isolés des chevilles le soir sont :|Normaux|Un signe de prééclampsie|Un signe de cardiopathie|Un signe de paludisme
+m|La ventilation augmente de :|30 à 50 %|5 %|100 %|Elle baisse de 30 %
+m|L'hormone responsable de l'hyperventilation est :|La progestérone|L'insuline|L'adrénaline|La TSH
+m|Quel trouble acido-basique est normal ?|Une légère alcalose respiratoire|Une acidose métabolique sévère|Une acidose respiratoire|Une alcalose métabolique
+d|Le diaphragme remonte d'environ :|4 cm|0,4 cm|15 cm|Il ne bouge pas
+m|En cas d'anesthésie générale, la femme enceinte :|Désature très vite et l'intubation est plus difficile|Est protégée de l'hypoxie|N'a aucun risque d'inhalation|A des réserves d'O₂ augmentées
+f|Quels signes ORL sont fréquents pendant la grossesse ?|Nez bouché et saignements de nez|Surdité|Perte de l'odorat définitive|Angine chronique
+m|Quel uretère est le plus dilaté ?|Le droit|Le gauche|Les deux de la même façon|Aucun
+m|La stagnation des urines favorise :|La pyélonéphrite|La pancréatite|L'hépatite|La cholécystite
+m|Pourquoi dépister l'infection urinaire sans symptôme ?|Elle peut se compliquer de pyélonéphrite|Elle est toujours bénigne|Elle donne une prééclampsie|Elle provoque l'anémie
+m|Le débit de filtration glomérulaire augmente de :|50 %|5 %|200 %|Il baisse de 50 %
+m|La créatinine pendant la grossesse :|Baisse|Augmente|Reste inchangée|Double
+d|Une créatinine supérieure à environ 0,9 mg/dL (80 µmol/L) pendant la grossesse :|Doit alerter|Est normale|Est protectrice|Est sans importance
+m|Les envies fréquentes d'uriner sont surtout présentes :|Aux 1er et 3e trimestres|Au 2e trimestre seulement|Seulement à 40 SA|Jamais
+d|La protéinurie normale pendant la grossesse reste inférieure à :|300 mg / 24 h|3 g / 24 h|30 mg / 24 h|3 mg / 24 h
+m|La progestérone favorise le reflux gastro-œsophagien en :|Relâchant le sphincter de l'œsophage|Augmentant l'acidité gastrique seule|Comprimant l'œsophage|Provoquant des vomissements
+m|Le risque d'inhalation du contenu gastrique est appelé :|Syndrome de Mendelson|Syndrome de Sheehan|Syndrome de HELLP|Syndrome de Lutembacher
+m|Les nausées et vomissements concernent :|50 à 80 % des femmes au 1er trimestre|1 % des femmes|100 % au 3e trimestre|20 % au 2e trimestre
+d|Biologie du foie pendant la grossesse : les phosphatases alcalines :|Augmentent (origine placentaire)|Baissent|Restent nulles|Sont inchangées
+d|Biologie du foie pendant la grossesse : les transaminases :|Ne doivent pas augmenter|Doublent normalement|Baissent de moitié|Triplent au 3e trimestre
+d|L'albumine pendant la grossesse :|Baisse|Augmente fortement|Reste constante|Disparaît
+m|Pendant la première moitié de la grossesse, la mère :|Constitue des réserves|Perd du poids|Devient insulinorésistante|Maintient une glycémie nulle
+m|L'insulinorésistance de la 2e moitié de la grossesse est liée à :|L'hPL|L'hCG|La TSH|La prolactine
+m|L'insulinorésistance expose à :|Un diabète gestationnel|Une hypothyroïdie|Une anémie|Une pyélonéphrite
+m|Prise de poids totale recommandée si l'IMC est inférieur à 18,5 :|12,5 à 18 kg|5 à 9 kg|7 à 11,5 kg|20 à 25 kg
+d|Prise de poids totale recommandée si l'IMC est de 18,5 à 24,9 :|11,5 à 16 kg|12,5 à 18 kg|7 à 11,5 kg|5 à 9 kg
+d|Prise de poids totale recommandée si l'IMC est de 25 à 29,9 :|7 à 11,5 kg|11,5 à 16 kg|12,5 à 18 kg|5 à 9 kg
+d|Prise de poids totale recommandée si l'IMC est ≥ 30 :|5 à 9 kg|7 à 11,5 kg|11,5 à 16 kg|12,5 à 18 kg
+m|Au 1er trimestre, l'hCG stimule :|La thyroïde, avec une baisse de la TSH|Le pancréas|Les surrénales seules|Les reins
+d|Le syndrome de Sheehan est :|La nécrose de l'hypophyse après une hémorragie grave|Un cancer du col|Une pyélonéphrite|Une prééclampsie
+d|Quelles hormones augmentent pendant la grossesse ?|Le cortisol et la prolactine|Le glucagon seul|La TSH au 1er trimestre|Aucune
+m|Le masque de grossesse est aussi appelé :|Mélasma (chloasma)|Vitiligo|Eczéma|Psoriasis
+m|Quels signes cutanés sont normaux pendant la grossesse ?|Ligne brune, vergetures, angiomes stellaires, érythème palmaire|Ictère|Cyanose|Purpura
+m|La relaxine :|Assouplit les ligaments|Contracte l'utérus|Augmente la glycémie|Stimule la thyroïde
+m|La cambrure augmentée explique :|Les douleurs lombaires|Les nausées|Les œdèmes|Les saignements
+d|Quel syndrome canalaire est fréquent pendant la grossesse ?|Le canal carpien|Le canal de Guyon|Le canal inguinal|Le canal d'Alcock
+m|L'OMS recommande de dépister :|La dépression périnatale|Le diabète de type 1 seulement|La cataracte|L'asthme uniquement
+m|Quelle infection est plus grave chez la femme enceinte ?|Le paludisme|La varicelle de l'enfant|Le rhume|La teigne
+d|Quelle infection alimentaire est favorisée par l'immunité modifiée ?|La listériose|Le choléra|La typhoïde|La bilharziose
+m|L'anémie est définie par une hémoglobine inférieure à :|11 g/dL (10,5 g/dL au 2e trimestre)|14 g/dL|8 g/dL|13 g/dL
+d|Une PaCO₂ normale (environ 40 mmHg) pendant la grossesse traduit :|Un épuisement respiratoire|Une respiration normale|Une alcalose|Une anémie
+m|La PaCO₂ normale pendant la grossesse est d'environ :|30 mmHg|40 mmHg|60 mmHg|10 mmHg
+d|Des D-dimères élevés pendant la grossesse :|Ne suffisent pas à affirmer une thrombose|Prouvent une embolie pulmonaire|Prouvent une prééclampsie|Sont impossibles
+m|Œdème du visage et des mains avec TA ≥ 140/90 mmHg est :|Un signe d'alerte|Un signe normal|Un signe de paludisme|Un signe de ménopause
+m|Les nausées du matin au 1er trimestre sont :|Un signe normal|Un signe d'alerte|Un signe de prééclampsie|Un signe de môle
+m|Les pertes blanches sans odeur sont :|Normales|Un signe d'alerte|Un signe de GEU|Un signe de pyélonéphrite
+d|Les démangeaisons des paumes et des plantes, la nuit, évoquent :|Une cholestase|Un diabète|Une anémie|Une cardiopathie
+d|Des contractions douloureuses et régulières avant 37 SA sont :|Un signe d'alerte|Un signe normal|Des contractions de Braxton Hicks|Un signe de grossesse multiple
+m|Un saignement vaginal ou un écoulement de liquide est :|Un signe d'alerte|Un signe normal|Un signe de bonne santé|Un signe de mélasma
+m|Des céphalées intenses, troubles de la vision ou convulsions sont :|Des signes d'alerte|Normaux|Dus à la progestérone|Dus à l'anémie physiologique
+d|Quel terme actuel remplace « vomissements gravidiques » dans les formes graves ?|Hyperemesis gravidarum|Mélasma|Prééclampsie|Cholestase
+d|Quel terme actuel remplace « syndrome de compression cave » ?|Compression aorto-cave|Syndrome de Mendelson|Syndrome de Sheehan|Syndrome HELLP
+`,
+        "Diagnostic précoce de la grossesse": `
+f|Un retard de règles chez une femme en âge de procréer est :|Une grossesse jusqu'à preuve du contraire|Une ménopause|Une infection|Un signe de maladie rare
+m|L'OMS (2016) recommande un premier contact prénatal :|Avant 12 SA|À 20 SA|À 28 SA|À 36 SA
+m|Les nausées et vomissements du matin sont des signes :|De présomption|De probabilité|De certitude|Sans valeur
+m|Les seins tendus sont des signes :|De présomption|De probabilité|De certitude|D'urgence
+m|Le signe de Hegar est :|Le ramollissement de l'isthme|La coloration violacée du col|La perception des mouvements fœtaux|Le test hCG positif
+m|Le signe de Chadwick est :|La coloration violacée du col et du vagin|Le ramollissement de l'isthme|L'activité cardiaque à l'échographie|Le retard de règles
+m|Le signe de Hegar est recherché :|Au toucher vaginal combiné à la palpation abdominale|À l'échographie|Au Doppler|À la radiographie
+m|Quel signe est un signe de probabilité ?|Le test hCG positif|Les nausées|La somnolence|Les envies fréquentes d'uriner
+m|Quel signe est un signe de certitude ?|Un embryon avec activité cardiaque à l'échographie|Un retard de règles|Un utérus ramolli|Un test hCG urinaire positif
+d|Les bruits du cœur fœtal sont audibles au Doppler à partir de :|10 à 12 SA|4 SA|20 SA|30 SA
+d|À 12 SA, le fond de l'utérus :|Dépasse le bord supérieur du pubis|Atteint l'ombilic|Atteint l'appendice xiphoïde|Est encore intrapelvien
+m|Il ne faut jamais affirmer qu'une grossesse est normale sur :|Un simple test positif|Une échographie à 7 SA|Un Doppler à 12 SA|Une échographie du 1er trimestre
+d|Pour affirmer qu'une grossesse est normale, il faut savoir :|Où elle se trouve et si elle évolue|Si la femme a des nausées|Si le test est urinaire ou sanguin|Si la femme est primipare
+m|Le test urinaire hCG devient positif vers :|La date des règles attendues|La fécondation|La 6e semaine d'aménorrhée|La 12e semaine
+d|Le test urinaire est sensible à partir de :|20 à 25 UI/L environ|2 000 UI/L|200 000 UI/L|2 UI/L
+d|La β-hCG plasmatique devient positive :|8 à 10 jours après la fécondation|À J1|Au 20e jour|Après 6 semaines
+m|La β-hCG plasmatique est utile pour :|Suivre l'évolution en cas de doute sur une GEU ou une fausse couche|Dater la grossesse précisément|Mesurer le col|Dépister la trisomie
+m|Au début d'une grossesse normale, l'hCG augmente d'au moins :|35 % en 48 h|5 % en 48 h|200 % en 24 h|1 % par jour
+m|Le taux d'hCG double classiquement en :|Environ 48 h|Environ 7 jours|Environ 6 heures|Environ un mois
+d|La zone discriminante de l'hCG se situe entre :|1 500 et 3 500 UI/L|15 et 35 UI/L|15 000 et 35 000 UI/L|150 et 350 UI/L
+d|Au-delà de la zone discriminante, on doit voir :|Un sac gestationnel intra-utérin à l'échographie vaginale|Un embryon de 10 mm|Un placenta|Des mouvements fœtaux
+d|Un utérus vide au-delà de la zone discriminante fait évoquer :|Une GEU|Une grossesse normale|Un fibrome|Une ménopause
+m|Une augmentation insuffisante, un plateau ou une baisse de l'hCG évoquent :|Une GEU ou une grossesse non évolutive|Une grossesse gémellaire|Un diabète|Une grossesse normale
+m|En cas de test faussement négatif (trop précoce), on :|Refait le test une semaine plus tard si les règles ne reviennent pas|Conclut à l'absence de grossesse|Fait une biopsie|Débute un traitement hormonal
+m|Le test hCG peut rester positif après :|Une fausse couche ou un accouchement|Une ménopause|Une prise de fer|Un repas copieux
+d|Un taux d'hCG très élevé évoque :|Une grossesse multiple ou une môle|Une GEU précoce|Une grossesse non évolutive|Une ménopause
+m|Par voie vaginale, le sac gestationnel est visible vers :|4,5 à 5 SA|2 SA|8 SA|12 SA
+m|La vésicule vitelline est visible vers :|5,5 SA|3 SA|9 SA|12 SA
+m|L'embryon avec activité cardiaque est visible vers :|6 à 7 SA|3 SA|10 SA|14 SA
+m|Par voie abdominale, il faut compter environ :|Une semaine de plus|Un mois de moins|Deux jours de moins|Aucune différence
+d|Une grossesse est non évolutive si la LCC est ≥ 7 mm sans activité cardiaque ou si :|Le sac est ≥ 25 mm sans embryon|Le sac est ≥ 5 mm|L'hCG est de 100 UI/L|Les seins sont tendus
+m|En dessous des critères de certitude de grossesse non évolutive, on :|Ne conclut pas et on contrôle 7 à 14 jours plus tard|Interrompt la grossesse immédiatement|Débute un curetage|Conclut à une GEU
+m|Dans une grossesse de localisation indéterminée, l'échographie montre :|Aucune grossesse ni dans l'utérus ni ailleurs, avec un test positif|Un embryon vivant|Un sac vide de 30 mm|Une grossesse intra-utérine certaine
+d|En cas de grossesse de localisation indéterminée, que faire ?|Doser à nouveau la β-hCG à 48 h et revoir la femme|La rassurer et ne pas la revoir|Faire un curetage|Prescrire du fer seul
+d|L'OMS (2016) recommande une échographie avant :|24 SA|8 SA|36 SA|40 SA
+m|L'échographie avant 24 SA permet de :|Dater, dépister une grossesse multiple et certaines malformations, localiser le placenta|Mesurer la tension|Doser l'hémoglobine|Remplacer toute consultation
+m|Quelle est la première option de prise en charge d'une grossesse non évolutive ?|L'expectative avec suivi|Le curetage systématique|L'hystérectomie|La césarienne
+m|Quel médicament est utilisé pour le traitement médical d'une grossesse non évolutive ?|Le misoprostol, associé ou non à la mifépristone|Le fer seul|La nifédipine|Le sulfate de magnésium
+m|L'évacuation utérine se fait par :|L'aspiration manuelle intra-utérine (AMIU)|Le curetage à la curette en première intention|La myomectomie|L'hystérectomie
+d|L'OMS (2022) recommande d'abandonner :|Le curetage à la curette au profit de l'aspiration|L'aspiration au profit du curetage|Le misoprostol|L'expectative
+m|L'âge gestationnel est compté depuis :|Le 1er jour des dernières règles|La date de l'ovulation|La date de l'implantation|Le dernier rapport
+m|La règle de Naegele donne :|La date prévue d'accouchement|La hauteur utérine|Le poids du fœtus|L'âge de la mère
+m|DPA = DDR + 7 jours − 3 mois + 1 an est égale à :|DDR + 280 jours, soit 40 SA|DDR + 266 jours|DDR + 300 jours|DDR + 180 jours
+d|Une DDR au 10 janvier 2026 donne une DPA le :|17 octobre 2026|10 octobre 2026|17 septembre 2026|3 octobre 2026
+d|Avec une DDR au 10 janvier 2026, le 7 mars 2026 correspond à :|8 SA|4 SA|12 SA|6 SA
+m|Une limite de la DDR est :|La femme ne s'en souvient pas ou les cycles sont irréguliers|Elle est trop précise|Elle est toujours exacte|Elle nécessite une échographie
+d|Quelle situation rend la DDR peu fiable ?|Un saignement d'implantation, l'allaitement ou la sortie de contraception|Un cycle de 28 jours régulier|Une DDR notée dans le carnet|Une échographie précoce
+m|Quelle méthode de datation est la plus fiable ?|L'échographie précoce|La DDR seule|La hauteur utérine|Le poids maternel
+d|La LCC de référence se mesure entre :|11+0 et 13+6 SA|5 et 7 SA|20 et 24 SA|30 et 34 SA
+d|La précision de la datation par la LCC est de :|± 5 à 7 jours|± 1 jour|± 1 mois|± 3 semaines
+d|La LCC de 45 à 84 mm correspond à :|11+0 à 13+6 SA|6 à 8 SA|20 à 22 SA|32 à 34 SA
+d|Selon l'ACOG 2017, avant 9+0 SA, on retient l'échographie si l'écart avec la DDR dépasse :|5 jours|7 jours|10 jours|14 jours
+d|Selon l'ACOG 2017, entre 9+0 et 13+6 SA, l'écart toléré est de :|7 jours|5 jours|14 jours|21 jours
+d|Selon l'ACOG 2017, entre 16+0 et 21+6 SA, l'écart toléré est de :|10 jours|5 jours|21 jours|2 jours
+d|Selon l'ACOG 2017, entre 22+0 et 27+6 SA, l'écart toléré est de :|14 jours|7 jours|21 jours|3 jours
+d|Selon l'ACOG 2017, à partir de 28 SA, l'écart toléré est de :|21 jours|7 jours|14 jours|3 jours
+m|Une fois la date fixée par la meilleure échographie :|On ne la change plus|On la corrige à chaque échographie|On la corrige après l'accouchement|On la remplace par la DDR
+m|Les échographies suivantes servent à :|Évaluer la croissance et non à redater|Redater la grossesse|Mesurer la tension|Doser la glycémie
+d|La norme internationale du terme est de :|40 SA (280 jours)|41 SA|38 SA|42 SA
+d|La convention française historique du terme est de :|41 SA|40 SA|38 SA|36 SA
+m|Test positif + douleur pelvienne et/ou saignement doit faire évoquer :|Une GEU jusqu'à preuve du contraire|Une grossesse normale|Une ménopause|Un fibrome
+m|Quels antécédents font craindre une GEU ?|DIU, antécédent de GEU, chirurgie des trompes, IST|Plusieurs accouchements normaux|Une césarienne seule|Une grossesse gémellaire
+m|Des vomissements incoercibles avec perte de poids évoquent :|Une hyperemesis gravidarum ou une môle|Une grossesse normale sans risque|Une GEU rompue|Une pyélonéphrite
+m|Un saignement abondant, de la fièvre et des pertes malodorantes évoquent :|Une fausse couche ou un avortement compliqué|Une grossesse normale|Une ovulation|Un mélasma
+d|Une douleur à l'épaule avec test positif et malaise évoque :|Une GEU rompue avec choc|Une grossesse normale|Une pyélonéphrite|Une cardiopathie
+d|« Œuf clair » correspond au terme actuel de :|Grossesse anembryonnaire|Grossesse molaire|Grossesse extra-utérine|Grossesse gémellaire
+d|« Grossesse arrêtée » correspond au terme actuel de :|Grossesse non évolutive|Grossesse anembryonnaire seule|Môle hydatiforme|Grossesse de localisation indéterminée
+d|LCC est l'abréviation de :|Longueur cranio-caudale|Longueur cervico-cervicale|Largeur crâne-cœur|Longueur corporelle cumulée
+`,
+        "Surveillance de la grossesse (8 contacts)": `
+f|Le modèle de soins prénatals de l'OMS (2016) comprend au minimum :|8 contacts|4 visites|6 contacts|12 contacts
+m|Le modèle de CPN recentrée à 4 visites date de :|2002|1980|2016|2024
+m|Pourquoi parle-t-on de « contact » plutôt que de « visite » ?|Le soignant doit interagir activement avec la femme|La femme se déplace moins|Il n'y a pas d'examen|Le contact est toujours à domicile
+m|Quel est l'objectif du modèle à 8 contacts ?|Une expérience positive de la grossesse|Réduire le nombre de consultations|Supprimer les examens|Réserver le suivi aux grossesses à risque
+d|La surveillance plus fréquente au 3e trimestre permet de :|Réduire les morts fœtales et dépister la prééclampsie et le retard de croissance|Éviter l'échographie|Supprimer la prise de tension|Remplacer la consultation d'accouchement
+m|Le 1er contact prénatal a lieu :|Avant 12 SA|À 20 SA|À 26 SA|À 30 SA
+m|Le 2e contact a lieu à :|20 SA|12 SA|26 SA|30 SA
+m|Le 3e contact a lieu à :|26 SA|20 SA|30 SA|34 SA
+m|Le 4e contact a lieu à :|30 SA|26 SA|34 SA|36 SA
+m|Le 5e contact a lieu à :|34 SA|30 SA|36 SA|38 SA
+m|Le 6e contact a lieu à :|36 SA|34 SA|38 SA|40 SA
+m|Le 7e contact a lieu à :|38 SA|36 SA|40 SA|41 SA
+m|Le 8e contact a lieu à :|40 SA|38 SA|41 SA|42 SA
+d|Que prévoit-on si la femme n'a pas accouché à 40 SA ?|Un contrôle à 41 SA|Un déclenchement immédiat systématique|Aucune consultation|Une césarienne
+m|Qui fixe le nombre et le contenu des contacts au Sénégal ?|Les Politiques, normes et protocoles (PNP) de santé de la reproduction|Le choix de chaque femme|L'OMS seule|Les pharmacies
+m|Quels sont les 5 volets de chaque contact ?|Interrogatoire, examen, examens complémentaires, interventions, conseils|Poids, taille, âge, parité, profession|Interrogatoire, chirurgie, anesthésie, sortie, facturation|Examen, imagerie, biopsie, traitement, suivi
+f|Qui doit garder le carnet de grossesse ?|La femme|Le médecin|La pharmacie|Le mari
+m|Pour mesurer la tension artérielle, la femme est :|Assise, au repos depuis 5 minutes|Debout, à jeun|Couchée sur le dos après 20 SA|En train de marcher
+m|La TA diastolique correspond à :|La disparition des bruits (phase V de Korotkoff)|L'apparition des bruits (phase I)|La phase II de Korotkoff|La phase III de Korotkoff
+m|Le brassard doit être placé :|À la hauteur du cœur|Au niveau de la cuisse|Sur l'avant-bras seulement|À hauteur de l'épaule
+m|La TA normale pendant la grossesse est :|Moins de 140/90 mmHg|Moins de 160/110 mmHg|Moins de 120/80 mmHg exactement|Moins de 100/60 mmHg
+d|L'HTA de la grossesse est définie par :|140/90 mmHg ou plus à 2 reprises, à 4 h d'intervalle|140/90 mmHg une seule fois|160/110 mmHg à 2 reprises|130/80 mmHg à 3 reprises
+d|La prééclampsie associe une HTA après 20 SA et :|Une protéinurie (1+ ou plus) ou une autre atteinte d'organe|Une anémie|Une glycosurie seule|Une hyperthermie
+d|Une prééclampsie sévère est évoquée devant une TA de :|160/110 mmHg ou plus, ou des céphalées, troubles visuels, douleur sous les côtes|140/90 mmHg isolée|120/80 mmHg|130/85 mmHg
+m|Une prise de poids de plus de 1 kg par semaine avec œdèmes évoque :|Une rétention d'eau, une prééclampsie|Un retard de croissance|Une cholestase|Une malnutrition
+m|Une prise de poids insuffisante évoque :|Une malnutrition ou un retard de croissance|Une prééclampsie|Un diabète|Une grossesse multiple
+m|Pour mesurer la hauteur utérine, la femme a :|La vessie vide et est allongée|La vessie pleine et est assise|Les jambes repliées|Le dos incliné à 90°
+m|La hauteur utérine se mesure :|De la symphyse pubienne au fond de l'utérus avec un ruban sans le tendre|De l'ombilic au pubis|Du xiphoïde à l'ombilic|Avec une règle rigide
+m|Une hauteur utérine trop petite peut être due à :|Un retard de croissance, un oligoamnios ou une erreur de terme|Une grossesse gémellaire|Un hydramnios|Un fibrome
+m|Une hauteur utérine trop grande peut être due à :|Une grossesse gémellaire, un hydramnios, une macrosomie ou un fibrome|Un oligoamnios|Un retard de croissance|Une position transverse seule
+d|Une hauteur utérine qui stagne impose :|Une échographie|Une césarienne|Un traitement par fer|Aucun examen
+m|Les BDCF s'entendent au Doppler à partir de :|10 à 12 SA|4 SA|16 SA|28 SA
+m|Les BDCF s'entendent au stéthoscope de Pinard à partir de :|20 à 22 SA|8 SA|12 SA|30 SA
+m|La fréquence cardiaque fœtale normale est de :|110 à 160 battements par minute|60 à 100 battements par minute|180 à 220 battements par minute|40 à 80 battements par minute
+m|Les BDCF s'écoutent pendant :|1 minute entière|10 secondes|30 secondes|5 minutes
+d|Pourquoi prendre le pouls de la mère en même temps ?|Pour ne pas confondre les deux rythmes|Pour mesurer sa tension|Pour dater la grossesse|Pour calculer le poids
+m|L'appareil se place :|Du côté du dos du fœtus|Du côté des membres du fœtus|Au-dessus du fond utérin|Sur la symphyse seulement
+m|Que faire en cas de BDCF absents ou anormaux ?|Référer, sans conclure à une mort fœtale sans échographie|Conclure à une mort fœtale|Rassurer la femme|Prescrire du fer
+m|Les mouvements actifs sont perçus vers 18 à 20 SA chez :|La primipare|La multipare|La femme obèse seulement|Toutes à 28 SA
+m|Les mouvements actifs sont perçus vers 16 à 18 SA chez :|La multipare|La primipare|Toute femme à 12 SA|Aucune femme
+m|Une baisse des mouvements fœtaux impose de :|Consulter le jour même|Attendre 48 h|Attendre le prochain contact|Ne rien faire
+m|Les manœuvres de Léopold permettent de connaître :|La présentation du fœtus (à partir de 36 SA)|Le groupe sanguin|La tension|L'hémoglobine
+d|En cas de siège, on discute :|Une version par manœuvre externe|Une hystérectomie|Un cerclage|Une amniocentèse
+m|Le toucher vaginal pendant la CPN est :|Non systématique, selon les indications|Systématique à chaque contact|Interdit|Réservé au 1er trimestre
+m|À quel moment réalise-t-on le groupe sanguin et le rhésus ?|Au premier contact|Au 8e contact|À l'accouchement uniquement|À 36 SA seulement
+m|L'hémoglobine est dosée :|Au premier contact puis au 3e trimestre|Uniquement à l'accouchement|Jamais|À 12 SA seulement
+m|La « triple élimination » concerne :|VIH, syphilis, hépatite B|VIH, paludisme, tuberculose|Rubéole, toxoplasmose, CMV|Syphilis, gonococcie, chlamydia
+m|Une échographie est recommandée :|Avant 24 SA|Seulement après 36 SA|Seulement en cas de saignement|Jamais
+m|Quelle supplémentation quotidienne est recommandée ?|Fer (30 à 60 mg) et acide folique (400 µg)|Fer (300 mg) seul|Acide folique (40 mg) seul|Vitamine A à forte dose
+d|Quelle dose d'acide folique est recommandée par jour ?|400 µg|4 g|40 mg|4 µg
+d|Quelle dose de fer est recommandée par jour ?|30 à 60 mg|1 à 2 mg|500 mg|2 g
+d|À quoi sert le calcium recommandé en cas d'apports faibles ?|Prévenir la prééclampsie|Prévenir l'anémie|Prévenir le paludisme|Prévenir la rubéole
+m|Le TPI contre le paludisme se fait avec :|La sulfadoxine-pyriméthamine|La quinine en perfusion|Le fer|La pénicilline
+d|Le TPI commence :|À partir du 2e trimestre, à chaque contact programmé, à au moins 1 mois d'intervalle|Au 1er jour de la grossesse|Seulement à l'accouchement|Uniquement en cas de fièvre
+m|Quelle protection individuelle contre le paludisme est conseillée ?|La moustiquaire imprégnée (MILDA)|Le port de gants|Le repos au lit|Les antibiotiques
+m|Quel vaccin est recommandé pendant la grossesse ?|Le vaccin antitétanique (Td)|Le vaccin contre la fièvre jaune obligatoire|Le BCG|Le vaccin contre la rougeole systématique
+m|L'infection urinaire sans symptôme doit être :|Traitée|Ignorée|Surveillée sans traitement|Traitée uniquement après l'accouchement
+m|La PTME concerne :|La femme séropositive pour le VIH|La femme anémique|La femme diabétique|La femme hypertendue
+m|Pour une femme rhésus négatif, on prévoit :|Des immunoglobulines anti-D, selon le protocole|Du fer seul|Une transfusion systématique|Une césarienne
+m|Le plan d'accouchement comprend :|Lieu, transport, argent, accompagnant, donneur de sang|Uniquement le choix du prénom|Le choix du sexe|Le métier de la mère
+d|Que faut-il emporter pour l'accouchement ?|Carnet, pagnes, affaires du bébé|Uniquement de l'argent|Aucun objet|Les médicaments de la pharmacie
+m|Quels sont des signes de danger à enseigner à chaque contact ?|Saignement, convulsions, céphalées intenses, fièvre, baisse des mouvements|Nausées du matin|Œdèmes des chevilles le soir|Pertes blanches sans odeur
+m|L'allaitement exclusif est recommandé pendant :|6 mois|2 mois|12 mois|18 mois
+m|L'intervalle minimal recommandé avant la grossesse suivante est de :|24 mois|6 mois|12 mois|5 ans
+m|Quels sujets aborder pour l'après-naissance ?|Allaitement, planification familiale, consultations postnatales|Seulement la sortie de maternité|Uniquement le prénom|Rien de particulier
+d|Le « vrai travail » correspond à :|Des contractions régulières, de plus en plus rapprochées, qui modifient le col|Un bouchon muqueux isolé|Des contractions irrégulières indolores|Des pertes blanches
+d|Le bouchon muqueux seul :|N'est pas le travail|Est le début du travail|Impose une césarienne|Est un signe de prééclampsie
+d|Quand la femme doit-elle venir immédiatement ?|Perte des eaux, saignement, fièvre, baisse des mouvements ou céphalées|Nausées du matin|Œdèmes des chevilles le soir|Lombalgies légères
+d|L'accompagnant(e) choisi(e) par la femme est :|Recommandé(e) par l'OMS|Déconseillé(e)|Interdit(e)|Réservé(e) aux primipares
+d|L'accompagnant(e) permet :|Plus d'accouchements spontanés et moins de césariennes|Plus de césariennes|Plus de complications|Aucun changement
+d|Les soins de maternité respectueux incluent :|Dignité, intimité, consentement et absence de violence|La séparation systématique de l'accompagnant|La restriction d'information|Le port obligatoire d'une tenue unique
+d|La préparation aux complications réduit :|Les « trois retards »|Les trois trimestres|Les trois consultations|Les trois examens
+d|« Toxémie gravidique » est remplacée aujourd'hui par :|Troubles hypertensifs de la grossesse / prééclampsie|Cholestase gravidique|Diabète gestationnel|Hyperemesis
+d|« Bruits du cœur fœtal » correspond en anglais à :|Fetal heart rate|Fetal movement|Fundal height|Femoral head
+`,
+      };
+      for (const [titre, texte] of Object.entries(gynecologie))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Gynécologie");
+        });
     questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
     })();
 
