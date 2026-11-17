@@ -466,10 +466,10 @@
       <div class="section-heading">
         <span class="eyebrow gold-text">✦ Réservé à MedQuiz Premium</span>
         <h2>🩺 Cas cliniques interactifs</h2>
-        <p class="muted">Raisonne étape par étape : diagnostic, examens, prise en charge et correction.</p>
+        <p class="muted">Entre dans le service : interroge le patient, choisis les examens, pose ton diagnostic et prends les décisions de soins.</p>
       </div>
       <div class="panel" id="casCliniqueZone" aria-live="polite">
-        <h3>Apprends à raisonner comme en situation clinique</h3>
+        <h3>Centre de simulation hospitalière</h3>
         <p class="muted">Choisis un cas, analyse les informations du patient et avance étape par étape. Chaque réponse est suivie d'une explication pédagogique.</p>
         <div class="field"><label for="casSpecialite">Spécialité</label>
           <select id="casSpecialite"><option value="obstetrique">Gynécologie-obstétrique</option></select>
@@ -3414,132 +3414,135 @@ function lignesDePage(items) {
     if ("serviceWorker" in navigator && /^https?:$/.test(window.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 
-    // ---------- Cas cliniques : aperçu gratuit et parcours Premium ----------
-    // Les choix sont mélangés à chaque étape ; la bonne réponse suit son libellé.
-    const casCliniques = [
-      {
-        titre: "Céphalées et hypertension chez une femme enceinte", specialite: "Gynécologie-obstétrique", niveau: "Intermédiaire",
-        patient: "Une patiente de 26 ans, enceinte de 32 semaines, consulte pour des céphalées intenses et des troubles visuels. Sa pression artérielle est de 165/110 mmHg.",
-        etapes: [
-          {titre:"Étape 1 — Hypothèse diagnostique", question:"Quelle situation faut-il suspecter en priorité ?", choix:["Prééclampsie avec signes de gravité","Diabète gestationnel isolé","Anémie ferriprive","Infection urinaire simple"], bonne:0, explication:"Une hypertension sévère associée à des céphalées et des troubles visuels après 20 semaines de grossesse fait craindre une prééclampsie avec signes de gravité. C'est une urgence obstétricale."},
-          {titre:"Étape 2 — Examens à demander", question:"Quel bilan est le plus pertinent pour rechercher une atteinte maternelle ?", choix:["NFS avec plaquettes, créatinine, ASAT/ALAT et évaluation de la protéinurie","Radiographie thoracique seule","Glycémie capillaire seule","Aucun examen n'est nécessaire"], bonne:0, explication:"Le bilan recherche notamment une thrombopénie, une atteinte rénale ou hépatique et documente la protéinurie. La surveillance maternelle et fœtale est également indispensable."},
-          {titre:"Étape 3 — Prise en charge initiale", question:"Quelle conduite initiale est appropriée ?", choix:["Évaluation et stabilisation urgentes en milieu obstétrical, contrôle de la pression artérielle et sulfate de magnésium si indiqué","Renvoyer la patiente à domicile","Attendre plusieurs jours sans surveillance","Administrer uniquement un antalgique"], bonne:0, explication:"Une prise en charge obstétricale urgente est nécessaire, avec surveillance maternelle et fœtale, traitement de l'hypertension sévère et prévention des convulsions selon les protocoles."},
-          {titre:"Étape 4 — Décision obstétricale", question:"Après stabilisation maternelle, que faut-il décider ?", choix:["Poursuivre la grossesse sans réévaluation","Évaluer la situation materno-fœtale et décider du moment et des modalités de naissance","Décider systématiquement une césarienne immédiate pour toutes","Ne surveiller que la tension"], bonne:1, explication:"La naissance est le traitement définitif, mais son moment et sa voie dépendent de l'état maternel et fœtal, du terme et du contexte. La stabilisation et l'avis spécialisé sont prioritaires."}
-        ]
-      },
-      {
-        titre:"Douleur thoracique chez un homme", specialite:"Cardiologie", niveau:"Intermédiaire",
-        patient:"Un homme de 58 ans, fumeur et hypertendu, présente depuis 45 minutes une douleur rétrosternale constrictive irradiant vers le bras gauche, avec sueurs et nausées.",
-        etapes:[
-          {titre:"Étape 1 — Diagnostic à évoquer", question:"Quel diagnostic faut-il rechercher en urgence ?", choix:["Syndrome coronarien aigu","Reflux gastro-œsophagien simple","Crise d'asthme","Colique néphrétique"],bonne:0,explication:"La douleur constrictive prolongée avec irradiation et signes végétatifs chez un patient à risque évoque un syndrome coronarien aigu. Une évaluation urgente est nécessaire."},
-          {titre:"Étape 2 — Examen prioritaire", question:"Quel examen doit être réalisé rapidement ?", choix:["ECG 12 dérivations","Échographie abdominale","EEG","Radiographie du poignet"],bonne:0,explication:"L'ECG 12 dérivations doit être obtenu rapidement, idéalement dans les 10 minutes, sans retarder la prise en charge."},
-          {titre:"Étape 3 — Biologie", question:"Quel biomarqueur aide à confirmer une lésion myocardique ?", choix:["Troponine cardiaque","Amylase seule","TSH","Bilirubine"],bonne:0,explication:"La troponine cardiaque est le biomarqueur de référence. Son interprétation tient compte du délai, de la cinétique et du contexte clinique."},
-          {titre:"Étape 4 — Orientation", question:"Quelle attitude est la plus adaptée ?", choix:["Organiser une prise en charge urgente en unité adaptée selon l'ECG et le risque","Faire sortir le patient sans surveillance","Attendre une semaine","Conseiller uniquement du repos à domicile"],bonne:0,explication:"Un syndrome coronarien aigu suspect impose une prise en charge urgente, monitorée et guidée par l'ECG, la clinique et les protocoles locaux."}
-        ]
-      },
-      {
-        titre:"Fièvre et respiration rapide chez un enfant", specialite:"Pédiatrie", niveau:"Facile",
-        patient:"Un enfant de 2 ans est amené pour fièvre, toux et respiration rapide depuis deux jours. Il boit moins que d'habitude et présente un tirage sous-costal.",
-        etapes:[
-          {titre:"Étape 1 — Signe de gravité",question:"Quel élément décrit ici un signe de difficulté respiratoire ?",choix:["Tirage sous-costal","Éruption isolée sans gêne","Démangeaison du bras","Douleur du genou"],bonne:0,explication:"Le tirage sous-costal traduit un effort respiratoire et doit faire évaluer rapidement la gravité."},
-          {titre:"Étape 2 — Évaluation",question:"Quel paramètre faut-il mesurer en priorité avec l'examen clinique ?",choix:["Saturation en oxygène","Taille des chaussures","Acuité auditive seule","Glycémie à jeun uniquement"],bonne:0,explication:"La saturation en oxygène, la fréquence respiratoire, l'état général et l'hydratation aident à apprécier la gravité."},
-          {titre:"Étape 3 — Orientation",question:"Quelle conduite est la plus prudente devant le tirage et la baisse des boissons ?",choix:["Évaluation médicale rapide pour décider du niveau de soins","Attendre une semaine sans surveillance","Donner uniquement un antitussif","Arrêter toute hydratation"],bonne:0,explication:"Les signes de difficulté respiratoire et la baisse des apports justifient une évaluation rapide, notamment pour rechercher une hypoxémie et une déshydratation."},
-          {titre:"Étape 4 — Surveillance",question:"Quel élément doit être réévalué régulièrement ?",choix:["Travail respiratoire, saturation, état général et hydratation","Couleur des cheveux","Pointure","Vision des couleurs uniquement"],bonne:0,explication:"La surveillance porte sur la respiration, l'oxygénation, la conscience, la capacité à boire et les signes de déshydratation."}
-        ]
-      },
-      {
-        titre:"Soif intense et vomissements", specialite:"Médecine d'urgence", niveau:"Intermédiaire",
-        patient:"Une femme de 21 ans connue pour un diabète de type 1 consulte pour soif intense, polyurie, douleurs abdominales et vomissements. Sa respiration est ample et rapide.",
-        etapes:[
-          {titre:"Étape 1 — Diagnostic probable",question:"Quelle complication doit être suspectée ?",choix:["Acidocétose diabétique","Hypoglycémie légère isolée","Appendicite certaine","Crise d'angoisse simple"],bonne:0,explication:"Chez une personne ayant un diabète de type 1, l'association polyurie, vomissements et respiration ample fait suspecter une acidocétose diabétique, urgence métabolique."},
-          {titre:"Étape 2 — Confirmation",question:"Quel examen immédiat est utile au triage ?",choix:["Glycémie capillaire et recherche de cétones","Test auditif","Radiographie du genou","Dosage du cholestérol seul"],bonne:0,explication:"La glycémie et la cétonémie capillaire orientent immédiatement. Le bilan hospitalier comprend notamment gaz du sang, ionogramme et fonction rénale."},
-          {titre:"Étape 3 — Gravité",question:"Quel bilan aide à apprécier le trouble acido-basique ?",choix:["Gaz du sang veineux ou artériel et bicarbonates","Bilan lipidique seul","Test de grossesse seul","ECG d'effort"],bonne:0,explication:"Le pH et les bicarbonates permettent d'évaluer l'acidose. Le potassium et la fonction rénale doivent aussi être surveillés."},
-          {titre:"Étape 4 — Prise en charge",question:"Quelle prise en charge est appropriée ?",choix:["Prise en charge hospitalière avec remplissage, insulinothérapie et surveillance électrolytique selon protocole","Insuline oubliée et retour à domicile","Restriction complète des liquides","Antibiotique systématique sans évaluation"],bonne:0,explication:"L'acidocétose nécessite une prise en charge hospitalière protocolisée : réhydratation, insuline, surveillance rapprochée du potassium et recherche du facteur déclenchant."}
-        ]
-      }
+    // ---------- Simulateur hospitalier : 50 scénarios, décisions et évolution du patient ----------
+    // Les scénarios sont pédagogiques. Les conduites réelles suivent les protocoles locaux et l'équipe médicale.
+    const modelesSimulation = [
+      {titre:"Prééclampsie avec signes de gravité",spec:"Gynécologie-obstétrique",niveau:"Urgence",patient:"Patiente enceinte de 32 semaines, céphalées intenses, phosphènes et pression artérielle à 165/110 mmHg.",
+       urgence:"La patiente présente une hypertension sévère et des symptômes neurologiques. Elle doit être évaluée sans délai.",
+       etapes:[
+        ["Accueil et triage","Quelle est ta toute première décision ?",["Installer en secteur obstétrical surveillé, alerter l'équipe et réévaluer immédiatement la mère et le fœtus","La laisser patienter en salle d'attente","La renvoyer avec un antalgique","Attendre le prochain rendez-vous"],0,"L'hypertension sévère avec signes neurologiques est une urgence obstétricale. La surveillance et l'alerte doivent être immédiates."],
+        ["Interrogatoire ciblé","Quelle information recherches-tu en priorité ?",["Antécédents hypertensifs, début des symptômes, douleur épigastrique, mouvements fœtaux et antécédents obstétricaux","Sa couleur préférée","Son dernier repas uniquement","Son groupe sanguin sans autre question"],0,"L'interrogatoire recherche les signes de gravité, les antécédents et le retentissement fœtal."],
+        ["Examen clinique","Quel examen clinique est essentiel ?",["Confirmer la pression artérielle avec brassard adapté, évaluer conscience, réflexes, douleur épigastrique et état respiratoire","Examiner uniquement les oreilles","Mesurer seulement la taille","Ne faire aucun examen"],0,"Il faut confirmer et surveiller la tension, rechercher des signes neurologiques, hépatiques ou respiratoires et apprécier l'état général."],
+        ["Examens complémentaires","Quel bilan demandes-tu ?",["NFS-plaquettes, créatinine, ASAT/ALAT, protéinurie et évaluation fœtale","Bilan lipidique seul","Radiographie du genou","Aucun bilan"],0,"Le bilan recherche une atteinte hématologique, rénale ou hépatique et évalue le bien-être fœtal."],
+        ["Décision diagnostique","Quelle conclusion est la plus probable ?",["Prééclampsie avec signes de gravité jusqu'à preuve du contraire","Hypertension bénigne sans risque","Diabète gestationnel isolé","Migraine simple certaine"],0,"Le tableau impose de considérer une prééclampsie avec signes de gravité. Il ne faut pas banaliser les symptômes."],
+        ["Prise en charge et surveillance","Quelle stratégie est adaptée ?",["Stabilisation en milieu obstétrical, traitement urgent de l'HTA sévère, prévention des convulsions si indiquée et décision obstétricale spécialisée","Retour à domicile sans contrôle","Attendre plusieurs jours","Antalgique seul"],0,"La stabilisation maternelle, la prévention de l'éclampsie selon protocole, la surveillance fœtale et la décision du moment de naissance relèvent de l'équipe obstétricale." ]
+       ]},
+      {titre:"Syndrome coronarien aigu",spec:"Cardiologie",niveau:"Urgence",patient:"Homme de 58 ans, fumeur et hypertendu, douleur thoracique constrictive depuis 45 minutes, irradiation au bras gauche et sueurs.",urgence:"Une douleur thoracique prolongée avec signes végétatifs peut correspondre à un infarctus. Chaque retard compte.",etapes:[
+       ["Accueil et triage","Quelle action immédiate choisis-tu ?",["Évaluation ABC, monitorage, alerte de l'équipe et ECG 12 dérivations sans délai","Faire marcher le patient","Le laisser seul","Programmer une consultation dans un mois"],0,"Le patient doit être évalué et monitoré immédiatement. L'ECG précoce guide la stratégie."],
+       ["Interrogatoire ciblé","Quelle précision est déterminante ?",["Heure de début, durée, irradiation, symptômes associés, facteurs de risque et traitements","Son dernier voyage uniquement","Son niveau scolaire","Son alimentation de la semaine passée seulement"],0,"L'heure de début, les caractéristiques de la douleur et les facteurs de risque orientent la prise en charge."],
+       ["Examen clinique","Que recherches-tu ?",["Constantes, signes d'insuffisance cardiaque, état hémodynamique et signes de mauvaise perfusion","Une douleur du genou uniquement","La vision des couleurs","Aucun signe clinique"],0,"L'examen recherche notamment instabilité, choc, congestion pulmonaire ou complications."],
+       ["Examens complémentaires","Quel examen est prioritaire ?",["ECG 12 dérivations immédiatement, puis troponines et bilan adapté sans retarder la stratégie urgente","EEG","Radiographie du poignet","Dosage de TSH seul"],0,"L'ECG est prioritaire. Les troponines sont interprétées selon leur cinétique et le contexte."],
+       ["Décision diagnostique","Quel diagnostic faut-il retenir en priorité ?",["Syndrome coronarien aigu jusqu'à exclusion","Reflux simple certain","Crise d'angoisse certaine","Douleur musculaire bénigne certaine"],0,"La présentation est hautement évocatrice d'un syndrome coronarien aigu."],
+       ["Prise en charge","Quelle conduite est correcte ?",["Prise en charge urgente monitorée et stratégie de reperfusion/traitement selon ECG, délai et protocole","Retour à domicile","Attendre les résultats plusieurs jours sans surveillance","Antiacide seul"],0,"La stratégie dépend de l'ECG, du délai et du contexte. Il faut activer rapidement la filière adaptée." ]
+      ]},
+      {titre:"Détresse respiratoire fébrile chez l'enfant",spec:"Pédiatrie",niveau:"Urgence",patient:"Enfant de 2 ans, fièvre et toux depuis deux jours, respiration rapide, tirage sous-costal et boit moins.",urgence:"Le tirage et la baisse des apports sont des signes d'alerte. Il faut évaluer rapidement l'oxygénation et l'état général.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Évaluer immédiatement la respiration, la conscience et la circulation, mesurer la SpO₂ et alerter si détresse","Faire attendre l'enfant","Donner un sirop et le renvoyer","Lui demander de courir"],0,"La priorité est la recherche d'une détresse respiratoire et d'une hypoxémie."],
+       ["Interrogatoire","Quelle question est importante ?",["Début et évolution, difficulté à boire, diurèse, vaccination, antécédents et signes associés","Son dessin animé préféré","Sa pointure","Son jeu favori"],0,"Les apports, la diurèse, la durée de la fièvre et les antécédents aident à évaluer gravité et cause."],
+       ["Examen clinique","Que dois-tu mesurer/observer ?",["Fréquence respiratoire, SpO₂, tirage, geignement, état de conscience, hydratation et auscultation","Poids seul","Taille des cheveux","Aucun examen"],0,"L'évaluation clinique complète détermine le niveau de gravité et l'orientation."],
+       ["Examens","Quelle démarche est adaptée ?",["Examens guidés par la gravité et le contexte; ne pas retarder la stabilisation pour une radiographie","Scanner systématique de tout le corps","Aucun contrôle de saturation","Bilan lipidique"],0,"Les examens sont ciblés. L'oxygénation et la prise en charge des signes de gravité priment."],
+       ["Hypothèse","Quelle hypothèse principale faut-il explorer ?",["Pneumonie ou infection respiratoire basse avec signes de gravité à évaluer","Rhinite allergique certaine","Fracture costale certaine","Migraine"],0,"La fièvre, la toux et la difficulté respiratoire évoquent une infection respiratoire basse, sans exclure d'autres causes."],
+       ["Prise en charge","Quelle conduite est la plus sûre ?",["Prise en charge adaptée à la gravité, oxygène si hypoxémie, hydratation et traitement selon évaluation/protocole","Antitussif seul et retour immédiat","Arrêter les boissons","Attendre une semaine"],0,"Le niveau de soins et les traitements dépendent de la gravité, de l'oxygénation et de l'évaluation clinique." ]
+      ]},
+      {titre:"Acidocétose diabétique",spec:"Endocrinologie / Urgences",niveau:"Urgence",patient:"Patiente de 21 ans avec diabète de type 1, polyurie, soif, vomissements, douleurs abdominales et respiration ample.",urgence:"Une acidocétose est possible. Il faut évaluer immédiatement l'état hémodynamique, la glycémie, les cétones et le potassium.",etapes:[
+       ["Accueil et triage","Quelle est ta priorité ?",["Évaluer ABC et constantes, glycémie et cétones au point de soins, accès veineux et prise en charge urgente","La laisser repartir","Donner un repas sucré sans mesure","Attendre le lendemain"],0,"Le tableau évoque une urgence métabolique qui nécessite évaluation et surveillance rapprochées."],
+       ["Interrogatoire","Quelle information recherches-tu ?",["Oubli d'insuline, infection récente, vomissements, prise alimentaire et évolution des symptômes","Sa couleur préférée","Son dernier cours","Son sport favori"],0,"Il faut identifier un facteur déclenchant, notamment infection ou interruption d'insuline."],
+       ["Examen clinique","Quels éléments sont essentiels ?",["Conscience, déshydratation, fréquence respiratoire, perfusion, constantes et recherche d'infection","Examen des cheveux uniquement","Acuité visuelle seule","Aucun examen"],0,"La gravité dépend notamment de l'état neurologique, circulatoire et de la déshydratation."],
+       ["Examens","Quel bilan est nécessaire ?",["Glycémie, cétones, gaz veineux, ionogramme dont potassium, bicarbonates et fonction rénale","Cholestérol seul","Radiographie du poignet","Test auditif"],0,"Le bilan confirme l'acidose et guide la correction hydro-électrolytique."],
+       ["Diagnostic","Quel diagnostic est le plus probable ?",["Acidocétose diabétique","Hypoglycémie isolée certaine","Appendicite certaine sans autre bilan","Crise d'angoisse"],0,"Le diabète de type 1, les vomissements, la polyurie et la respiration ample évoquent une acidocétose."],
+       ["Traitement et surveillance","Quelle stratégie est adaptée ?",["Protocole hospitalier: remplissage, insuline après évaluation du potassium, surveillance rapprochée et recherche du déclencheur","Insuline sans contrôle du potassium ni surveillance","Restriction complète des liquides","Retour à domicile"],0,"La réhydratation, l'insuline et la surveillance du potassium doivent suivre un protocole hospitalier." ]
+      ]},
+      {titre:"Accident vasculaire cérébral suspecté",spec:"Neurologie / Urgences",niveau:"Urgence",patient:"Homme de 67 ans présentant brutalement une faiblesse du bras droit et des troubles de la parole depuis 50 minutes.",urgence:"Un déficit neurologique brutal impose l'activation immédiate de la filière AVC et la détermination de l'heure de début.",etapes:[
+       ["Accueil et triage","Quelle action immédiate ?",["Activer la filière AVC, noter l'heure de début/dernier état normal et évaluer ABC-glycémie","Faire attendre pour voir si cela passe","Donner à boire","Le faire marcher"],0,"Le temps est déterminant. L'heure de début et la stabilisation sont essentielles."],
+       ["Interrogatoire","Quelle information est capitale ?",["Heure exacte du début, anticoagulants, antécédents, autonomie et évolution des symptômes","Son dernier repas seulement","Sa profession uniquement","Son groupe musical préféré"],0,"Ces informations influencent l'éligibilité aux traitements et la sécurité."],
+       ["Examen clinique","Quel examen réaliser ?",["Évaluation neurologique structurée, constantes, glycémie et recherche de contre-indications","Examen dermatologique seul","Test auditif uniquement","Aucun examen"],0,"Il faut caractériser le déficit, rechercher une hypoglycémie et apprécier la gravité."],
+       ["Imagerie","Quel examen est urgent ?",["Imagerie cérébrale urgente selon filière (scanner sans injection ± imagerie vasculaire)","Radiographie du genou","Échographie thyroïdienne","EEG systématique en premier"],0,"L'imagerie distingue notamment hémorragie et ischémie et guide la stratégie."],
+       ["Diagnostic","Quelle hypothèse retenir ?",["AVC aigu jusqu'à preuve du contraire","Migraine certaine","Trouble anxieux certain","Neuropathie chronique"],0,"Le déficit focal brutal est un AVC jusqu'à preuve du contraire."],
+       ["Prise en charge","Quelle conduite ?",["Prise en charge spécialisée immédiate, décision de reperfusion selon imagerie, délai et critères, surveillance","Aspirine avant imagerie dans tous les cas","Retour à domicile","Attendre 24 heures"],0,"La décision thérapeutique dépend du type d'AVC et de l'imagerie. Ne pas retarder la filière spécialisée." ]
+      ]},
+      {titre:"Sepsis avec suspicion d'infection",spec:"Médecine d'urgence",niveau:"Urgence",patient:"Femme de 46 ans fébrile, confuse, tachycarde et hypotendue après plusieurs jours de symptômes infectieux.",urgence:"Confusion et hypotension dans un contexte infectieux font craindre un sepsis grave ou un choc septique.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Alerter, évaluer ABC, monitorer, mesurer les constantes et débuter la prise en charge urgente","La faire attendre","Donner uniquement un antipyrétique","La renvoyer"],0,"Le tableau peut correspondre à un choc septique. La reconnaissance précoce est essentielle."],
+       ["Interrogatoire","Que recherches-tu ?",["Foyer infectieux possible, durée, traitements, allergies, comorbidités et facteurs de risque","Ses loisirs uniquement","Son dernier voyage sans autre détail","Sa couleur préférée"],0,"L'interrogatoire recherche la porte d'entrée et les éléments utiles à l'antibiothérapie."],
+       ["Examen","Que recherches-tu ?",["Perfusion, conscience, respiration, diurèse, peau et foyer infectieux","Examen des ongles seul","Taille uniquement","Aucun examen"],0,"L'examen évalue le retentissement et recherche une source contrôlable."],
+       ["Examens","Quel bilan initial est pertinent ?",["Lactate, hémocultures si possible sans retarder le traitement, bilan biologique et prélèvements ciblés","Cholestérol seul","Radiographie du poignet","Test de vision"],0,"Les prélèvements aident à identifier le germe, mais ne doivent pas retarder les soins urgents."],
+       ["Diagnostic","Quelle situation suspectes-tu ?",["Sepsis avec possible choc septique","Infection virale bénigne certaine","Allergie alimentaire certaine","Migraine"],0,"L'infection suspectée avec hypotension et confusion évoque un sepsis grave."],
+       ["Prise en charge","Quelle stratégie ?",["Traitement urgent selon protocole: antibiothérapie précoce adaptée, remplissage/vasopresseurs si indiqués, contrôle du foyer et réévaluation","Attendre les cultures plusieurs jours","Antibiotique oral seul à domicile","Aucun monitorage"],0,"La prise en charge associe stabilisation, antimicrobiens précoces, contrôle du foyer et réévaluation fréquente." ]
+      ]},
+      {titre:"Appendicite aiguë suspectée",spec:"Chirurgie / Urgences",niveau:"Intermédiaire",patient:"Jeune adulte de 22 ans présentant une douleur abdominale ayant migré vers la fosse iliaque droite, nausées et fièvre modérée.",urgence:"Une douleur localisée avec fièvre nécessite un examen abdominal et une évaluation des diagnostics urgents.",etapes:[
+       ["Accueil et triage","Que fais-tu d'abord ?",["Évaluer constantes, douleur, signes péritonéaux et rechercher une instabilité","Le renvoyer sans examen","Donner un laxatif","Attendre une semaine"],0,"Il faut d'abord rechercher une urgence abdominale et apprécier la stabilité."],
+       ["Interrogatoire","Quelle précision est utile ?",["Chronologie et migration de la douleur, vomissements, transit, symptômes urinaires et possibilité de grossesse selon contexte","Son sport préféré","Sa couleur préférée","Son dernier film"],0,"La chronologie et les symptômes associés orientent le diagnostic différentiel."],
+       ["Examen clinique","Quel examen est important ?",["Examen abdominal complet avec recherche de défense/douleur localisée et examen adapté au contexte","Auscultation pulmonaire seule","Examen des yeux uniquement","Aucun examen"],0,"L'examen recherche des signes péritonéaux et aide à décider de l'urgence."],
+       ["Examens","Quelle démarche est pertinente ?",["NFS/CRP, analyse urinaire, test de grossesse si indiqué et imagerie selon âge/contexte","Bilan lipidique seul","EEG","Radiographie du poignet"],0,"Les examens sont ciblés et l'imagerie dépend du contexte clinique et des ressources."],
+       ["Diagnostic","Quel diagnostic évoquer ?",["Appendicite aiguë, à confirmer et stratifier","Gastro-entérite certaine","Colique néphrétique certaine sans bilan","Migraine"],0,"La migration de la douleur vers la fosse iliaque droite est évocatrice, mais les diagnostics différentiels restent à examiner."],
+       ["Prise en charge","Quelle suite est adaptée ?",["Avis chirurgical, mise à jeun, antalgiques et traitement selon évaluation/protocole","Laxatif et retour à domicile","Antibiotiques au hasard sans évaluation","Attendre plusieurs jours"],0,"L'avis chirurgical et la stratégie thérapeutique dépendent de la confirmation et de la gravité." ]
+      ]},
+      {titre:"Crise d'asthme aiguë",spec:"Pneumologie / Urgences",niveau:"Urgence",patient:"Patiente de 24 ans asthmatique, dyspnée sifflante, parle par mots et utilise ses muscles accessoires après exposition à la poussière.",urgence:"La difficulté à parler et le travail respiratoire suggèrent une exacerbation sévère. Il faut évaluer sans délai.",etapes:[
+       ["Accueil et triage","Quelle action prioritaire ?",["Évaluer gravité, SpO₂, fréquence respiratoire, capacité à parler et débuter le traitement urgent selon protocole","La laisser marcher","Attendre sans surveillance","La renvoyer"],0,"Les signes de gravité nécessitent une prise en charge immédiate et une réévaluation rapprochée."],
+       ["Interrogatoire","Quelle question est importante ?",["Début, déclencheur, traitements déjà pris, hospitalisations antérieures et antécédents d'intubation","Sa pointure","Son dernier repas uniquement","Son métier sans autre question"],0,"Les antécédents d'exacerbation sévère et la réponse aux traitements sont importants."],
+       ["Examen","Quel signe de gravité recherches-tu ?",["Épuisement, silence auscultatoire, altération de conscience, hypoxémie et mauvaise réponse au traitement","Éruption cutanée isolée","Douleur du genou","Aucun signe"],0,"Un silence auscultatoire ou un épuisement peut annoncer une défaillance respiratoire."],
+       ["Examens","Quelle mesure est utile ?",["Oxymétrie et débit expiratoire si réalisable sans retarder le traitement; examens complémentaires selon gravité","Scanner cérébral systématique","Bilan lipidique","Aucun contrôle"],0,"L'évaluation fonctionnelle aide à suivre la réponse, sans retarder le traitement d'une crise sévère."],
+       ["Diagnostic","Quelle situation ?",["Exacerbation aiguë sévère d'asthme","Rhume simple certain","Pneumothorax certain sans examen","Crise d'angoisse certaine"],0,"La dyspnée, les sibilants et les signes de lutte évoquent une exacerbation sévère."],
+       ["Prise en charge","Quelle conduite ?",["Traitement bronchodilatateur inhalé répété, oxygène si hypoxémie, corticoïde systémique selon protocole et réévaluation","Sédatif seul","Antitussif et retour à domicile","Aucun suivi"],0,"La prise en charge repose sur bronchodilatateurs, oxygène si nécessaire, corticoïdes selon gravité et surveillance de la réponse." ]
+      ]},
+      {titre:"Paludisme grave suspecté",spec:"Maladies infectieuses",niveau:"Urgence",patient:"Enfant de 6 ans vivant en zone d'endémie, forte fièvre, vomissements répétés, prostration et trouble de la conscience.",urgence:"En zone d'endémie, fièvre et altération de conscience font craindre un paludisme grave ou une autre infection sévère.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Stabilisation ABC, glycémie immédiate, constantes et orientation urgente vers une prise en charge hospitalière","Attendre le résultat à domicile","Donner seulement un antipyrétique","Faire marcher l'enfant"],0,"L'altération de conscience est un signe de gravité. L'hypoglycémie doit être recherchée immédiatement."],
+       ["Interrogatoire","Que recherches-tu ?",["Durée de fièvre, zone d'exposition, prévention, traitements antipaludiques, convulsions et apports","Son dessin animé","Sa pointure","Son école uniquement"],0,"L'exposition, les traitements reçus et les signes neurologiques orientent la prise en charge."],
+       ["Examen","Quels signes sont essentiels ?",["Conscience, convulsions, respiration, perfusion, pâleur, ictère et signes de déshydratation","Examen des cheveux","Taille uniquement","Aucun examen"],0,"L'examen recherche les critères de gravité et les complications."],
+       ["Examens","Quel test demandes-tu ?",["Test parasitologique rapide ou goutte épaisse/frottis selon disponibilité, glycémie et bilan de gravité","Cholestérol seul","Radiographie du genou","Test auditif"],0,"La confirmation parasitologique et l'évaluation des complications guident les soins; ne pas retarder la stabilisation."],
+       ["Diagnostic","Quelle hypothèse ?",["Paludisme grave possible, à confirmer rapidement et à différencier d'autres urgences infectieuses","Paludisme simple certain","Rhume banal","Allergie"],0,"L'altération de conscience impose de considérer une forme grave, tout en recherchant d'autres causes."],
+       ["Prise en charge","Quelle conduite ?",["Hospitalisation urgente et traitement antipaludique parentéral selon recommandations nationales, avec surveillance des complications","Traitement oral à domicile malgré le trouble de conscience","Attendre plusieurs jours","Aucun contrôle glycémique"],0,"Le paludisme grave nécessite une prise en charge hospitalière urgente et un traitement recommandé par le protocole national." ]
+      ]},
+      {titre:"Hémorragie du post-partum",spec:"Gynécologie-obstétrique",niveau:"Urgence vitale",patient:"Patiente venant d'accoucher, saignement vaginal abondant, pâleur, tachycardie et malaise dans les minutes suivant la naissance.",urgence:"Une hémorragie du post-partum peut rapidement engager le pronostic vital. Il faut appeler de l'aide et agir simultanément.",etapes:[
+       ["Alerte et triage","Quelle action immédiate ?",["Déclencher l'alerte hémorragie, appeler renforts, évaluer ABC, monitorer et quantifier les pertes","Attendre que le saignement cesse","Laisser la patiente seule","La faire marcher"],0,"L'alerte et la prise en charge coordonnée doivent être immédiates."],
+       ["Interrogatoire rapide","Quelle information est utile sans retarder les soins ?",["Moment du début, délivrance/placenta, facteurs de risque, antécédents hémorragiques et traitements","Son alimentation de la veille uniquement","Sa profession","Sa couleur préférée"],0,"L'interrogatoire se fait en parallèle des gestes urgents, sans retarder la stabilisation."],
+       ["Examen","Que vérifies-tu ?",["Tonus utérin, saignement, placenta, lésions génitales et état hémodynamique","Examen des yeux seul","Taille uniquement","Aucun examen"],0,"La recherche des causes suit les grands mécanismes: atonie, rétention, traumatisme et troubles de coagulation."],
+       ["Examens","Quel bilan faut-il organiser ?",["NFS, coagulation, groupage/compatibilité et surveillance biologique selon gravité, sans retarder les gestes","Bilan lipidique seul","Radiographie du genou","Test auditif"],0,"Le bilan prépare la transfusion si nécessaire et évalue les conséquences, sans retarder la prise en charge."],
+       ["Diagnostic","Quelle complication ?",["Hémorragie du post-partum jusqu'à preuve du contraire","Saignement physiologique certain","Infection urinaire","Migraine"],0,"Le saignement abondant avec signes de choc est une hémorragie du post-partum."],
+       ["Prise en charge","Quelle conduite ?",["Prise en charge simultanée selon protocole: massage utérin si atonie, utérotoniques, acide tranexamique si indiqué, remplissage/transfusion et contrôle de la cause","Attendre sans intervention","Retour à domicile","Antalgique seul"],0,"Les gestes dépendent de la cause et du protocole local; la réanimation et le contrôle du saignement sont simultanés." ]
+      ]}
     ];
+    const variantesSimulation = [
+      ["présentation classique","dossier de triage","consultation aux urgences","transfert d'un centre périphérique","retour après aggravation"],
+      ["cas de garde","nouveau patient","situation clinique guidée","admission non programmée","cas d'entraînement"],
+      ["scénario niveau 1","scénario niveau 2","scénario niveau 3","scénario niveau 4","scénario niveau 5"],
+      ["mise en situation A","mise en situation B","mise en situation C","mise en situation D","mise en situation E"],
+      ["variante clinique A","variante clinique B","variante clinique C","variante clinique D","variante clinique E"]
+    ];
+    const casCliniques = modelesSimulation.flatMap((m, mi) => variantesSimulation.map((v, vi) => ({
+      titre: `${m.titre} — ${v[mi]}`, specialite:m.spec, niveau:m.niveau,
+      patient: m.patient + (vi===1?" Le patient est adressé par un poste de santé.":vi===2?" Les symptômes se sont accentués pendant le trajet.":vi===3?" L'équipe doit organiser rapidement l'évaluation initiale.":vi===4?" Un proche signale une aggravation récente.":""),
+      urgence:m.urgence, etapes:m.etapes
+    })));
     let casSelectionne = 0;
-    let progressionCas = { index: 0, score: 0, termine: false, enregistre: false, choixMelanges: [] };
+    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[] };
     const NB_ETAPES_GRATUITES = 1;
-
-    function ouvrirCasCliniques() {
-      const zone = $("casCliniqueZone");
-      if (!zone) return;
-      if (!utilisateurActuel) {
-        zone.replaceChildren(el("h3", "", "Découvre les cas cliniques 🩺"), el("p", "muted", "Connecte-toi pour commencer un cas clinique."), (() => { const a=el("a","btn btn-gold","Se connecter"); a.href="#compte"; return a; })());
-        return;
-      }
-      afficherAccueilCas();
+    const libellesEtapesSimulation = ["Triage","Interrogatoire","Examen clinique","Examens","Diagnostic","Traitement"];
+    function ouvrirCasCliniques(){const zone=$("casCliniqueZone");if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Simulation clinique 🏥"),el("p","muted","Connecte-toi pour entrer dans le service."),(()=>{const a=el("a","btn btn-gold","Se connecter");a.href="#compte";return a;})());return;}afficherAccueilCas();}
+    function afficherAccueilCas(){const zone=$("casCliniqueZone");zone.replaceChildren(el("h3","","🏥 Centre de simulation hospitalière"),el("p","muted",`${casCliniques.length} scénarios · 10 situations médicales · 6 phases de prise en charge.`));
+      const filtre=el("select","field");filtre.style.width="100%";filtre.setAttribute("aria-label","Filtrer par spécialité");["Toutes les spécialités",...new Set(casCliniques.map(c=>c.specialite))].forEach((x,i)=>{const o=el("option");o.value=i?x:"";o.textContent=x;filtre.append(o);});zone.append(filtre);
+      const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 6 phases`));const b=el("button","btn btn-gold",premium.actif?"Entrer dans le service →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index));carte.append(b);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
+      if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
+      zone.append(el("p","muted","Simulations à visée pédagogique uniquement. Elles ne remplacent ni les protocoles nationaux, ni l'encadrement clinique, ni une décision médicale réelle."));}
+    function commencerCas(index){casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[]};afficherEtapeCas();}
+    function afficherEtapeCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),etape=cas.etapes[progressionCas.index];zone.replaceChildren();
+      zone.append(el("p","eyebrow gold-text","🏥 SERVICE D'URGENCES · SIMULATION"),el("h3","",cas.titre),el("p","muted",`${cas.specialite} · ${cas.niveau}`));
+      const barre=el("div");barre.style.cssText="height:7px;background:var(--border);border-radius:10px;overflow:hidden;margin:12px 0";const rempl=el("div");rempl.style.cssText=`height:100%;width:${(progressionCas.index/6)*100}%;background:var(--gold,#d6a84b);`;barre.append(rempl);zone.append(barre,el("p","muted",`Phase ${progressionCas.index+1}/6 — ${libellesEtapesSimulation[progressionCas.index]}`));
+      const dossier=el("div","history-item");dossier.style.cssText="display:block;padding:14px;margin:12px 0";dossier.append(el("strong","","📋 Dossier patient"),el("p","",cas.patient));if(progressionCas.index===0)dossier.append(el("p","muted",cas.urgence));zone.append(dossier);
+      const statut=el("div","notice",`État du patient : ${progressionCas.stabilite>=4?"stable":progressionCas.stabilite>=2?"à surveiller":"instable — réévaluation urgente"} · Décisions correctes : ${progressionCas.score}`);zone.append(statut,el("h4","",etape[0]),el("p","",etape[1]));
+      const ordre=etape[2].map((libelle,index)=>({libelle,index}));for(let i=ordre.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ordre[i],ordre[j]]=[ordre[j],ordre[i]];}progressionCas.choixMelanges=ordre;
+      const choix=el("div","cas-choix");ordre.forEach((option,i)=>{const b=el("button","btn btn-secondary",`${String.fromCharCode(65+i)}. ${option.libelle}`);b.type="button";b.style.cssText="display:block;width:100%;text-align:left;margin:8px 0;white-space:normal";b.addEventListener("click",()=>repondreCas(i,choix));choix.append(b);});zone.append(choix);
+      if(progressionCas.journal.length){const j=el("details");const sum=el("summary","","Voir le dossier de décisions précédent");j.append(sum);progressionCas.journal.forEach(x=>j.append(el("p","muted",x)));zone.append(j);}
     }
-
-    function afficherAccueilCas() {
-      const zone = $("casCliniqueZone");
-      zone.replaceChildren(el("h3", "", "Cas cliniques 🩺"), el("p", "muted", "Choisis une situation clinique et avance étape par étape."));
-      casCliniques.forEach((cas, index) => {
-        const carte = el("div", "history-item");
-        carte.style.display = "block"; carte.style.margin = "10px 0"; carte.style.padding = "14px";
-        carte.append(el("strong", "", cas.titre), el("p", "muted", `${cas.specialite} · ${cas.niveau} · 4 étapes`));
-        const b = el("button", "btn btn-gold", premium.actif ? "Commencer le cas →" : "Découvrir ce cas →");
-        b.type="button"; b.addEventListener("click", () => commencerCas(index)); carte.append(b); zone.append(carte);
-      });
-      if (!premium.actif) zone.append(el("p", "notice", "🎁 Compte gratuit : tu peux commencer chaque cas et découvrir la première étape. Débloque les étapes suivantes et tous les parcours avec Premium."), (() => {const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})());
-      zone.append(el("p", "muted", "Cas à visée pédagogique : ils ne remplacent pas l'avis médical, les recommandations actualisées ni les protocoles locaux."));
-    }
-
-    function commencerCas(index) {
-      casSelectionne = index;
-      progressionCas = { index: 0, score: 0, termine: false, enregistre: false, choixMelanges: [] };
-      afficherEtapeCas();
-    }
-
-    function afficherEtapeCas() {
-      const cas = casCliniques[casSelectionne], zone = $("casCliniqueZone"), etape = cas.etapes[progressionCas.index];
-      zone.replaceChildren();
-      zone.append(el("h3", "", cas.titre), el("p", "muted", `${cas.specialite} · ${cas.niveau}`), el("p", "", cas.patient), el("h4", "", etape.titre), el("p", "", etape.question));
-      const ordre = etape.choix.map((libelle, index) => ({libelle, index}));
-      for (let i=ordre.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [ordre[i],ordre[j]]=[ordre[j],ordre[i]]; }
-      progressionCas.choixMelanges = ordre;
-      const choix = el("div", "cas-choix");
-      ordre.forEach((option, i) => {
-        const b = el("button", "btn btn-secondary", `${String.fromCharCode(65+i)}. ${option.libelle}`);
-        b.type="button"; b.style.display="block"; b.style.width="100%"; b.style.textAlign="left"; b.style.margin="8px 0";
-        b.addEventListener("click", () => repondreCas(i, choix)); choix.append(b);
-      });
-      zone.append(choix, el("p", "muted", `Étape ${progressionCas.index+1} sur ${cas.etapes.length}`));
-    }
-
-    function repondreCas(reponse, conteneur) {
-      const cas=casCliniques[casSelectionne], etape=cas.etapes[progressionCas.index];
-      const bonneAffichee=progressionCas.choixMelanges.findIndex(x=>x.index===etape.bonne);
+    function repondreCas(reponse,conteneur){const cas=casCliniques[casSelectionne],etape=cas.etapes[progressionCas.index],bonneAffichee=progressionCas.choixMelanges.findIndex(x=>x.index===0); // la décision attendue est la première option du scénario
       [...conteneur.querySelectorAll("button")].forEach((b,i)=>{b.disabled=true;if(i===bonneAffichee)b.classList.add("btn-primary");if(i===reponse&&i!==bonneAffichee)b.classList.add("btn-danger");});
-      const juste=reponse===bonneAffichee; if(juste) progressionCas.score++;
-      const zone=$("casCliniqueZone"), correction=el("div","quiz-feedback");
-      correction.append(el("strong","",juste?"Bonne réponse ✓":"Pas tout à fait"),el("p","",etape.explication)); zone.append(correction);
-      const prochainIndex=progressionCas.index+1;
-      if (!premium.actif && prochainIndex >= NB_ETAPES_GRATUITES) {
-        zone.append(el("h4","","Tu as découvert le début du cas !"),el("p","muted","Les étapes suivantes — examens, diagnostic approfondi et prise en charge — sont réservées à Premium."),(()=>{const a=el("a","btn btn-gold","Débloquer la suite avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Voir les autres cas");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());
-        return;
-      }
-      const suivant=el("button","btn btn-gold",prochainIndex===cas.etapes.length?"Voir mon résultat":"Étape suivante →"); suivant.type="button"; suivant.style.marginTop="14px";
-      suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length) afficherEtapeCas();else afficherResultatCas();}); zone.append(suivant);
+      const juste=reponse===bonneAffichee;if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(5,progressionCas.stabilite+1);}else{progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}progressionCas.journal.push(`${etape[0]} : ${juste?"décision adaptée":"décision à corriger"}.`);
+      const zone=$("casCliniqueZone"),correction=el("div","quiz-feedback");correction.append(el("strong","",juste?"Décision adaptée ✓":"Le patient nécessite une réévaluation ⚠️"),el("p","",etape[3]),el("p","muted",juste?"L'état clinique est mieux contrôlé dans cette simulation.":"Dans cette simulation, le retard ou le choix inadapté peut faire perdre de la stabilité. En pratique, il faut réévaluer et demander de l'aide."));zone.append(correction);
+      const prochain=progressionCas.index+1;if(!premium.actif&&prochain>=NB_ETAPES_GRATUITES){zone.append(el("h4","","Fin de l'aperçu gratuit"),el("p","muted","Le patient est pris en charge pour le triage initial. Débloque la suite pour mener l'interrogatoire, choisir les examens, poser le diagnostic et décider de la prise en charge."),(()=>{const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Choisir un autre patient");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());return;}
+      const suivant=el("button","btn btn-gold",prochain===cas.etapes.length?"Terminer la simulation →":"Poursuivre la prise en charge →");suivant.type="button";suivant.style.marginTop="14px";suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length)afficherEtapeCas();else afficherResultatCas();});zone.append(suivant);
     }
-
-    async function afficherResultatCas() {
-      const cas=casCliniques[casSelectionne], zone=$("casCliniqueZone"), total=cas.etapes.length, pointsGagnes=progressionCas.score*10;
-      zone.replaceChildren(el("h3","","Cas clinique terminé 🎉"),el("p","",`Ton résultat : ${progressionCas.score}/${total} bonnes réponses.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points (${progressionCas.score} × 10).`),el("p","muted",progressionCas.score===total?"Excellent raisonnement !":"Relis les explications et refais le cas pour consolider tes connaissances."));
-      const info=el("p","muted","Enregistrement de ton résultat..."); zone.append(info);
-      if(!utilisateurActuel) info.textContent="Connecte-toi pour enregistrer tes points.";
-      else if(!progressionCas.enregistre){
-        progressionCas.enregistre=true;
-        const resultat={user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"cas clinique",categorie:cas.specialite};
-        let {error}=await supabase.from("quiz_history").insert(resultat);
-        if(error){({error}=await supabase.from("quiz_history").insert({user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"cas clinique"}));}
-        if(error){console.error("Erreur d'enregistrement du cas clinique :",error.message);info.textContent="Résultat affiché, mais enregistrement impossible. Réessaie plus tard.";info.classList.add("error");progressionCas.enregistre=false;}
-        else{info.className="notice";info.textContent="Points enregistrés dans ton historique !";await chargerHistorique();}
-      } else info.textContent="Ce résultat a déjà été enregistré.";
-      const refaire=el("button","btn btn-gold","Refaire le cas");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));
-      const retour=el("button","btn btn-secondary","Retour aux cas cliniques");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);
-    }
+    async function afficherResultatCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
+      const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";recap.append(el("strong","","🧠 Débriefing de la garde"));progressionCas.journal.forEach(x=>recap.append(el("p","muted",x)));zone.append(recap);
+      const info=el("p","muted","Enregistrement du résultat...");zone.append(info);if(!utilisateurActuel)info.textContent="Connecte-toi pour enregistrer tes points.";else if(!progressionCas.enregistre){progressionCas.enregistre=true;const resultat={user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique",categorie:cas.specialite};let {error}=await supabase.from("quiz_history").insert(resultat);if(error){({error}=await supabase.from("quiz_history").insert({user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique"}));}if(error){console.error("Erreur d'enregistrement :",error.message);info.textContent="Résultat affiché, mais enregistrement impossible.";info.classList.add("error");progressionCas.enregistre=false;}else{info.className="notice";info.textContent="Points enregistrés dans ton historique !";await chargerHistorique();}}else info.textContent="Résultat déjà enregistré.";
+      const refaire=el("button","btn btn-gold","Rejouer cette simulation");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));const retour=el("button","btn btn-secondary","Retour aux patients");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);}
 
     // ---------- Premium : abonnement, limites gratuites, paiement ----------
     const cleQuota = () => "medquiz_quota_" + new Date().toISOString().slice(0, 10);
