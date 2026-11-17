@@ -601,6 +601,13 @@
         </div>
         <p style="margin-top:12px"><a href="#abonnement" class="btn btn-secondary">Gérer mon abonnement</a> <a href="#admin" id="lienAdmin" class="btn btn-secondary hidden">Administration</a></p>
       </div>
+      <div class="panel" style="margin-bottom:22px" id="carnetErreursPanel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <h3>📘 Mes erreurs et mes progrès</h3>
+          <button class="btn btn-secondary" type="button" id="actualiserCarnetErreurs">Actualiser</button>
+        </div>
+        <div id="carnetErreursZone"><p class="muted">Tes erreurs importantes apparaîtront ici après tes simulations.</p></div>
+      </div>
       <div class="panel" style="margin-bottom:22px">
         <h3>Mes statistiques</h3>
         <div id="statsZone"><p class="muted">Joue un quiz pour voir tes statistiques.</p></div>
@@ -748,6 +755,7 @@
       $("profilePseudo").textContent = pseudo;
       $("profilePoints").textContent = profil?.points ?? 0;
       await chargerHistorique(user);
+      afficherCarnetErreurs();
     }
 
     async function chargerHistorique(user = utilisateurActuel) {
@@ -3551,6 +3559,43 @@ function lignesDePage(items) {
       const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 8 phases · ${cas.profil.titre}`));const b=el("button","btn btn-gold",premium.actif?"Simulation classique →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index,false));const urgence=el("button","btn btn-secondary","🚨 Mode urgence (chronométré)");urgence.type="button";urgence.style.marginLeft="8px";urgence.addEventListener("click",()=>commencerCas(index,true));carte.append(b,urgence);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
       if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
       zone.append(el("p","muted","Simulations à visée pédagogique uniquement. Elles ne remplacent ni les protocoles nationaux, ni l'encadrement clinique, ni une décision médicale réelle."));}
+    // Carnet pédagogique conservé sur cet appareil et séparé par compte connecté.
+    function cleCarnetErreurs(){return "medquiz_erreurs_"+(utilisateurActuel?.id||"anonyme");}
+    function lireCarnetErreurs(){try{const v=JSON.parse(localStorage.getItem(cleCarnetErreurs())||"[]");return Array.isArray(v)?v:[];}catch(_){return [];}}
+    function enregistrerErreursSimulation(){
+      if(!utilisateurActuel)return;
+      const deja=lireCarnetErreurs(),cas=casCliniques[casSelectionne];
+      const runId="sim_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+      (progressionCas.evaluations||[]).forEach(e=>{
+        const manquants=(e.elementsManquants||[]).map(x=>String(x).trim()).filter(Boolean);
+        const erreurs=(e.erreurs||[]).map(x=>String(x).trim()).filter(Boolean);
+        const problemes=[...new Set([...erreurs,...manquants])];
+        if(!problemes.length && Number(e.score)>=70)return;
+        problemes.forEach((texte,i)=>deja.unshift({id:runId+"_"+e.phase+"_"+i,runId,cas:cas?.titre||"Simulation clinique",specialite:cas?.specialite||"",phase:e.phase,score:Number(e.score)||0,texte,date:new Date().toISOString(),corrige:false,conseil:String(e.pisteAmelioration||"")}));
+      });
+      try{localStorage.setItem(cleCarnetErreurs(),JSON.stringify(deja.slice(0,250)));}catch(err){console.warn("Carnet d'erreurs non enregistré :",err);}
+    }
+    function afficherCarnetErreurs(){
+      const zone=$("carnetErreursZone");if(!zone)return;
+      const entries=lireCarnetErreurs(),ouvertes=entries.filter(x=>!x.corrige),corrigees=entries.filter(x=>x.corrige);
+      zone.replaceChildren();
+      const resume=el("p","muted",`${ouvertes.length} point(s) à retravailler · ${corrigees.length} erreur(s) marquée(s) comme corrigée(s).`);zone.append(resume);
+      if(!entries.length){zone.append(el("p","muted","Aucune erreur enregistrée pour le moment. Termine une simulation pour alimenter ton carnet."));return;}
+      const frequences={};ouvertes.forEach(x=>{const k=x.phase||"Autre";frequences[k]=(frequences[k]||0)+1;});
+      const recurrentes=Object.entries(frequences).filter(([,n])=>n>=2).sort((a,b)=>b[1]-a[1]);
+      if(recurrentes.length){zone.append(el("h4","","🔁 Points qui reviennent souvent"));recurrentes.forEach(([phase,n])=>zone.append(el("p","muted",`${phase} : ${n} éléments à retravailler`)));}
+      zone.append(el("h4","","À retravailler"));
+      ouvertes.slice(0,12).forEach(item=>{
+        const bloc=el("div","history-item");bloc.style.cssText="display:block;padding:10px;margin:8px 0";
+        bloc.append(el("strong","",`${item.phase} · ${item.score}/100`),el("p","",item.texte),el("p","muted",`${item.cas} · ${new Date(item.date).toLocaleDateString("fr-FR")}`));
+        if(item.conseil)bloc.append(el("p","muted",`Piste : ${item.conseil}`));
+        const btn=el("button","btn btn-secondary","Marquer comme corrigée");btn.type="button";btn.addEventListener("click",()=>{const all=lireCarnetErreurs();const found=all.find(x=>x.id===item.id);if(found)found.corrige=true;try{localStorage.setItem(cleCarnetErreurs(),JSON.stringify(all));}catch(_){}afficherCarnetErreurs();});bloc.append(btn);zone.append(bloc);
+      });
+      if(ouvertes.length>12)zone.append(el("p","muted",`12 éléments affichés sur ${ouvertes.length}.`));
+      if(corrigees.length){const details=el("details");details.append(el("summary","","Voir les erreurs déjà corrigées"));corrigees.slice(0,8).forEach(x=>details.append(el("p","muted",`✓ ${x.phase} — ${x.texte}`)));zone.append(details);}
+    }
+    $("actualiserCarnetErreurs")?.addEventListener("click",afficherCarnetErreurs);
+
     function commencerCas(index,modeUrgence=false){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],evaluations:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{},modeUrgence:!!modeUrgence,debutPhase:0,tempsDepasse:false,phasesDansLeTemps:0};afficherEtapeCas();}
     function lancerMinuterieUrgence(zone){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}if(!progressionCas.modeUrgence)return;const duree=120;progressionCas.debutPhase=Date.now();progressionCas.tempsDepasse=false;const bloc=el("div","notice");bloc.style.cssText="font-weight:700;text-align:center;margin:12px 0";zone.append(bloc);const actualiser=()=>{const restant=Math.max(0,duree-Math.floor((Date.now()-progressionCas.debutPhase)/1000));bloc.textContent=restant>0?`⏱️ Mode urgence — ${Math.floor(restant/60)}:${String(restant%60).padStart(2,"0")} pour cette phase`:"⏰ Temps écoulé — prends le temps de sécuriser ta décision";if(restant===0){progressionCas.tempsDepasse=true;clearInterval(minuterieUrgence);minuterieUrgence=null;bloc.classList.add("error");}};actualiser();minuterieUrgence=setInterval(actualiser,1000);}
     function afficherPatientVirtuel(zone,cas){
@@ -3724,7 +3769,7 @@ function lignesDePage(items) {
       if(!premium.actif&&prochain>=NB_ETAPES_GRATUITES){zone.append(el("h4","","Fin de l'aperçu gratuit"),el("p","muted","Tu as effectué le triage initial. Avec Premium, tu poursuis l'interrogatoire, l'examen clinique, le choix des examens, le diagnostic, le traitement, la réévaluation et la transmission."),(()=>{const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Choisir un autre patient");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());return;}
       const suivant=el("button","btn btn-gold",prochain===cas.etapes.length?"Terminer la simulation →":"Poursuivre la prise en charge →");suivant.type="button";suivant.style.marginTop="14px";suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length)afficherEtapeCas();else afficherResultatCas();});zone.append(suivant);
     }
-    async function afficherResultatCas(){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),...(progressionCas.modeUrgence?[el("p","notice",`🚨 Mode urgence : ${progressionCas.phasesDansLeTemps||0}/${total} phases terminées dans les 2 minutes. La rapidité est évaluée séparément de la qualité clinique.`)]:[]),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
+    async function afficherResultatCas(){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}if(!progressionCas.carnetEnregistre){enregistrerErreursSimulation();progressionCas.carnetEnregistre=true;}const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),...(progressionCas.modeUrgence?[el("p","notice",`🚨 Mode urgence : ${progressionCas.phasesDansLeTemps||0}/${total} phases terminées dans les 2 minutes. La rapidité est évaluée séparément de la qualité clinique.`)]:[]),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
       const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";
       recap.append(el("strong","","🧠 Débriefing personnalisé de la garde"),el("p","muted",`Contexte travaillé : ${cas.profil.titre}. ${cas.profil.evolution}`));
       const evaluations=progressionCas.evaluations||[];
