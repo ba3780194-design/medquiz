@@ -731,6 +731,8 @@
         return;
       }
       if (!data || data.length === 0) {
+        historiqueCache = [];
+        rendreStats();
         afficherBadges([], 0);
         liste.textContent = "Tu n'as pas encore effectué de quiz.";
         $("profilePoints").textContent = "0";
@@ -741,7 +743,12 @@
       historiqueCache = data; rendreStats();
       afficherBadges(data, total);
       liste.replaceChildren();
-      data.forEach(resultat => {
+      const historiqueAffiche = premium.actif ? data : data.slice(0, 10);
+      if (!premium.actif && data.length > 10) {
+        const infoLimite = el("p", "muted", "Version gratuite : seuls les 10 derniers quiz sont affichés. Passe à Premium pour retrouver tout ton historique.");
+        liste.append(infoLimite);
+      }
+      historiqueAffiche.forEach(resultat => {
         const item = document.createElement("div");
         item.className = "history-item";
         const detail = document.createElement("span");
