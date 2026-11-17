@@ -205,6 +205,18 @@
     .price-card .btn { width: 100%; opacity: .6; cursor: not-allowed; }
     .pay-methods { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
     .pay-methods span { padding: 9px 15px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.04); font-weight: 700; }
+    /* Simulations cliniques : interface compacte sur mobile */
+    #casCliniqueZone { min-width: 0; }
+    #casCliniqueZone textarea { min-height: 112px; resize: vertical; font-size: 16px; line-height: 1.45; }
+    #casCliniqueZone button { max-width: 100%; white-space: normal; }
+    #casCliniqueZone .quiz-feedback { padding: 12px; overflow-wrap: anywhere; }
+    #casCliniqueZone details > summary { cursor: pointer; padding: 8px 2px; }
+    @media (max-width: 600px) {
+      #casCliniqueZone .history-item, #casCliniqueZone .notice, #casCliniqueZone .quiz-feedback { padding: 12px !important; margin: 9px 0 !important; }
+      #casCliniqueZone textarea { width: 100%; min-height: 120px; font-size: 16px; }
+      #casCliniqueZone button { width: 100%; min-height: 46px; margin-left: 0 !important; }
+      #casCliniqueZone ul { padding-left: 19px !important; }
+    }
     @media (max-width: 600px) { .pricing { grid-template-columns: 1fr; } }
     .chrono { height: 7px; background: rgba(255,255,255,.1); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
     .chrono i { display: block; height: 100%; background: var(--teal); transition: width 1s linear; }
@@ -3585,10 +3597,10 @@ function lignesDePage(items) {
         {titre:"8. Transmission : que doit savoir l'équipe suivante ?", points:["Identité, âge, motif d'admission et chronologie des symptômes.","Antécédents, allergies et traitements habituels importants.","Signes de gravité, constantes et évolution observée.","Examens réalisés et résultats importants, diagnostic retenu ou hypothèses.","Traitements donnés, horaires et réponse du patient.","Actions en attente, surveillance nécessaire et signes qui doivent faire alerter."]}
       ];
       const guide=guidesSimulation[progressionCas.index]||guidesSimulation[0];
-      const consigne=el("p","muted","Pour t'aider, voici les points à explorer. Tu n'es pas obligé de tous les citer : sélectionne ceux qui sont pertinents pour ce patient et explique pourquoi.");
-      const detailsGuide=el("details","history-item");detailsGuide.open=true;detailsGuide.style.cssText="display:block;padding:12px;margin:10px 0";detailsGuide.append(el("summary","",`🔎 ${guide.titre}`));
+      const consigne=el("p","muted","À toi de raisonner : écris ta décision avec tes propres mots. Ouvre l’aide uniquement si tu en as besoin.");
+      const detailsGuide=el("details","history-item");detailsGuide.open=false;detailsGuide.style.cssText="display:block;padding:12px;margin:10px 0";detailsGuide.append(el("summary","",`🔎 Aide facultative — ${guide.titre}`));
       const listeGuide=el("ul");listeGuide.style.cssText="padding-left:22px;line-height:1.65";guide.points.forEach(point=>listeGuide.append(el("li","",point)));detailsGuide.append(listeGuide);
-      const reponseLibre=el("textarea");reponseLibre.rows=6;reponseLibre.placeholder=progressionCas.index===0?"Exemple de structure : 1) mes premières vérifications 2) les signes de gravité recherchés 3) qui j'alerte et pourquoi…":progressionCas.index===1?"Exemple de structure : début et évolution / symptômes associés / antécédents / traitements et allergies…":progressionCas.index===2?"Décris les constantes, les signes cliniques ciblés et les signes de gravité que tu recherches…":progressionCas.index===3?"Écris l'examen choisi, ce que tu veux vérifier et comment le résultat guidera ta décision…":progressionCas.index===4?"Diagnostic principal / arguments en faveur / diagnostics graves à éliminer / incertitudes…":progressionCas.index===5?"Mesures immédiates / traitement envisagé / précautions / surveillance et orientation…":progressionCas.index===6?"Constantes à reprendre / évolution attendue / signes d'échec / conduite si aggravation…":"Résumé du patient / résultats / traitements et réponse / tâches restantes et alertes…";reponseLibre.style.cssText="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:8px 0";
+      const reponseLibre=el("textarea");reponseLibre.rows=4;reponseLibre.placeholder="Écris ici ton raisonnement et ta décision…";reponseLibre.style.cssText="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:8px 0";
       if(progressionCas.index===3 && premium.actif){
         const prescription=el("div","history-item");prescription.style.cssText="display:block;padding:14px;margin:12px 0;border:1px solid var(--gold,#d6a84b)";
         prescription.append(el("h4","","🧪 Prescrire des examens paracliniques"),el("p","muted","Sélectionne les examens utiles pour ce patient. Les prescriptions sont simulées à des fins pédagogiques."));
@@ -3618,9 +3630,23 @@ function lignesDePage(items) {
         `Évolution simulée : ${cas.profil.evolution}`,
         `Fiche de référence pédagogique complète : ${JSON.stringify(cas.ficheReference)}`
       ].join("\n");
+      // Grille commune : l'IA évalue chaque phase avec les mêmes règles, sans exiger une formulation exacte.
+      const criteresParPhase=[
+        "TRIAGE : vérifier la gravité et les fonctions vitales pertinentes, identifier les signes d'alerte, prioriser les gestes immédiats et alerter/orienter si nécessaire.",
+        "INTERROGATOIRE : rechercher la chronologie, les caractéristiques des symptômes, les signes associés, les antécédents, traitements et allergies pertinents, sans retarder les soins urgents.",
+        "EXAMEN CLINIQUE : proposer des constantes et un examen ciblé pertinents, rechercher les signes de gravité et relier les constatations au problème du patient.",
+        "EXAMENS COMPLÉMENTAIRES : choisir des examens justifiés par la situation, préciser leur objectif ou le résultat recherché, hiérarchiser l'urgence et éviter les examens inutiles ou retardant la stabilisation.",
+        "DIAGNOSTIC : formuler une hypothèse principale cohérente, citer les arguments du dossier, garder les diagnostics différentiels importants et ne pas affirmer au-delà des données disponibles.",
+        "TRAITEMENT : prioriser la sécurité et les mesures urgentes, proposer une conduite adaptée à la gravité et au contexte, vérifier allergies/contre-indications et prévoir surveillance et recours à l'équipe.",
+        "RÉÉVALUATION : reprendre les paramètres pertinents, comparer avant/après, apprécier la réponse et les effets indésirables, repérer une aggravation et adapter ou escalader la prise en charge.",
+        "TRANSMISSION : transmettre de façon structurée le motif et la chronologie, les antécédents/allergies utiles, les constantes et signes de gravité, les examens/résultats, les traitements/réponses et les actions/surveillances en attente."
+      ];
       const attendue=[
-        `Décision/réponse de référence : ${etape[2][0]}`,
-        `Justification pédagogique : ${etape[4]}`
+        `Phase à évaluer : ${etape[0]}`,
+        `Critères obligatoires de cette phase : ${criteresParPhase[progressionCas.index]||"Évaluer la pertinence, la sécurité et la cohérence clinique."}`,
+        `Réponse de référence propre à ce cas : ${etape[2][0]}`,
+        `Justification pédagogique : ${etape[4]}`,
+        "RÈGLES DE NOTATION : évaluer le sens clinique, pas les mots exacts ni la longueur. Attribuer un score de 0 à 100 selon la pertinence, la priorisation, les éléments essentiels présents et la sécurité. Ne pas pénaliser une réponse concise si elle contient les éléments indispensables. Retirer des points pour les oublis importants et les décisions dangereuses. Ne pas exiger des examens ou traitements non indiqués par ce cas. Si une information manque au dossier, accepter une réponse prudente qui demande à la vérifier. Donner un retour bref : points réussis, élément prioritaire manquant et une seule piste pour progresser. Ne jamais révéler toute la réponse attendue dans le retour initial."
       ].join("\n");
       let analyse=null,erreurIA=null;
       try{
@@ -3646,19 +3672,22 @@ function lignesDePage(items) {
       if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(6,progressionCas.stabilite+1);}else if(score<40){progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}
       progressionCas.journal.push(`${etape[0]} : ${verdict} (${score}/100).`);
       correction.append(el("strong","",`${verdict} · ${score}/100`));
+      const phraseCourte=(valeur,repli)=>String(valeur||repli).split(/[.!?\n]/)[0].trim();
+      correction.append(el("p","",phraseCourte(analyse.explication,"Relis les éléments essentiels de ta décision.")));
+      const detail=el("details","history-item");detail.style.cssText="display:block;padding:10px;margin-top:10px";
+      detail.append(el("summary","","Voir le détail de mon évaluation"));
       const ajouterListe=(titre,items,classe="")=>{
-        correction.append(el("h4",classe,titre));
-        const ul=el("ul");ul.style.cssText="padding-left:22px;line-height:1.6";
-        (Array.isArray(items)?items:[]).forEach(item=>ul.append(el("li","",String(item))));
-        if(!ul.children.length)ul.append(el("li","muted","Aucun élément signalé."));
-        correction.append(ul);
+        const liste=Array.isArray(items)?items:[];if(!liste.length)return;
+        detail.append(el("h4",classe,titre));
+        const ul=el("ul");ul.style.cssText="padding-left:20px;line-height:1.5";
+        liste.forEach(item=>ul.append(el("li","",String(item))));detail.append(ul);
       };
-      ajouterListe("✓ Points corrects",analyse.pointsCorrects);
-      ajouterListe("À compléter",analyse.elementsManquants);
+      ajouterListe("Points réussis",analyse.pointsCorrects);
+      ajouterListe("Éléments oubliés",analyse.elementsManquants);
       ajouterListe("Erreurs à corriger",analyse.erreurs,"error");
-      correction.append(el("h4","","Explication"),el("p","",String(analyse.explication||"Analyse pédagogique non détaillée.")));
-      correction.append(el("h4","","Pour progresser"),el("p","",String(analyse.pisteAmelioration||"Reprends les éléments manquants et justifie tes décisions.")));
-      correction.append(el("p","muted","Cette analyse par IA est une aide pédagogique : vérifie les recommandations avec les cours, protocoles locaux et l'encadrement clinique. Elle ne remplace jamais un avis médical."));
+      if(analyse.pisteAmelioration)detail.append(el("h4","","Pour progresser"),el("p","",String(analyse.pisteAmelioration)));
+      detail.append(el("p","muted","Évaluation pédagogique : confronte toujours les décisions aux cours, aux protocoles locaux et à l'encadrement clinique."));
+      correction.append(detail);
       if(!juste&&progressionCas.stabilite<=1)correction.append(el("p","error","🚨 Dans cette simulation, le patient est instable : priorité à l'alerte et à la réévaluation."));
       zone.append(correction);
       const prochain=progressionCas.index+1;
