@@ -3553,27 +3553,66 @@ function lignesDePage(items) {
       zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
       if(progressionCas.journal.length){const j=el("details");const sum=el("summary","","Voir le dossier de décisions précédent");j.append(sum);progressionCas.journal.forEach(x=>j.append(el("p","muted",x)));zone.append(j);}
     }
-    function repondreCasLibre(texte,bouton){
+    async function repondreCasLibre(texte,bouton){
       const cas=casCliniques[casSelectionne],etape=cas.etapes[progressionCas.index],zone=$("casCliniqueZone");
       if(!texte.trim()){const alerte=el("p","error","Écris d'abord ta décision avant de l'analyser.");zone.append(alerte);return;}
-      bouton.disabled=true;bouton.textContent="Analyse en cours…";
-      const normaliser=t=>t.toLocaleLowerCase("fr").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9+]/g," ");
-      const ignorer=new Set("avec dans pour sans chez puis après avant selon entre cette cela doit être avoir faire une des les aux est sont par sur tout tous leur leurs comme plus moins aussi immédiatement uniquement".split(" "));
-      const synonymes={ecg:["electrocardiogramme"],electrocardiogramme:["ecg"],spo2:["saturation","oxygene"],saturation:["spo2"],hta:["hypertension","tension"],hypertension:["hta"],glycemie:["glucose"],glucose:["glycemie"],nfs:["hemogramme"],scanner:["tomodensitometrie"],irm:["imagerie"],monitorage:["surveillance","monitorer"],surveillance:["monitorage"],alerter:["appeler","prevenir"],appeler:["alerter","prevenir"],reperfusion:["angioplastie","thrombolyse"]};
-      const mots=t=>normaliser(t).split(/\s+/).filter(x=>x.length>=5&&!ignorer.has(x));
-      const attendus=[...new Set(mots(etape[2][0]))];const saisi=normaliser(texte);const trouves=attendus.filter(m=>saisi.includes(m)||(synonymes[m]||[]).some(a=>saisi.includes(a)));
-      const ratio=attendus.length?trouves.length/attendus.length:0;const niveau=trouves.length>=2&&ratio>=0.38?"adaptée":trouves.length>=1&&ratio>=0.16?"partielle":"à compléter";
-      const juste=niveau==="adaptée";if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(6,progressionCas.stabilite+1);}else if(niveau==="à compléter"){progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}
-      progressionCas.journal.push(`${etape[0]} : réponse ${niveau} (${trouves.length}/${attendus.length} éléments repérés).`);
-      const correction=el("div","quiz-feedback");correction.append(el("strong","",juste?"Réponse globalement adaptée ✓":niveau==="partielle"?"Réponse partiellement adaptée 🟡":"Réponse à compléter ⚠️"));
-      correction.append(el("p","muted",`Analyse automatique indicative : ${trouves.length} élément(s) clé(s) repéré(s) sur ${attendus.length}. Une formulation différente peut être correcte même si certains mots ne sont pas reconnus.`));
-      correction.append(el("p","",`Éléments repérés : ${trouves.length?trouves.join(", "):"aucun mot-clé reconnu automatiquement"}.`));
-      const manquants=attendus.filter(m=>!trouves.includes(m));correction.append(el("p","",`Éléments possiblement manquants : ${manquants.length?manquants.join(", "):"aucun selon cette vérification"}.`));
-      correction.append(el("h4","","Réponse de référence"),el("p","",etape[2][0]),el("p","muted",etape[4]));
-      correction.append(el("p","muted",juste?"Dans cette simulation, les principaux éléments attendus semblent présents.":"Compare ta réponse à la référence : vérifie les éléments oubliés et pense à la sécurité du patient."));
-      if(!juste&&progressionCas.stabilite<=1)correction.append(el("p","error","🚨 Le patient est instable dans la simulation : priorité à l'alerte et à la réévaluation."));
+      bouton.disabled=true;bouton.textContent="Analyse par l'IA en cours…";
+      // L'appel passe par Supabase : la clé Gemini reste côté serveur.
+      const contexte=[
+        `Cas : ${cas.titre}`,
+        `Spécialité : ${cas.specialite}`,
+        `Patient : ${cas.patient}`,
+        `Contexte : ${cas.profil.contexte}`,
+        `Alerte clinique : ${cas.urgence}`,
+        `Phase : ${etape[0]}`,
+        `Question : ${etape[1]}`,
+        `Évolution simulée : ${cas.profil.evolution}`
+      ].join("\n");
+      const attendue=[
+        `Décision/réponse de référence : ${etape[2][0]}`,
+        `Justification pédagogique : ${etape[4]}`
+      ].join("\n");
+      let analyse=null,erreurIA=null;
+      try{
+        const {data,error}=await supabase.functions.invoke("analyze-case",{
+          body:{caseContext:contexte,expectedAnswer:attendue,studentAnswer:texte}
+        });
+        if(error)throw error;
+        if(!data?.success||!data?.analysis)throw new Error(data?.error||"Réponse invalide du service d'analyse.");
+        analyse=data.analysis;
+      }catch(err){
+        console.error("Erreur analyse IA :",err);
+        erreurIA=err?.message||"Service momentanément indisponible";
+      }
+      bouton.disabled=false;bouton.textContent="Analyser ma réponse →";
+      const correction=el("div","quiz-feedback");
+      if(!analyse){
+        correction.append(el("strong","","Analyse IA indisponible pour le moment"),el("p","muted",`Détail : ${erreurIA}. Réessaie dans un instant. Ta réponse n'a pas été notée et tu peux la conserver pour réessayer.`));
+        zone.append(correction);return;
+      }
+      const score=Math.max(0,Math.min(100,Number(analyse.score)||0));
+      const verdict=String(analyse.verdict|| (score>=70?"Bonne réponse":score>=40?"Partiellement correcte":"À revoir"));
+      const juste=score>=70;
+      if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(6,progressionCas.stabilite+1);}else if(score<40){progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}
+      progressionCas.journal.push(`${etape[0]} : ${verdict} (${score}/100).`);
+      correction.append(el("strong","",`${verdict} · ${score}/100`));
+      const ajouterListe=(titre,items,classe="")=>{
+        correction.append(el("h4",classe,titre));
+        const ul=el("ul");ul.style.cssText="padding-left:22px;line-height:1.6";
+        (Array.isArray(items)?items:[]).forEach(item=>ul.append(el("li","",String(item))));
+        if(!ul.children.length)ul.append(el("li","muted","Aucun élément signalé."));
+        correction.append(ul);
+      };
+      ajouterListe("✓ Points corrects",analyse.pointsCorrects);
+      ajouterListe("À compléter",analyse.elementsManquants);
+      ajouterListe("Erreurs à corriger",analyse.erreurs,"error");
+      correction.append(el("h4","","Explication"),el("p","",String(analyse.explication||"Analyse pédagogique non détaillée.")));
+      correction.append(el("h4","","Pour progresser"),el("p","",String(analyse.pisteAmelioration||"Reprends les éléments manquants et justifie tes décisions.")));
+      correction.append(el("p","muted","Cette analyse par IA est une aide pédagogique : vérifie les recommandations avec les cours, protocoles locaux et l'encadrement clinique. Elle ne remplace jamais un avis médical."));
+      if(!juste&&progressionCas.stabilite<=1)correction.append(el("p","error","🚨 Dans cette simulation, le patient est instable : priorité à l'alerte et à la réévaluation."));
       zone.append(correction);
-      const prochain=progressionCas.index+1;if(!premium.actif&&prochain>=NB_ETAPES_GRATUITES){zone.append(el("h4","","Fin de l'aperçu gratuit"),el("p","muted","Tu as effectué le triage initial. Avec Premium, tu poursuis l'interrogatoire, l'examen clinique, le choix des examens, le diagnostic, le traitement, la réévaluation et la transmission."),(()=>{const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Choisir un autre patient");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());return;}
+      const prochain=progressionCas.index+1;
+      if(!premium.actif&&prochain>=NB_ETAPES_GRATUITES){zone.append(el("h4","","Fin de l'aperçu gratuit"),el("p","muted","Tu as effectué le triage initial. Avec Premium, tu poursuis l'interrogatoire, l'examen clinique, le choix des examens, le diagnostic, le traitement, la réévaluation et la transmission."),(()=>{const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Choisir un autre patient");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());return;}
       const suivant=el("button","btn btn-gold",prochain===cas.etapes.length?"Terminer la simulation →":"Poursuivre la prise en charge →");suivant.type="button";suivant.style.marginTop="14px";suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length)afficherEtapeCas();else afficherResultatCas();});zone.append(suivant);
     }
     async function afficherResultatCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
