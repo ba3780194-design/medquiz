@@ -3541,79 +3541,7 @@ function lignesDePage(items) {
       }
     })));
     let casSelectionne = 0;
-    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[], patientConversation:[], examensPrescrits:[], justificationsExamens:{}, examensResultats:null };
-
-    // Résultats fictifs, prédéfinis pour l'apprentissage. Ils ne représentent jamais un vrai patient.
-    function genererResultatsExamens(cas, examens){
-      const titre=cas.titre.toLowerCase();
-      let profil={};
-      if(titre.includes("prééclampsie")) profil={
-        "NFS-plaquettes":"Hémoglobine 11,2 g/dL ; plaquettes 92 000/mm³ (thrombopénie).",
-        "Créatinine / fonction rénale":"Créatinine 1,3 mg/dL (élévation à interpréter selon la valeur de base).",
-        "Bilan hépatique (ASAT/ALAT)":"ASAT 86 UI/L ; ALAT 74 UI/L (élévation).",
-        "Bandelette urinaire / protéinurie":"Protéinurie importante : rapport protéinurie/créatininurie élevé.",
-        "Évaluation fœtale / monitoring":"Rythme fœtal à surveiller ; tracé nécessitant une évaluation obstétricale immédiate."
-      };
-      else if(titre.includes("coronarien")) profil={
-        "ECG 12 dérivations":"Sus-décalage du segment ST en territoire antérieur (V1 à V4) dans ce scénario simulé.",
-        "Troponine":"Troponine élevée au-dessus du 99e percentile ; contrôle sérié nécessaire selon le délai et le protocole.",
-        "NFS-plaquettes":"Hémoglobine 13,8 g/dL ; plaquettes 245 000/mm³.",
-        "Créatinine / fonction rénale":"Créatinine 1,0 mg/dL.",
-        "Radiographie thoracique":"Pas d'anomalie pulmonaire aiguë évidente sur ce cliché simulé."
-      };
-      else if(titre.includes("détresse respiratoire fébrile")) profil={
-        "NFS-plaquettes":"Leucocytes 16 500/mm³ à prédominance neutrophile.",
-        "CRP":"CRP 68 mg/L (élevée, non spécifique).",
-        "Radiographie thoracique":"Opacité alvéolaire basale droite compatible avec une infection ; à confronter à l'examen clinique.",
-        "Gaz du sang":"Hypoxémie modérée dans ce scénario ; interpréter avec la SpO₂ et l'état clinique.",
-        "Échographie ciblée":"Résultat non paramétré pour ce scénario : examen à justifier et à interpréter selon l'indication."
-      };
-      else if(titre.includes("acidocétose")) profil={
-        "Glycémie":"Glycémie 3,8 g/L (hyperglycémie).",
-        "Ionogramme sanguin":"Sodium 130 mmol/L ; potassium 5,4 mmol/L (kaliémie à surveiller étroitement).",
-        "Gaz du sang":"pH veineux 7,12 ; bicarbonates 9 mmol/L : acidose métabolique.",
-        "Créatinine / fonction rénale":"Créatinine 1,4 mg/dL, compatible avec une déshydratation possible.",
-        "NFS-plaquettes":"Leucocytes 14 000/mm³ ; à interpréter dans le contexte, sans conclure seul à une infection."
-      };
-      else if(titre.includes("accident vasculaire")) profil={
-        "Glycémie":"Glycémie 1,08 g/L : pas d'hypoglycémie dans ce scénario.",
-        "Scanner / imagerie en coupe":"Scanner cérébral sans hémorragie intracrânienne visible ; une ischémie précoce peut ne pas être visible.",
-        "NFS-plaquettes":"Hémoglobine 14 g/dL ; plaquettes 230 000/mm³.",
-        "ECG 12 dérivations":"Rythme sinusal ; surveillance cardiaque et recherche d'une cause embolique selon le bilan."
-      };
-      else if(titre.includes("sepsis")) profil={
-        "NFS-plaquettes":"Leucocytes 18 000/mm³ ; plaquettes 125 000/mm³.",
-        "CRP":"CRP 186 mg/L (élevée, non spécifique).",
-        "Gaz du sang":"Lactate 4,2 mmol/L : élévation préoccupante dans ce contexte.",
-        "Créatinine / fonction rénale":"Créatinine 1,8 mg/dL : possible atteinte rénale aiguë.",
-        "Hémocultures":"Prélèvements effectués avant antibiothérapie si cela ne retarde pas les soins ; résultats en attente."
-      };
-      else if(titre.includes("appendicite")) profil={
-        "NFS-plaquettes":"Leucocytes 14 800/mm³ à prédominance neutrophile.",
-        "CRP":"CRP 52 mg/L (élévation inflammatoire non spécifique).",
-        "Échographie ciblée":"Appendice augmenté de calibre, non compressible, avec douleur au passage de la sonde : aspect évocateur.",
-        "Scanner / imagerie en coupe":"Appendice inflammatoire sans signe de perforation dans ce scénario simulé."
-      };
-      else if(titre.includes("asthme")) profil={
-        "Oxymétrie / SpO₂":"SpO₂ 91 % à l'air ambiant : désaturation à prendre en charge selon gravité et protocole.",
-        "Gaz du sang":"Hypocapnie avec alcalose respiratoire possible au début ; une PaCO₂ normale ou élevée chez un patient épuisé est un signe inquiétant.",
-        "Radiographie thoracique":"Pas d'infiltrat focal ni de pneumothorax évident sur le cliché simulé ; la radiographie n'est pas systématique."
-      };
-      else if(titre.includes("paludisme")) profil={
-        "NFS-plaquettes":"Hémoglobine 8,7 g/dL ; plaquettes 78 000/mm³.",
-        "Glycémie":"Glycémie 0,55 g/L : hypoglycémie à corriger sans délai selon protocole.",
-        "Test paludisme / goutte épaisse":"Test rapide positif pour P. falciparum ; goutte épaisse avec parasitémie détectable.",
-        "Créatinine / fonction rénale":"Créatinine 1,5 mg/dL : fonction rénale à surveiller."
-      };
-      else if(titre.includes("hémorragie du post-partum")) profil={
-        "NFS-plaquettes":"Hémoglobine 7,4 g/dL ; plaquettes 105 000/mm³.",
-        "Ionogramme sanguin":"Résultats sans anomalie majeure dans ce scénario ; surveillance biologique répétée selon évolution.",
-        "Groupage sanguin et RAI":"Groupage et recherche d'agglutinines irrégulières réalisés ; compatibilité/transfusion à organiser selon protocole et état clinique.",
-        "Gaz du sang":"Lactate 3,8 mmol/L, compatible avec une hypoperfusion possible dans ce contexte.",
-        "Bilan de coagulation":"Fibrinogène 1,6 g/L ; anomalie préoccupante dans une hémorragie active."
-      };
-      return examens.map(nom=>({nom, resultat:profil[nom]||"Résultat non prédéfini dans ce scénario. L'examen est noté comme prescrit, mais aucune valeur ne sera inventée."}));
-    }
+    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[], evaluations:[], patientConversation:[], examensPrescrits:[], justificationsExamens:{} };
     const NB_ETAPES_GRATUITES = 1;
     const libellesEtapesSimulation = ["Triage","Interrogatoire","Examen clinique","Examens","Diagnostic","Traitement","Réévaluation","Transmission"];
     function ouvrirCasCliniques(){const zone=$("casCliniqueZone");if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Simulation clinique 🏥"),el("p","muted","Connecte-toi pour entrer dans le service."),(()=>{const a=el("a","btn btn-gold","Se connecter");a.href="#compte";return a;})());return;}afficherAccueilCas();}
@@ -3622,10 +3550,10 @@ function lignesDePage(items) {
       const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 8 phases · ${cas.profil.titre}`));const b=el("button","btn btn-gold",premium.actif?"Entrer dans le service →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index));carte.append(b);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
       if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
       zone.append(el("p","muted","Simulations à visée pédagogique uniquement. Elles ne remplacent ni les protocoles nationaux, ni l'encadrement clinique, ni une décision médicale réelle."));}
-    function commencerCas(index){casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{},examensResultats:null};afficherEtapeCas();}
+    function commencerCas(index){casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],evaluations:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{}};afficherEtapeCas();}
     function afficherPatientVirtuel(zone,cas){
       const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin:14px 0;border:1px solid var(--gold,#d6a84b)";
-      panel.append(el("h4","","🗣️ Interroger le patient virtuel"),el("p","muted","Pose tes questions comme lors d'un vrai interrogatoire. Le patient répond uniquement avec les informations de son dossier."));
+      panel.append(el("h4","","🗣️ Interroger le patient virtuel"),el("p","muted","Pose tes questions comme lors d'un vrai interrogatoire. Le patient répond avec les informations de son dossier et tient compte de son état actuel dans la simulation."));
       const messages=el("div");messages.style.cssText="display:flex;flex-direction:column;gap:8px;margin:10px 0;max-height:280px;overflow:auto";
       const dessinerMessages=()=>{messages.replaceChildren();if(!progressionCas.patientConversation.length)messages.append(el("p","muted","Patient : Bonjour docteur… Qu'aimeriez-vous savoir ?"));progressionCas.patientConversation.forEach(m=>{const b=el("div",m.role==="user"?"notice":"quiz-feedback",`${m.role==="user"?"Vous":"Patient"} : ${m.text}`);b.style.cssText="padding:9px 12px;border-radius:10px;white-space:pre-wrap";messages.append(b);});};
       dessinerMessages();
@@ -3635,13 +3563,16 @@ function lignesDePage(items) {
         const message=question.value.trim();if(!message)return;
         envoyer.disabled=true;envoyer.textContent="Le patient réfléchit…";
         try{
+          const niveauActuel=progressionCas.stabilite>=5?"amélioration simulée":progressionCas.stabilite>=3?"état fragile, à surveiller":progressionCas.stabilite>=1?"dégradation simulée": "état critique simulé — alerte immédiate";
+          const evolutionActuelle=progressionCas.stabilite>=5?"Le patient peut décrire une amélioration générale, sans inventer de signe précis.":progressionCas.stabilite>=3?"Le patient peut indiquer que son état reste globalement inchangé ou fragile.":progressionCas.stabilite>=1?"Le patient peut décrire une aggravation générale cohérente avec le dossier, sans inventer de nouveau symptôme précis.":"Le patient doit signaler une aggravation importante et le besoin d'une aide urgente, sans inventer de constantes ni de symptômes spécifiques.";
           const contextePatient=[
             "RÔLE : tu incarnes uniquement le patient de cette simulation clinique.",
-            "RÈGLES : réponds à la question posée comme le ferait ce patient, avec des mots simples. Ne donne que les informations pertinentes demandées. Ne récite pas toute la fiche spontanément. Ne révèle jamais les réponses attendues, le diagnostic pédagogique ni le corrigé. N'invente aucune valeur chiffrée, aucun résultat d'examen, antécédent, allergie ou traitement absent de la fiche. Si une information n'est pas renseignée, dis que tu ne sais pas ou que tu ne te souviens pas.",
+            "RÈGLES : réponds à la question posée comme le ferait ce patient, avec des mots simples. Ne donne que les informations pertinentes demandées. Ne récite pas toute la fiche spontanément. Ne révèle jamais les réponses attendues, le diagnostic pédagogique ni le corrigé. N'invente aucune valeur chiffrée, aucun résultat d'examen, antécédent, allergie, traitement ou symptôme précis absent de la fiche. Si une information n'est pas renseignée, dis que tu ne sais pas ou que tu ne te souviens pas.",
+            `ÉTAT ACTUEL DE LA SIMULATION : ${niveauActuel}. ${evolutionActuelle}`,
             `INFORMATIONS PATIENT AUTORISÉES : ${JSON.stringify({presentation:cas.ficheReference.presentation,contexte:cas.ficheReference.contexte,evolution:cas.ficheReference.evolution})}`,
             `Présentation communiquée dans le dossier : ${cas.patient}`,
             `Contexte du scénario : ${cas.profil.contexte}`,
-            `Évolution simulée : ${cas.profil.evolution}`
+            `Évolution générale prévue dans le scénario : ${cas.profil.evolution}`
           ].join("\n");
           const {data,error}=await supabase.functions.invoke("patient-chat",{body:{patientContext:contextePatient,conversation:progressionCas.patientConversation,studentMessage:message}});
           if(error)throw error;if(!data?.success||!data?.reply)throw new Error(data?.error||"Réponse invalide");
@@ -3676,7 +3607,7 @@ function lignesDePage(items) {
       if(progressionCas.index===3 && premium.actif){
         const prescription=el("div","history-item");prescription.style.cssText="display:block;padding:14px;margin:12px 0;border:1px solid var(--gold,#d6a84b)";
         prescription.append(el("h4","","🧪 Prescrire des examens paracliniques"),el("p","muted","Sélectionne les examens utiles pour ce patient. Les prescriptions sont simulées à des fins pédagogiques."));
-        const catalogue=["ECG 12 dérivations","Troponine","NFS-plaquettes","CRP","Glycémie","Ionogramme sanguin","Créatinine / fonction rénale","Bilan hépatique (ASAT/ALAT)","Gaz du sang","Bandelette urinaire / protéinurie","Hémocultures","Groupage sanguin et RAI","Bilan de coagulation","Test paludisme / goutte épaisse","Oxymétrie / SpO₂","Radiographie thoracique","Échographie ciblée","Scanner / imagerie en coupe","Évaluation fœtale / monitoring"];
+        const catalogue=["ECG 12 dérivations","Troponine","NFS-plaquettes","CRP","Glycémie","Ionogramme sanguin","Créatinine / fonction rénale","Bilan hépatique (ASAT/ALAT)","Gaz du sang","Bandelette urinaire / protéinurie","Hémocultures","Groupage sanguin et RAI","Radiographie thoracique","Échographie ciblée","Scanner / imagerie en coupe","Évaluation fœtale / monitoring"];
         const listeExamens=el("div");listeExamens.style.cssText="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin:12px 0";
         const justifications=el("div");justifications.style.cssText="display:grid;gap:10px;margin:12px 0";
         const compteur=el("p","muted","Aucun examen sélectionné pour le moment.");
@@ -3688,31 +3619,7 @@ function lignesDePage(items) {
         }
         actualiserPrescriptions();
         const ajouter=el("button","btn btn-secondary","Ajouter mes prescriptions et justifications à ma réponse");ajouter.type="button";ajouter.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Explique pourquoi tu demandes chaque examen sélectionné.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);ajouter.textContent="Prescriptions et justifications ajoutées ✓";});
-        const recevoir=el("button","btn btn-gold","Recevoir les résultats des examens →");recevoir.type="button";recevoir.style.marginTop="10px";
-        const zoneResultats=el("div");zoneResultats.style.cssText="display:grid;gap:8px;margin-top:12px";
-        const interpretation=el("textarea");interpretation.rows=3;interpretation.placeholder="Interprète les résultats : qu'est-ce qui est anormal ? Que conclues-tu et que fais-tu ensuite ?";interpretation.style.cssText="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin-top:10px";
-        const ajouterResultats=el("button","btn btn-secondary","Ajouter résultats et interprétation à ma réponse");ajouterResultats.type="button";ajouterResultats.style.marginTop="8px";
-        function afficherResultats(){
-          zoneResultats.replaceChildren();
-          if(!progressionCas.examensResultats)return;
-          zoneResultats.append(el("h4","","📄 Comptes rendus simulés"),el("p","muted","Résultats fictifs à visée pédagogique, propres au scénario de base. Ils ne constituent pas des données médicales réelles."));
-          progressionCas.examensResultats.forEach(item=>{const ligne=el("div","quiz-feedback");ligne.style.cssText="padding:10px;white-space:normal";ligne.append(el("strong","",item.nom),el("p","",item.resultat));zoneResultats.append(ligne);});
-          zoneResultats.append(el("label","","Ton interprétation des résultats"),interpretation,ajouterResultats);
-        }
-        recevoir.addEventListener("click",()=>{
-          if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen avant de demander les résultats.");return;}
-          progressionCas.examensResultats=genererResultatsExamens(cas,progressionCas.examensPrescrits);
-          afficherResultats();recevoir.textContent="Résultats reçus ✓";
-        });
-        ajouterResultats.addEventListener("click",()=>{
-          if(!progressionCas.examensResultats)return;
-          const bloc="Résultats des examens :\n"+progressionCas.examensResultats.map(x=>"- "+x.nom+" : "+x.resultat).join("\n")+"\nInterprétation de l'étudiant : "+(interpretation.value.trim()||"Non renseignée.");
-          if(!reponseLibre.value.includes("Résultats des examens :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;
-          else reponseLibre.value=reponseLibre.value.replace(/Résultats des examens :[\s\S]*/,bloc);
-          ajouterResultats.textContent="Résultats et interprétation ajoutés ✓";
-        });
-        if(progressionCas.examensResultats)afficherResultats();
-        prescription.append(listeExamens,compteur,recevoir,justifications,ajouter,zoneResultats);zone.append(prescription);
+        prescription.append(listeExamens,compteur,justifications,ajouter);zone.append(prescription);
       }
       const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));if(premium.actif)afficherPatientVirtuel(zone,cas);zone.append(consigne,detailsGuide,reponseLibre,analyser);
       zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
@@ -3775,6 +3682,15 @@ function lignesDePage(items) {
       const juste=score>=70;
       if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(6,progressionCas.stabilite+1);}else if(score<40){progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}
       progressionCas.journal.push(`${etape[0]} : ${verdict} (${score}/100).`);
+      // Conserver le détail de chaque phase pour construire un bilan personnalisé en fin de simulation.
+      progressionCas.evaluations.push({
+        phase:String(etape[0]), score, verdict,
+        explication:String(analyse.explication||""),
+        pointsCorrects:Array.isArray(analyse.pointsCorrects)?analyse.pointsCorrects.map(String):[],
+        elementsManquants:Array.isArray(analyse.elementsManquants)?analyse.elementsManquants.map(String):[],
+        erreurs:Array.isArray(analyse.erreurs)?analyse.erreurs.map(String):[],
+        pisteAmelioration:String(analyse.pisteAmelioration||"")
+      });
       correction.append(el("strong","",`${verdict} · ${score}/100`));
       const phraseCourte=(valeur,repli)=>String(valeur||repli).split(/[.!?\n]/)[0].trim();
       correction.append(el("p","",phraseCourte(analyse.explication,"Relis les éléments essentiels de ta décision.")));
@@ -3799,7 +3715,22 @@ function lignesDePage(items) {
       const suivant=el("button","btn btn-gold",prochain===cas.etapes.length?"Terminer la simulation →":"Poursuivre la prise en charge →");suivant.type="button";suivant.style.marginTop="14px";suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length)afficherEtapeCas();else afficherResultatCas();});zone.append(suivant);
     }
     async function afficherResultatCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
-      const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";recap.append(el("strong","","🧠 Débriefing de la garde"),el("p","muted",`Contexte travaillé : ${cas.profil.titre}. ${cas.profil.evolution}`));progressionCas.journal.forEach(x=>recap.append(el("p","muted",x)));zone.append(recap);
+      const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";
+      recap.append(el("strong","","🧠 Débriefing personnalisé de la garde"),el("p","muted",`Contexte travaillé : ${cas.profil.titre}. ${cas.profil.evolution}`));
+      const evaluations=progressionCas.evaluations||[];
+      const forces=[...new Set(evaluations.flatMap(e=>e.pointsCorrects||[]))];
+      const lacunes=[...new Set(evaluations.flatMap(e=>e.elementsManquants||[]))];
+      const erreurs=[...new Set(evaluations.flatMap(e=>e.erreurs||[]))];
+      const conseils=[...new Set(evaluations.map(e=>e.pisteAmelioration).filter(Boolean))];
+      const ajouterBilan=(titre,items,classe)=>{recap.append(el("h4",classe||"",titre));if(!items.length){recap.append(el("p","muted","Aucun élément signalé dans les évaluations."));return;}const ul=el("ul");ul.style.cssText="padding-left:20px;line-height:1.5";items.forEach(x=>ul.append(el("li","",x)));recap.append(ul);};
+      ajouterBilan("✅ Tes points forts",forces);
+      ajouterBilan("📚 Les éléments à retravailler",lacunes);
+      ajouterBilan("⚠️ Les erreurs à corriger",erreurs,"error");
+      ajouterBilan("🎯 Tes pistes de progression",conseils);
+      recap.append(el("h4","","Résultat phase par phase"));
+      evaluations.forEach(e=>{const ligne=el("p","muted",`${e.phase} — ${e.verdict} (${e.score}/100)${e.explication?" : "+e.explication:""}`);recap.append(ligne);});
+      recap.append(el("p","muted","Ce bilan est pédagogique. Vérifie toujours les décisions avec les cours, les protocoles locaux et l'encadrement clinique."));
+      zone.append(recap);
       const info=el("p","muted","Enregistrement du résultat...");zone.append(info);if(!utilisateurActuel)info.textContent="Connecte-toi pour enregistrer tes points.";else if(!progressionCas.enregistre){progressionCas.enregistre=true;const resultat={user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique",categorie:cas.specialite};let {error}=await supabase.from("quiz_history").insert(resultat);if(error){({error}=await supabase.from("quiz_history").insert({user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique"}));}if(error){console.error("Erreur d'enregistrement :",error.message);info.textContent="Résultat affiché, mais enregistrement impossible.";info.classList.add("error");progressionCas.enregistre=false;}else{info.className="notice";info.textContent="Points enregistrés dans ton historique !";await chargerHistorique();}}else info.textContent="Résultat déjà enregistré.";
       const refaire=el("button","btn btn-gold","Rejouer cette simulation");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));const retour=el("button","btn btn-secondary","Retour aux patients");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);}
 
