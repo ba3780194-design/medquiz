@@ -3514,7 +3514,19 @@ function lignesDePage(items) {
       urgence:m.urgence, indice:v.indice, evolution:v.evolution, etapes:[...m.etapes,
         ["Réévaluation du patient","Après tes premières décisions, que fais-tu maintenant ?",["Reprendre les constantes, vérifier la réponse clinique, rechercher une aggravation et adapter la conduite avec l'équipe","Considérer que le diagnostic est réglé et arrêter la surveillance","Attendre la fin de garde sans revoir le patient","Ignorer les nouveaux symptômes"],0,"Une prise en charge n'est jamais terminée après une seule décision. Il faut mesurer la réponse, rechercher les complications et réviser le plan si nécessaire."],
         ["Transmission et continuité des soins","Le patient doit être confié à l'équipe suivante. Quelle transmission réalises-tu ?",["Transmettre identité, motif, chronologie, signes de gravité, résultats, traitements, réponse et tâches restant à réaliser","Dire seulement le diagnostic supposé","Transmettre oralement sans préciser les signes d'alerte","Ne rien noter si le patient semble aller mieux"],0,"Une transmission structurée et une traçabilité claire évitent les ruptures de prise en charge. Signale les incertitudes et les actions urgentes restantes."]
-      ], profil:v, id:`sim-${mi}-${vi}`
+      ], profil:v, id:`sim-${mi}-${vi}`,
+      // Référence pédagogique construite à partir des données validées du scénario.
+      // Elle n'est jamais affichée dans le dossier visible de l'étudiant.
+      ficheReference:{
+        presentation:m.patient,
+        contexte:v.contexte,
+        evolution:v.evolution,
+        urgence:m.urgence,
+        phases:m.etapes.map(e=>({phase:e[0],objectif:e[1],attendus:e[2][e[3]],justification:e[4]})).concat([
+          {phase:"Réévaluation du patient",objectif:"Vérifier la réponse et rechercher une aggravation",attendus:"Reprendre les constantes, vérifier la réponse clinique, rechercher une aggravation et adapter la conduite avec l'équipe",justification:"Réévaluation clinique et adaptation du plan."},
+          {phase:"Transmission et continuité des soins",objectif:"Organiser une transmission structurée",attendus:"Transmettre identité, motif, chronologie, signes de gravité, résultats, traitements, réponse et tâches restant à réaliser",justification:"Transmission structurée et traçabilité."}
+        ])
+      }
     })));
     let casSelectionne = 0;
     let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[], patientConversation:[] };
@@ -3539,7 +3551,14 @@ function lignesDePage(items) {
         const message=question.value.trim();if(!message)return;
         envoyer.disabled=true;envoyer.textContent="Le patient réfléchit…";
         try{
-          const contextePatient=[`Description connue : ${cas.patient}`,`Contexte : ${cas.profil.contexte}`,`Profil d'évolution : ${cas.profil.evolution}`,"Tu es interrogé pendant la phase d'anamnèse."].join("\n");
+          const contextePatient=[
+            "RÔLE : tu incarnes uniquement le patient de cette simulation clinique.",
+            "RÈGLES : réponds à la question posée comme le ferait ce patient, avec des mots simples. Ne donne que les informations pertinentes demandées. Ne récite pas toute la fiche spontanément. Ne révèle jamais les réponses attendues, le diagnostic pédagogique ni le corrigé. N'invente aucune valeur chiffrée, aucun résultat d'examen, antécédent, allergie ou traitement absent de la fiche. Si une information n'est pas renseignée, dis que tu ne sais pas ou que tu ne te souviens pas.",
+            `INFORMATIONS PATIENT AUTORISÉES : ${JSON.stringify({presentation:cas.ficheReference.presentation,contexte:cas.ficheReference.contexte,evolution:cas.ficheReference.evolution})}`,
+            `Présentation communiquée dans le dossier : ${cas.patient}`,
+            `Contexte du scénario : ${cas.profil.contexte}`,
+            `Évolution simulée : ${cas.profil.evolution}`
+          ].join("\n");
           const {data,error}=await supabase.functions.invoke("patient-chat",{body:{patientContext:contextePatient,conversation:progressionCas.patientConversation,studentMessage:message}});
           if(error)throw error;if(!data?.success||!data?.reply)throw new Error(data?.error||"Réponse invalide");
           progressionCas.patientConversation.push({role:"user",text:message},{role:"model",text:String(data.reply)});question.value="";dessinerMessages();
@@ -3587,7 +3606,8 @@ function lignesDePage(items) {
         `Alerte clinique : ${cas.urgence}`,
         `Phase : ${etape[0]}`,
         `Question : ${etape[1]}`,
-        `Évolution simulée : ${cas.profil.evolution}`
+        `Évolution simulée : ${cas.profil.evolution}`,
+        `Fiche de référence pédagogique complète : ${JSON.stringify(cas.ficheReference)}`
       ].join("\n");
       const attendue=[
         `Décision/réponse de référence : ${etape[2][0]}`,
