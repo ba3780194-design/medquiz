@@ -273,6 +273,7 @@
     <nav class="nav" aria-label="Navigation principale">
       <a href="#accueil" class="active">Accueil</a>
       <a href="#quiz">Quiz</a>
+      <a href="#cas-cliniques">Cas cliniques 👑</a>
       <a href="#parties">Parties</a>
       <a href="#classement">Classement</a>
       <a href="#premium">Premium</a>
@@ -461,6 +462,27 @@
       <div class="panel" id="salleContenu" aria-live="polite"></div>
     </section>
 
+    <section class="page" id="cas-cliniques">
+      <div class="section-heading">
+        <span class="eyebrow gold-text">✦ Réservé à MedQuiz Premium</span>
+        <h2>🩺 Cas cliniques interactifs</h2>
+        <p class="muted">Raisonne étape par étape : diagnostic, examens, prise en charge et correction.</p>
+      </div>
+      <div class="panel" id="casCliniqueZone" aria-live="polite">
+        <h3>Apprends à raisonner comme en situation clinique</h3>
+        <p class="muted">Choisis un cas, analyse les informations du patient et avance étape par étape. Chaque réponse est suivie d'une explication pédagogique.</p>
+        <div class="field"><label for="casSpecialite">Spécialité</label>
+          <select id="casSpecialite"><option value="obstetrique">Gynécologie-obstétrique</option></select>
+        </div>
+        <div class="card" style="margin:16px 0">
+          <strong>Cas 1 — Céphalées et hypertension chez une femme enceinte</strong>
+          <p class="muted">Niveau intermédiaire · Urgences obstétricales · 4 étapes</p>
+          <button class="btn btn-gold" id="demarrerCas" type="button">Commencer le cas clinique →</button>
+        </div>
+        <p class="muted" style="font-size:.85rem">Contenu pédagogique : les cas ne remplacent pas les protocoles locaux, l'avis d'un encadrant ni la prise en charge médicale réelle.</p>
+      </div>
+    </section>
+
     <section class="page" id="premium">
       <div class="premium-hero">
         <span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
@@ -606,6 +628,7 @@
       document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === destination));
       document.querySelectorAll(".nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${id}`));
       window.scrollTo({ top: 0, behavior: "smooth" });
+      if (destination === "cas-cliniques") ouvrirCasCliniques();
       if (destination === "classement") chargerClassement();
       if (destination === "parties") majPageParties();
       if (destination === "member" && utilisateurActuel) chargerProfil(utilisateurActuel);
@@ -731,8 +754,6 @@
         return;
       }
       if (!data || data.length === 0) {
-        historiqueCache = [];
-        rendreStats();
         afficherBadges([], 0);
         liste.textContent = "Tu n'as pas encore effectué de quiz.";
         $("profilePoints").textContent = "0";
@@ -744,9 +765,8 @@
       afficherBadges(data, total);
       liste.replaceChildren();
       const historiqueAffiche = premium.actif ? data : data.slice(0, 10);
-      if (!premium.actif && data.length > 10) {
-        const infoLimite = el("p", "muted", "Version gratuite : seuls les 10 derniers quiz sont affichés. Passe à Premium pour retrouver tout ton historique.");
-        liste.append(infoLimite);
+      if (!premium.actif) {
+        liste.append(el("p", "muted", "Compte gratuit : affichage des 10 derniers quiz. Les anciens résultats restent conservés."));
       }
       historiqueAffiche.forEach(resultat => {
         const item = document.createElement("div");
@@ -3394,6 +3414,84 @@ function lignesDePage(items) {
     if ("serviceWorker" in navigator && /^https?:$/.test(window.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 
+    // ---------- Cas cliniques Premium : parcours progressif ----------
+    const casObstetrique = {
+      titre: "Céphalées et hypertension chez une femme enceinte",
+      patient: "Une patiente de 26 ans, enceinte de 32 semaines, consulte pour des céphalées intenses et des troubles visuels. Sa pression artérielle est de 165/110 mmHg.",
+      etapes: [
+        { titre: "Étape 1/4 — Hypothèse diagnostique", question: "Quelle situation faut-il suspecter en priorité ?", choix: ["Prééclampsie avec signes de gravité", "Diabète gestationnel isolé", "Anémie ferriprive", "Infection urinaire simple"], bonne: 0, explication: "Une hypertension sévère (≥160 systolique ou ≥110 diastolique) associée à des céphalées et des troubles visuels après 20 semaines de grossesse fait craindre une prééclampsie avec signes de gravité. C'est une urgence obstétricale." },
+        { titre: "Étape 2/4 — Examens à demander", question: "Quel bilan est le plus pertinent pour rechercher une atteinte maternelle ?", choix: ["NFS avec plaquettes, créatinine, ASAT/ALAT et évaluation de la protéinurie", "Radiographie thoracique seule", "Glycémie capillaire seule", "Aucun examen n'est nécessaire"], bonne: 0, explication: "Le bilan recherche notamment une thrombopénie, une atteinte rénale ou hépatique et documente la protéinurie. La surveillance clinique et fœtale est également indispensable." },
+        { titre: "Étape 3/4 — Première prise en charge", question: "Quelle conduite initiale est appropriée ?", choix: ["Évaluation et stabilisation urgentes en milieu obstétrical, contrôle de la pression artérielle et prévention des convulsions par sulfate de magnésium si indiqué", "Renvoyer la patiente à domicile avec repos", "Attendre plusieurs jours sans surveillance", "Administrer uniquement un antalgique"], bonne: 0, explication: "Il faut organiser une prise en charge obstétricale urgente, surveiller la mère et le fœtus, traiter rapidement l'hypertension sévère avec un traitement adapté et prévenir/traiter les convulsions par sulfate de magnésium selon le protocole." },
+        { titre: "Étape 4/4 — Décision obstétricale", question: "Après stabilisation maternelle, que faut-il décider ?", choix: ["Poursuivre la grossesse sans réévaluation", "Évaluer la situation materno-fœtale et décider du moment et des modalités de naissance selon la gravité et le terme", "Décider systématiquement une césarienne immédiate pour toutes les patientes", "Ne surveiller que la tension artérielle"], bonne: 1, explication: "La naissance est le traitement définitif de la prééclampsie, mais son moment et sa voie dépendent de l'état maternel et fœtal, du terme et du contexte. La stabilisation maternelle et une décision obstétricale spécialisée sont prioritaires." }
+      ]
+    };
+    let progressionCas = { index: 0, score: 0, termine: false };
+
+    function ouvrirCasCliniques() {
+      const zone = $("casCliniqueZone");
+      if (!zone) return;
+      if (!utilisateurActuel || !premium.actif) {
+        zone.replaceChildren(
+          el("h3", "", "🔒 Fonctionnalité réservée à Premium"),
+          el("p", "muted", utilisateurActuel ? "Passe à Premium pour accéder aux cas cliniques interactifs." : "Connecte-toi avec ton compte Premium pour accéder aux cas cliniques."),
+          (() => { const a = el("a", "btn btn-gold", utilisateurActuel ? "Découvrir Premium" : "Se connecter"); a.href = utilisateurActuel ? "#premium" : "#compte"; return a; })()
+        );
+        return;
+      }
+      afficherAccueilCas();
+    }
+
+    function afficherAccueilCas() {
+      const zone = $("casCliniqueZone");
+      zone.replaceChildren(
+        el("h3", "", "Cas 1 — Céphalées et hypertension chez une femme enceinte"),
+        el("p", "muted", "Gynécologie-obstétrique · Niveau intermédiaire · 4 étapes"),
+        el("p", "", "Analyse les données, choisis la meilleure réponse et découvre l'explication avant de poursuivre."),
+        (() => { const b = el("button", "btn btn-gold", "Commencer le cas clinique →"); b.type = "button"; b.addEventListener("click", commencerCas); return b; })(),
+        el("p", "muted", "Cas à visée pédagogique. En situation réelle, suivre les protocoles locaux et solliciter une équipe obstétricale.")
+      );
+    }
+
+    function commencerCas() {
+      progressionCas = { index: 0, score: 0, termine: false };
+      afficherEtapeCas();
+    }
+
+    function afficherEtapeCas() {
+      const zone = $("casCliniqueZone"), etape = casObstetrique.etapes[progressionCas.index];
+      zone.replaceChildren();
+      zone.append(el("h3", "", casObstetrique.titre), el("p", "muted", casObstetrique.patient), el("h4", "", etape.titre), el("p", "", etape.question));
+      const choix = el("div", "cas-choix");
+      etape.choix.forEach((libelle, i) => {
+        const b = el("button", "btn btn-secondary", `${String.fromCharCode(65+i)}. ${libelle}`);
+        b.type = "button"; b.style.display = "block"; b.style.width = "100%"; b.style.textAlign = "left"; b.style.margin = "8px 0";
+        b.addEventListener("click", () => repondreCas(i, choix)); choix.append(b);
+      });
+      zone.append(choix, el("p", "muted", `Étape ${progressionCas.index+1} sur ${casObstetrique.etapes.length}`));
+    }
+
+    function repondreCas(reponse, conteneur) {
+      const etape = casObstetrique.etapes[progressionCas.index];
+      [...conteneur.querySelectorAll("button")].forEach((b, i) => { b.disabled = true; if (i === etape.bonne) b.classList.add("btn-primary"); if (i === reponse && i !== etape.bonne) b.classList.add("btn-danger"); });
+      const juste = reponse === etape.bonne;
+      if (juste) progressionCas.score++;
+      const zone = $("casCliniqueZone"), correction = el("div", "quiz-feedback");
+      correction.append(el("strong", "", juste ? "Bonne réponse ✓" : "Pas tout à fait"), el("p", "", etape.explication));
+      zone.append(correction);
+      const suivant = el("button", "btn btn-gold", progressionCas.index === casObstetrique.etapes.length-1 ? "Voir mon résultat" : "Étape suivante →");
+      suivant.type = "button"; suivant.style.marginTop = "14px";
+      suivant.addEventListener("click", () => { progressionCas.index++; if (progressionCas.index < casObstetrique.etapes.length) afficherEtapeCas(); else afficherResultatCas(); });
+      zone.append(suivant);
+    }
+
+    function afficherResultatCas() {
+      const zone = $("casCliniqueZone"), total = casObstetrique.etapes.length;
+      zone.replaceChildren(el("h3", "", "Cas clinique terminé 🎉"), el("p", "", `Ton résultat : ${progressionCas.score}/${total} bonnes réponses.`), el("p", "muted", progressionCas.score === total ? "Excellent raisonnement !" : "Relis les explications et refais le cas pour consolider tes connaissances."));
+      const refaire = el("button", "btn btn-gold", "Refaire le cas"); refaire.type = "button"; refaire.addEventListener("click", commencerCas);
+      const retour = el("button", "btn btn-secondary", "Retour aux cas cliniques"); retour.type = "button"; retour.addEventListener("click", afficherAccueilCas);
+      zone.append(refaire, retour);
+    }
+
     // ---------- Premium : abonnement, limites gratuites, paiement ----------
     const cleQuota = () => "medquiz_quota_" + new Date().toISOString().slice(0, 10);
     const quizRestants = () => Math.max(0, LIMITE_QUIZ - (Number(lireLocal(cleQuota())) || 0));
@@ -3456,8 +3554,28 @@ function lignesDePage(items) {
       zone.append(...barre("Réussite globale", pct(bonnes, nb)));
       ["facile", "moyen", "difficile"].forEach(n => { const l = h.filter(x => x.niveau === n); zone.append(...barre(`Niveau ${n}`, pct(l.reduce((t, x) => t + (x.bonnes_reponses ?? 0), 0), l.reduce((t, x) => t + x.nombre_questions, 0)))); });
       const meilleur = Math.max(...h.map(x => pct(x.score, x.score_max ?? x.nombre_questions * 10)));
-      const dix = h.slice(0, 10);
-      zone.append(el("p", "muted", `Meilleur score : ${meilleur} % · Moyenne des ${dix.length} derniers quiz : ${Math.round(dix.reduce((t, x) => t + pct(x.score, x.score_max ?? x.nombre_questions * 10), 0) / dix.length)} %`));
+      const recents = h.slice(0, 5);
+      const precedents = h.slice(5, 10);
+      const moyenne = arr => arr.length
+        ? Math.round(arr.reduce((t, x) => t + pct(x.score, x.score_max ?? x.nombre_questions * 10), 0) / arr.length)
+        : 0;
+      const moyRecente = moyenne(recents);
+      const moyPrecedente = moyenne(precedents);
+      const evolution = precedents.length
+        ? (moyRecente > moyPrecedente ? `Progression : +${moyRecente - moyPrecedente} points` :
+          moyRecente < moyPrecedente ? `Progression : ${moyRecente - moyPrecedente} points` : "Progression : stable")
+        : "Fais au moins 6 quiz pour voir ton évolution.";
+      zone.append(
+        el("p", "muted", `${h.length} quiz analysés · ${nb} questions répondues · ${bonnes} bonnes réponses`),
+        el("p", "", `Meilleur résultat : ${meilleur} % · Moyenne des ${recents.length} derniers quiz : ${moyRecente} %`),
+        el("p", "muted", evolution)
+      );
+      const titreEvolution = el("p", "muted", "Évolution récente — chaque barre représente un quiz");
+      zone.append(titreEvolution);
+      h.slice(0, 5).reverse().forEach((quiz, index) => {
+        const scoreQuiz = pct(quiz.score, quiz.score_max ?? quiz.nombre_questions * 10);
+        zone.append(...barre(`Quiz ${index + 1}`, scoreQuiz));
+      });
     }
 
     // ---------- Paiement manuel Wave / Orange Money (numéros à renseigner ici) ----------
