@@ -3517,7 +3517,7 @@ function lignesDePage(items) {
       ], profil:v, id:`sim-${mi}-${vi}`
     })));
     let casSelectionne = 0;
-    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[] };
+    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[], patientConversation:[] };
     const NB_ETAPES_GRATUITES = 1;
     const libellesEtapesSimulation = ["Triage","Interrogatoire","Examen clinique","Examens","Diagnostic","Traitement","Réévaluation","Transmission"];
     function ouvrirCasCliniques(){const zone=$("casCliniqueZone");if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Simulation clinique 🏥"),el("p","muted","Connecte-toi pour entrer dans le service."),(()=>{const a=el("a","btn btn-gold","Se connecter");a.href="#compte";return a;})());return;}afficherAccueilCas();}
@@ -3526,7 +3526,28 @@ function lignesDePage(items) {
       const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 8 phases · ${cas.profil.titre}`));const b=el("button","btn btn-gold",premium.actif?"Entrer dans le service →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index));carte.append(b);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
       if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
       zone.append(el("p","muted","Simulations à visée pédagogique uniquement. Elles ne remplacent ni les protocoles nationaux, ni l'encadrement clinique, ni une décision médicale réelle."));}
-    function commencerCas(index){casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[]};afficherEtapeCas();}
+    function commencerCas(index){casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],patientConversation:[]};afficherEtapeCas();}
+    function afficherPatientVirtuel(zone,cas){
+      const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin:14px 0;border:1px solid var(--gold,#d6a84b)";
+      panel.append(el("h4","","🗣️ Interroger le patient virtuel"),el("p","muted","Pose tes questions comme lors d'un vrai interrogatoire. Le patient répond uniquement avec les informations de son dossier."));
+      const messages=el("div");messages.style.cssText="display:flex;flex-direction:column;gap:8px;margin:10px 0;max-height:280px;overflow:auto";
+      const dessinerMessages=()=>{messages.replaceChildren();if(!progressionCas.patientConversation.length)messages.append(el("p","muted","Patient : Bonjour docteur… Qu'aimeriez-vous savoir ?"));progressionCas.patientConversation.forEach(m=>{const b=el("div",m.role==="user"?"notice":"quiz-feedback",`${m.role==="user"?"Vous":"Patient"} : ${m.text}`);b.style.cssText="padding:9px 12px;border-radius:10px;white-space:pre-wrap";messages.append(b);});};
+      dessinerMessages();
+      const question=el("textarea");question.rows=2;question.placeholder="Ex. Depuis quand avez-vous mal ? La douleur a-t-elle changé ?";question.style.cssText="width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:6px 0";
+      const envoyer=el("button","btn btn-gold","Envoyer ma question");envoyer.type="button";
+      envoyer.addEventListener("click",async()=>{
+        const message=question.value.trim();if(!message)return;
+        envoyer.disabled=true;envoyer.textContent="Le patient réfléchit…";
+        try{
+          const contextePatient=[`Description connue : ${cas.patient}`,`Contexte : ${cas.profil.contexte}`,`Profil d'évolution : ${cas.profil.evolution}`,"Tu es interrogé pendant la phase d'anamnèse."].join("\n");
+          const {data,error}=await supabase.functions.invoke("patient-chat",{body:{patientContext:contextePatient,conversation:progressionCas.patientConversation,studentMessage:message}});
+          if(error)throw error;if(!data?.success||!data?.reply)throw new Error(data?.error||"Réponse invalide");
+          progressionCas.patientConversation.push({role:"user",text:message},{role:"model",text:String(data.reply)});question.value="";dessinerMessages();
+        }catch(err){console.error("Erreur patient virtuel :",err);messages.append(el("p","error","Le patient ne peut pas répondre pour le moment. Réessaie dans un instant."));}
+        envoyer.disabled=false;envoyer.textContent="Envoyer ma question";
+      });
+      panel.append(messages,question,envoyer);zone.append(panel);
+    }
     function afficherEtapeCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),etape=cas.etapes[progressionCas.index];zone.replaceChildren();
       zone.append(el("p","eyebrow gold-text","🏥 SERVICE D'URGENCES · SIMULATION"),el("h3","",cas.titre),el("p","muted",`${cas.specialite} · ${cas.niveau}`));
       const totalPhases=cas.etapes.length;const barre=el("div");barre.style.cssText="height:8px;background:var(--border);border-radius:10px;overflow:hidden;margin:12px 0";const rempl=el("div");rempl.style.cssText=`height:100%;width:${(progressionCas.index/totalPhases)*100}%;background:var(--gold,#d6a84b);transition:width .25s`;barre.append(rempl);zone.append(barre,el("p","muted",`Phase ${progressionCas.index+1}/${totalPhases} — ${etape[0]}`));
@@ -3549,7 +3570,7 @@ function lignesDePage(items) {
       const detailsGuide=el("details","history-item");detailsGuide.open=true;detailsGuide.style.cssText="display:block;padding:12px;margin:10px 0";detailsGuide.append(el("summary","",`🔎 ${guide.titre}`));
       const listeGuide=el("ul");listeGuide.style.cssText="padding-left:22px;line-height:1.65";guide.points.forEach(point=>listeGuide.append(el("li","",point)));detailsGuide.append(listeGuide);
       const reponseLibre=el("textarea");reponseLibre.rows=6;reponseLibre.placeholder=progressionCas.index===0?"Exemple de structure : 1) mes premières vérifications 2) les signes de gravité recherchés 3) qui j'alerte et pourquoi…":progressionCas.index===1?"Exemple de structure : début et évolution / symptômes associés / antécédents / traitements et allergies…":progressionCas.index===2?"Décris les constantes, les signes cliniques ciblés et les signes de gravité que tu recherches…":progressionCas.index===3?"Écris l'examen choisi, ce que tu veux vérifier et comment le résultat guidera ta décision…":progressionCas.index===4?"Diagnostic principal / arguments en faveur / diagnostics graves à éliminer / incertitudes…":progressionCas.index===5?"Mesures immédiates / traitement envisagé / précautions / surveillance et orientation…":progressionCas.index===6?"Constantes à reprendre / évolution attendue / signes d'échec / conduite si aggravation…":"Résumé du patient / résultats / traitements et réponse / tâches restantes et alertes…";reponseLibre.style.cssText="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:8px 0";
-      const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));zone.append(consigne,detailsGuide,reponseLibre,analyser);
+      const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));if(progressionCas.index===1)afficherPatientVirtuel(zone,cas);zone.append(consigne,detailsGuide,reponseLibre,analyser);
       zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
       if(progressionCas.journal.length){const j=el("details");const sum=el("summary","","Voir le dossier de décisions précédent");j.append(sum);progressionCas.journal.forEach(x=>j.append(el("p","muted",x)));zone.append(j);}
     }
