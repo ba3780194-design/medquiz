@@ -3688,7 +3688,6 @@ function lignesDePage(items) {
         }
         actualiserPrescriptions();
         const ajouter=el("button","btn btn-secondary","Ajouter mes prescriptions et justifications à ma réponse");ajouter.type="button";ajouter.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Explique pourquoi tu demandes chaque examen sélectionné.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);ajouter.textContent="Prescriptions et justifications ajoutées ✓";});
-        prescription.append(listeExamens,compteur,justifications,ajouter);
         const recevoir=el("button","btn btn-gold","Recevoir les résultats des examens →");recevoir.type="button";recevoir.style.marginTop="10px";
         const zoneResultats=el("div");zoneResultats.style.cssText="display:grid;gap:8px;margin-top:12px";
         const interpretation=el("textarea");interpretation.rows=3;interpretation.placeholder="Interprète les résultats : qu'est-ce qui est anormal ? Que conclues-tu et que fais-tu ensuite ?";interpretation.style.cssText="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin-top:10px";
@@ -3702,8 +3701,6 @@ function lignesDePage(items) {
         }
         recevoir.addEventListener("click",()=>{
           if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen avant de demander les résultats.");return;}
-          const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());
-          if(sansRaison.length){alert("Justifie chaque examen avant de recevoir les résultats.");return;}
           progressionCas.examensResultats=genererResultatsExamens(cas,progressionCas.examensPrescrits);
           afficherResultats();recevoir.textContent="Résultats reçus ✓";
         });
@@ -3715,7 +3712,7 @@ function lignesDePage(items) {
           ajouterResultats.textContent="Résultats et interprétation ajoutés ✓";
         });
         if(progressionCas.examensResultats)afficherResultats();
-        prescription.append(recevoir,zoneResultats);zone.append(prescription);
+        prescription.append(listeExamens,compteur,recevoir,justifications,ajouter,zoneResultats);zone.append(prescription);
       }
       const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));if(premium.actif)afficherPatientVirtuel(zone,cas);zone.append(consigne,detailsGuide,reponseLibre,analyser);
       zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
