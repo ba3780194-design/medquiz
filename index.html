@@ -3593,6 +3593,38 @@ function lignesDePage(items) {
       });
       if(ouvertes.length>12)zone.append(el("p","muted",`12 éléments affichés sur ${ouvertes.length}.`));
       if(corrigees.length){const details=el("details");details.append(el("summary","","Voir les erreurs déjà corrigées"));corrigees.slice(0,8).forEach(x=>details.append(el("p","muted",`✓ ${x.phase} — ${x.texte}`)));zone.append(details);}
+      ajouterExercicePersonnalise(zone,ouvertes);
+    }
+    function ajouterExercicePersonnalise(zone,ouvertes){
+      const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin-top:16px;border:1px solid var(--gold,#d6a84b)";
+      panel.append(el("h4","","🎯 Entraînement intelligent personnalisé"),el("p","muted","Un exercice est construit à partir d'un point que tu dois encore travailler. Rédige ta démarche avec tes propres mots, puis demande une correction à l'IA."));
+      if(!ouvertes.length){panel.append(el("p","notice","Bravo ! Aucun point en attente. Termine une nouvelle simulation pour obtenir un exercice personnalisé."));zone.append(panel);return;}
+      const frequences={};ouvertes.forEach(x=>{const k=(x.phase||"Autre")+"||"+(x.texte||"");frequences[k]=(frequences[k]||0)+1;});
+      const cible=ouvertes.slice().sort((a,b)=>(frequences[(b.phase||"Autre")+"||"+(b.texte||"")]||0)-(frequences[(a.phase||"Autre")+"||"+(a.texte||"")]||0)||Number(a.score)-Number(b.score))[0];
+      panel.append(el("strong","",`Exercice ciblé : ${cible.phase}`),el("p","",`Lors d'une simulation, ce point a été identifié : ${cible.texte}`));
+      const consigne=el("p","muted","Explique ce que tu vérifierais ou ferais dans cette phase, dans quel ordre et pourquoi. N'invente pas d'informations absentes du dossier.");
+      const reponse=el("textarea");reponse.rows=4;reponse.placeholder="Écris ici ta démarche…";reponse.style.cssText="width:100%;box-sizing:border-box;padding:11px;margin:8px 0;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit";
+      const bouton=el("button","btn btn-gold","Corriger mon exercice avec l'IA →");bouton.type="button";
+      const retour=el("div");retour.setAttribute("aria-live","polite");
+      bouton.addEventListener("click",async()=>{
+        const texte=reponse.value.trim();if(texte.length<12){retour.replaceChildren(el("p","error","Écris quelques phrases pour permettre une évaluation utile."));return;}
+        bouton.disabled=true;bouton.textContent="Correction en cours…";retour.replaceChildren(el("p","muted","L'IA analyse ta démarche…"));
+        try{
+          const contexte=`Exercice pédagogique personnalisé MedQuiz. Phase : ${cible.phase}. Difficulté précédemment observée : ${cible.texte}. Spécialité du dossier d'origine : ${cible.specialite||"non précisée"}. Il s'agit d'un exercice d'apprentissage, pas d'un patient réel. N'invente aucun signe, résultat, diagnostic ou protocole absent du contexte.`;
+          const attendue=`Évalue la réponse de l'étudiant sur la capacité à corriger cette difficulté : ${cible.texte}. Phase : ${cible.phase}. Attends une démarche cohérente, sûre, hiérarchisée et justifiée, adaptée à la phase. Accepte les formulations différentes et les réponses concises pertinentes. N'exige pas d'acte non indiqué. Donne un score sur 100, les points corrects, les éléments manquants, les erreurs éventuelles et une seule piste concrète. Rappelle qu'il faut respecter les protocoles locaux et l'encadrement clinique.`;
+          const {data,error}=await supabase.functions.invoke("analyze-case",{body:{caseContext:contexte,expectedAnswer:attendue,studentAnswer:texte}});
+          if(error)throw error;if(!data?.success||!data?.analysis)throw new Error(data?.error||"Analyse indisponible.");
+          const a=data.analysis,score=Math.max(0,Math.min(100,Number(a.score)||0));retour.replaceChildren();
+          retour.append(el("h4",score>=70?"gold-text":"",`${String(a.verdict||"Évaluation") } · ${score}/100`));
+          if(a.explication)retour.append(el("p","",String(a.explication)));
+          const liste=(titre,items,classe="")=>{if(!Array.isArray(items)||!items.length)return;retour.append(el("strong",classe,titre));const ul=el("ul");ul.style.cssText="padding-left:20px";items.forEach(x=>ul.append(el("li","",String(x))));retour.append(ul);};
+          liste("Points réussis",a.pointsCorrects);liste("À compléter",a.elementsManquants);liste("Erreurs à éviter",a.erreurs,"error");
+          if(a.pisteAmelioration)retour.append(el("p","notice",`Pour progresser : ${a.pisteAmelioration}`));
+          retour.append(el("p","muted","Correction à visée pédagogique : vérifie toujours les conduites avec tes cours, les protocoles locaux et un encadrant."));
+        }catch(err){console.error("Erreur exercice personnalisé :",err);retour.replaceChildren(el("p","error","La correction IA est indisponible. Vérifie ta connexion et réessaie."));}
+        finally{bouton.disabled=false;bouton.textContent="Corriger mon exercice avec l'IA →";}
+      });
+      panel.append(consigne,reponse,bouton,retour);zone.append(panel);
     }
     $("actualiserCarnetErreurs")?.addEventListener("click",afficherCarnetErreurs);
 
