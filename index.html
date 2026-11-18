@@ -13,6 +13,7 @@
     .price-card .btn[data-plan] { opacity: 1; cursor: pointer; }
     .stat-bar { height: 10px; border-radius: 8px; background: rgba(255,255,255,.08); overflow: hidden; margin: 4px 0 12px; }
     .stat-bar i { display: block; height: 100%; background: var(--gold); }
+    .badge-pseudo { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; font-size: .68rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; vertical-align: middle; background: rgba(242,198,109,.15); color: var(--gold); border: 1px solid rgba(242,198,109,.45); }
     .badge-premium { display: inline-block; padding: 3px 12px; border-radius: 99px; font-weight: 800; background: rgba(242,198,109,.15); color: var(--gold); }
     :root {
       --navy: #071426;
@@ -586,7 +587,7 @@
         <p id="welcome">Ton espace personnel.</p>
       </div>
       <div class="profile-grid">
-        <div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800">Chargement...</div></div>
+        <div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800;display:inline-block">Chargement...</div><span id="profileBadge" class="badge-pseudo hidden">👑 PREMIUM</span></div>
         <div class="panel"><p class="muted">Mes points cumulés</p><div class="profile-number" id="profilePoints">0</div></div>
       </div>
       <div class="panel" style="margin-bottom:22px">
@@ -820,6 +821,7 @@
         liste.textContent = modeClassement === "semaine" ? "Personne n'a encore marqué de points cette semaine. Sois le premier du classement hebdomadaire !" : "Aucun joueur classé pour le moment.";
         return;
       }
+      await chargerBadges(data.map(j => j.pseudonyme));
       liste.replaceChildren();
       data.forEach((joueur, index) => {
         const row = document.createElement("div");
@@ -829,8 +831,7 @@
         const number = document.createElement("span");
         number.className = "rank-number";
         number.textContent = String(index + 1);
-        const name = document.createElement("strong");
-        name.textContent = joueur.pseudonyme || "Joueur";
+        const name = nomJoueur(joueur.pseudonyme);
         const points = document.createElement("span");
         points.className = "rank-points";
         points.textContent = `${joueur.points} pts`;
@@ -2229,6 +2230,24 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     })();
 
     let sonUrgenceActif = true;
+    // ---------- Badge PREMIUM visible par tous (statut vérifié côté Supabase) ----------
+    const BADGE_TTL = 5 * 60 * 1000, cacheBadges = new Map();
+    const estPremiumNom = n => { const c = cacheBadges.get(n); return !!c && c.p && Date.now() - c.t < BADGE_TTL; };
+    async function chargerBadges(noms) {
+      const aVerifier = [...new Set((noms || []).filter(Boolean))].filter(n => { const c = cacheBadges.get(n); return !c || Date.now() - c.t >= BADGE_TTL; });
+      if (!aVerifier.length) return false;
+      const { data, error } = await supabase.rpc("premium_pseudonymes", { p_names: aVerifier });
+      if (error) console.warn("Badges Premium indisponibles :", error.message);
+      const premiums = new Set(Array.isArray(data) ? data : []);
+      aVerifier.forEach(n => cacheBadges.set(n, { p: premiums.has(n), t: Date.now() }));
+      return true;
+    }
+    function nomJoueur(nom) {
+      const s = el("strong", "", nom || "Joueur");
+      if (estPremiumNom(nom) || (nom && nom === pseudoActuel && premium.actif)) s.append(el("span", "badge-pseudo", "👑 PREMIUM"));
+      return s;
+    }
+
     const LIMITE_QUIZ = 5, LIMITE_DIFFICILE = 10;
     const NOMS_PLANS = { mensuel: "Mensuel", trimestriel: "Trimestriel", annuel: "Annuel" };
     let premium = { actif: false, plan: null, fin: null }, historiqueCache = [];
@@ -3083,10 +3102,11 @@ function lignesDePage(items) {
         const { data, error } = await supabase.rpc("get_room_leaderboard", { p_code: code });
         if (error) { boite.textContent = "Impossible de charger le classement."; return; }
         if (!data || !data.length) { boite.replaceChildren(el("p", "muted", "Personne n'a encore joué. Partage le code !")); return; }
+        await chargerBadges(data.map(j => j.pseudonyme));
         boite.replaceChildren(...data.map((j, i) => {
           const ligne = el("div", "rank-item");
           const gauche = el("div", "rank-left");
-          gauche.append(el("span", "rank-number", String(i + 1)), el("strong", "", j.pseudonyme || "Joueur"));
+          gauche.append(el("span", "rank-number", String(i + 1)), nomJoueur(j.pseudonyme));
           ligne.append(gauche, el("span", "rank-points", `${j.score} / ${j.nombre_questions * 10} pts · ${((j.total_time_ms || 0) / 1000).toFixed(1)} s`));
           return ligne;
         }));
@@ -3346,10 +3366,11 @@ function lignesDePage(items) {
       zone.replaceChildren();
       const lb = e.leaderboard || [];
       if (!lb.length) zone.append(el("p", "muted", "Aucun joueur pour le moment."));
+      chargerBadges(lb.map(j => j.pseudonyme)).then(maj => { if (maj && zone.isConnected) dessinerClassement(zone, e); });
       lb.forEach((j, i) => {
         const ligne = el("div", "rank-item" + (j.pseudonyme === e.me && !e.is_host ? " moi" : ""));
         const gauche = el("div", "rank-left");
-        gauche.append(el("span", "rank-number", ["🥇", "🥈", "🥉"][i] || String(i + 1)), el("strong", "", j.pseudonyme));
+        gauche.append(el("span", "rank-number", ["🥇", "🥈", "🥉"][i] || String(i + 1)), nomJoueur(j.pseudonyme));
         ligne.append(gauche, el("span", "rank-points", `${j.score} pts · ${(j.temps / 1000).toFixed(1)} s`));
         zone.append(ligne);
       });
@@ -4025,6 +4046,7 @@ function lignesDePage(items) {
     function majUIPremium() {
       const jours = premium.fin ? Math.max(0, Math.ceil((new Date(premium.fin) - Date.now()) / 864e5)) : 0;
       $("quotaInfo").textContent = premium.actif ? "👑 Premium : quiz illimités." : `Quiz gratuits restants aujourd'hui : ${quizRestants()} / ${LIMITE_QUIZ}. Quiz difficiles limités à ${LIMITE_DIFFICILE} questions.`;
+      $("profileBadge").classList.toggle("hidden", !premium.actif);
       $("badgeAbo").className = premium.actif ? "badge-premium" : "muted";
       $("badgeAbo").textContent = premium.actif ? "👑 Premium" : "Gratuit";
       $("aboStatut").textContent = premium.actif ? `👑 Premium ${NOMS_PLANS[premium.plan] || ""}` : "Compte gratuit";
