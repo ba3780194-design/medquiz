@@ -2341,9 +2341,10 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     $("btnSon").textContent = sonActif ? "🔊" : "🔇";
     $("btnSon").addEventListener("click", () => {
       sonActif = !sonActif;
+      sonUrgenceActif = sonActif;
       ecrireLocal("medquiz_son", sonActif ? "on" : "off");
       $("btnSon").textContent = sonActif ? "🔊" : "🔇";
-      son("bon");
+      if(sonActif)activerEtTesterSonUrgence();
     });
 
     // ---------- Réponses ouvertes : comparaison tolérante ----------
@@ -3572,6 +3573,11 @@ function lignesDePage(items) {
         const retour=el("button","btn btn-gold","Retour au centre de simulation");retour.type="button";retour.addEventListener("click",()=>{gardeNuit=null;afficherAccueilCas();});zone.append(retour);return;
       }
       zone.replaceChildren(el("p","eyebrow gold-text","🌙 GARDE DE NUIT"),el("h3","","Tableau des urgences"),el("p","muted",`${gardeNuit.termines.length}/${gardeNuit.patients.length} patients pris en charge · ${gardeNuit.patients.length-gardeNuit.termines.length} restant(s)`),el("p","notice","Choisis le patient que tu souhaites évaluer en premier. Observe les informations disponibles et justifie mentalement tes priorités. Dans la réalité, utilise toujours l'échelle de triage officielle de ton établissement."));
+      const audioPanel=el("div","history-item");audioPanel.style.cssText="display:block;padding:12px;margin:12px 0;border:1px solid var(--line)";
+      audioPanel.append(el("strong","","🔊 Vérification du son sur ton téléphone"));
+      const audioStatus=el("p","muted","Appuie sur le bouton pour autoriser Chrome à jouer la sirène et vérifier le son.");audioStatus.id="medquizAudioStatus";audioPanel.append(audioStatus);
+      const testAudio=el("button","btn btn-secondary","🔊 Activer et tester la sirène");testAudio.type="button";testAudio.addEventListener("click",activerEtTesterSonUrgence);audioPanel.append(testAudio);
+      zone.append(audioPanel);
       const liste=el("div");
       gardeNuit.patients.forEach((idx)=>{if(gardeNuit.termines.includes(idx))return;const c=casCliniques[idx];const carte=el("div","history-item");carte.style.cssText="display:block;padding:13px;margin:10px 0";
         const niveau=/vitale|urgence|grave/i.test(c.niveau+" "+c.urgence)?"Priorité potentiellement élevée":"Évaluation nécessaire";
@@ -3686,24 +3692,52 @@ function lignesDePage(items) {
     document.addEventListener("pointerdown",deverrouillerAudio,{once:true,capture:true});
     document.addEventListener("keydown",deverrouillerAudio,{once:true,capture:true});
     function sonnerAlerteUrgence(){
-      if(!sonUrgenceActif)return;
+      if(!sonUrgenceActif || !sonActif)return false;
       try{
-        const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
+        const AudioCtx=window.AudioContext||window.webkitAudioContext;
+        if(!AudioCtx)return false;
         if(!contexteAudio)contexteAudio=new AudioCtx();
         const jouer=()=>{
           const ctx=contexteAudio;
-          [0,0.28,0.56].forEach((t)=>{
+          if(ctx.state!=="running")return;
+          // Trois balayages sonores courts, plus perceptibles qu'un simple bip.
+          [0,0.48,0.96].forEach((t)=>{
             const osc=ctx.createOscillator(),gain=ctx.createGain();
-            osc.type="sine";osc.frequency.setValueAtTime(880,ctx.currentTime+t);
+            osc.type="sawtooth";
+            osc.frequency.setValueAtTime(650,ctx.currentTime+t);
+            osc.frequency.exponentialRampToValueAtTime(1250,ctx.currentTime+t+0.18);
+            osc.frequency.exponentialRampToValueAtTime(720,ctx.currentTime+t+0.36);
             gain.gain.setValueAtTime(0.0001,ctx.currentTime+t);
-            gain.gain.exponentialRampToValueAtTime(0.18,ctx.currentTime+t+0.025);
-            gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+t+0.20);
-            osc.connect(gain);gain.connect(ctx.destination);osc.start(ctx.currentTime+t);osc.stop(ctx.currentTime+t+0.22);
+            gain.gain.exponentialRampToValueAtTime(0.12,ctx.currentTime+t+0.035);
+            gain.gain.setValueAtTime(0.12,ctx.currentTime+t+0.25);
+            gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+t+0.40);
+            osc.connect(gain);gain.connect(ctx.destination);
+            osc.start(ctx.currentTime+t);osc.stop(ctx.currentTime+t+0.42);
           });
         };
-        if(contexteAudio.state==="suspended")contexteAudio.resume().then(jouer).catch(e=>console.warn("Impossible de démarrer la sirène",e));
-        else jouer();
-      }catch(e){console.warn("Son d'urgence indisponible",e);}
+        if(contexteAudio.state==="suspended"){
+          contexteAudio.resume().then(jouer).catch(e=>console.warn("Impossible de démarrer la sirène",e));
+        }else jouer();
+        return true;
+      }catch(e){console.warn("Son d'urgence indisponible",e);return false;}
+    }
+    function activerEtTesterSonUrgence(){
+      sonUrgenceActif=true;sonActif=true;
+      try{ecrireLocal("medquiz_son","on");}catch(e){}
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx){alert("Ce navigateur ne permet pas de jouer le son. Les alertes visuelles restent actives.");return;}
+      try{
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        const ctx=contexteAudio;
+        const lancer=()=>{
+          if(ctx.state!=="running"){alert("Le son n'est pas actif. Vérifie le volume multimédia et les réglages du navigateur.");return;}
+          sonnerAlerteUrgence();
+          const statut=document.getElementById("medquizAudioStatus");
+          if(statut)statut.textContent="🔊 Son activé — test réussi";
+        };
+        if(ctx.state==="suspended")ctx.resume().then(lancer).catch(()=>alert("Chrome a bloqué le son. Touche à nouveau le bouton et vérifie le volume multimédia."));
+        else lancer();
+      }catch(e){alert("Impossible d'activer le son sur cet appareil. Les alertes visuelles restent actives.");}
     }
     function afficherEvenementGarde(zone){
       if(!gardeNuit||gardeNuit.encours!==casSelectionne)return;
