@@ -3554,7 +3554,35 @@ function lignesDePage(items) {
     const NB_ETAPES_GRATUITES = 1;
     const libellesEtapesSimulation = ["Triage","Interrogatoire","Examen clinique","Examens","Diagnostic","Traitement","Réévaluation","Transmission"];
     function ouvrirCasCliniques(){const zone=$("casCliniqueZone");if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Simulation clinique 🏥"),el("p","muted","Connecte-toi pour entrer dans le service."),(()=>{const a=el("a","btn btn-gold","Se connecter");a.href="#compte";return a;})());return;}afficherAccueilCas();}
+    let gardeNuit = null;
+    function commencerGardeNuit(){
+      if(!premium.actif){alert("La Garde de nuit est réservée à Premium : elle utilise les 8 phases complètes de chaque dossier.");return;}
+      const indices=casCliniques.map((_,i)=>i);
+      for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
+      const patientsGarde=indices.slice(0,4);
+      gardeNuit={patients:patientsGarde,termines:[],ordre:[],points:0,encours:null,progressions:{},urgencePatient:patientsGarde[Math.floor(Math.random()*patientsGarde.length)]};
+      afficherTableauGarde();
+    }
+    function afficherTableauGarde(){
+      const zone=$("casCliniqueZone");if(!zone||!gardeNuit)return;
+      if(gardeNuit.termines.length===gardeNuit.patients.length){
+        zone.replaceChildren(el("p","eyebrow gold-text","🌅 FIN DE GARDE"),el("h3","","Garde de nuit terminée !"),el("p","",`Tu as pris en charge ${gardeNuit.termines.length} patients.`),el("p","notice",`🏆 Total de points obtenus : ${gardeNuit.points}`),el("p","muted","L'ordre de passage et les résultats sont pédagogiques. En situation réelle, la priorisation repose sur un triage validé, les constantes et les protocoles locaux."));
+        const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";recap.append(el("strong","","📋 Bilan des patients"));
+        gardeNuit.ordre.forEach((x,i)=>recap.append(el("p","",`${i+1}. ${x.titre} — ${x.score}/${x.total} décisions adaptées`)));zone.append(recap);
+        const retour=el("button","btn btn-gold","Retour au centre de simulation");retour.type="button";retour.addEventListener("click",()=>{gardeNuit=null;afficherAccueilCas();});zone.append(retour);return;
+      }
+      zone.replaceChildren(el("p","eyebrow gold-text","🌙 GARDE DE NUIT"),el("h3","","Tableau des urgences"),el("p","muted",`${gardeNuit.termines.length}/${gardeNuit.patients.length} patients pris en charge · ${gardeNuit.patients.length-gardeNuit.termines.length} restant(s)`),el("p","notice","Choisis le patient que tu souhaites évaluer en premier. Observe les informations disponibles et justifie mentalement tes priorités. Dans la réalité, utilise toujours l'échelle de triage officielle de ton établissement."));
+      const liste=el("div");
+      gardeNuit.patients.forEach((idx)=>{if(gardeNuit.termines.includes(idx))return;const c=casCliniques[idx];const carte=el("div","history-item");carte.style.cssText="display:block;padding:13px;margin:10px 0";
+        const niveau=/vitale|urgence|grave/i.test(c.niveau+" "+c.urgence)?"Priorité potentiellement élevée":"Évaluation nécessaire";
+        carte.append(el("strong","",`🩺 Patient ${gardeNuit.patients.indexOf(idx)+1}`),el("p","",c.patient),el("p","muted",`${c.specialite} · ${niveau} · ${c.profil.titre}`));
+        const enPause=!!gardeNuit.progressions[idx];const b=el("button","btn btn-gold",enPause?"Reprendre la prise en charge →":"Prendre en charge ce patient →");b.type="button";b.addEventListener("click",()=>{gardeNuit.encours=idx;if(!gardeNuit.ordre.some(x=>x.idx===idx))gardeNuit.ordre.push({idx,titre:c.titre,score:null,total:c.etapes.length});commencerCas(idx,false);});carte.append(b);liste.append(carte);
+      });zone.append(liste);
+      if(gardeNuit.termines.length){const historique=el("details");historique.append(el("summary","","Voir les patients déjà pris en charge"));gardeNuit.ordre.filter(x=>x.score!==null).forEach(x=>historique.append(el("p","muted",`${x.titre} — ${x.score}/${x.total}`)));zone.append(historique);}
+      const quitter=el("button","btn btn-secondary","Quitter la garde");quitter.type="button";quitter.addEventListener("click",()=>{gardeNuit=null;afficherAccueilCas();});zone.append(quitter);
+    }
     function afficherAccueilCas(){const zone=$("casCliniqueZone");zone.replaceChildren(el("h3","","🏥 Centre de simulation hospitalière"),el("p","muted",`${casCliniques.length} dossiers cliniques · 10 situations de base déclinées en profils · 8 phases interactives par patient.`));
+      const garde=el("button","btn btn-gold","🌙 Commencer une garde de nuit — 4 patients");garde.type="button";garde.style.cssText="width:100%;margin:10px 0";garde.addEventListener("click",commencerGardeNuit);zone.append(garde);
       const filtre=el("select","field");filtre.style.width="100%";filtre.setAttribute("aria-label","Filtrer par spécialité");["Toutes les spécialités",...new Set(casCliniques.map(c=>c.specialite))].forEach((x,i)=>{const o=el("option");o.value=i?x:"";o.textContent=x;filtre.append(o);});zone.append(filtre);
       const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 8 phases · ${cas.profil.titre}`));const b=el("button","btn btn-gold",premium.actif?"Simulation classique →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index,false));const urgence=el("button","btn btn-secondary","🚨 Mode urgence (chronométré)");urgence.type="button";urgence.style.marginLeft="8px";urgence.addEventListener("click",()=>commencerCas(index,true));carte.append(b,urgence);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
       if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
@@ -3628,7 +3656,71 @@ function lignesDePage(items) {
     }
     $("actualiserCarnetErreurs")?.addEventListener("click",afficherCarnetErreurs);
 
-    function commencerCas(index,modeUrgence=false){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}casSelectionne=index;progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],evaluations:[],decisionHistory:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{},resultatsExamens:[],modeUrgence:!!modeUrgence,debutPhase:0,tempsDepasse:false,phasesDansLeTemps:0};afficherEtapeCas();}
+    function creerEvenementsGarde(forceNouvelleUrgence=false){
+      const banque=[
+        {titre:"🚨 Alarme du scope",detail:"Le moniteur signale une variation préoccupante. L'information doit être vérifiée auprès du patient.",choix:[{texte:"Revoir immédiatement le patient, contrôler les constantes et alerter l'équipe si l'anomalie se confirme.",delta:1,score:1,retour:"Bonne réaction : tu vérifies le signal sur le patient et mobilises l'équipe selon les constatations."},{texte:"Ignorer l'alarme et poursuivre sans vérification.",delta:-2,score:0,retour:"Risque pédagogique : une alarme doit être vérifiée rapidement, sans se fier au moniteur seul."}]},
+        {titre:"🧑‍⚕️ Un collègue demande un avis",detail:"Un collègue te signale une inquiétude sur l'évolution du patient et te demande de venir réévaluer la situation.",choix:[{texte:"Interrompre ce qui peut attendre, réévaluer le patient et coordonner avec l'équipe.",delta:1,score:1,retour:"Bonne coordination : la réévaluation et la communication d'équipe sont prioritaires."},{texte:"Répondre que tu verras plus tard sans recueillir d'information.",delta:-1,score:0,retour:"À améliorer : clarifie rapidement le degré d'urgence avec ton collègue."}]},
+        {titre:"🧪 Un résultat important arrive",detail:"Un résultat d'examen vient d'être signalé comme potentiellement critique. Il faut le vérifier et le replacer dans le contexte clinique.",choix:[{texte:"Vérifier le résultat, réexaminer le patient et transmettre immédiatement l'information critique à l'équipe responsable.",delta:1,score:1,retour:"Bonne conduite : vérification, corrélation clinique et transmission rapide."},{texte:"Classer le résultat sans le relire ni prévenir l'équipe.",delta:-2,score:0,retour:"Risque pédagogique : un résultat critique nécessite vérification et transmission sans délai."}]},
+        {titre:"🚑 Une nouvelle urgence arrive",detail:"L'accueil signale un nouvel arrivant. L'équipe te demande de contribuer à la priorisation sans abandonner le patient en cours.",choix:[{texte:"Alerter l'équipe, transmettre brièvement l'état du patient actuel et participer à une priorisation structurée.",delta:1,score:1,retour:"Bonne organisation : continuité des soins et triage coordonné."},{texte:"Quitter le patient sans transmission pour aller voir le nouvel arrivant.",delta:-2,score:0,retour:"À améliorer : ne jamais interrompre une prise en charge sans relais et transmission."}]}
+      ];
+      const phases=[1,2,3,4,5,6].sort(()=>Math.random()-.5).slice(0,2).sort((a,b)=>a-b);
+      const evenements=phases.map((phase)=>({phase, ...banque[Math.floor(Math.random()*banque.length)],resolu:false}));
+      if(forceNouvelleUrgence){
+        const indexUrgence=Math.floor(Math.random()*evenements.length);
+        evenements[indexUrgence]={phase:evenements[indexUrgence].phase,...banque[3],resolu:false};
+      }
+      return evenements;
+    }
+    if(!document.getElementById("medquizUrgenceStyle")){const st=document.createElement("style");st.id="medquizUrgenceStyle";st.textContent="@keyframes medquizUrgencePulse{0%,100%{box-shadow:0 0 0 rgba(220,38,38,0)}50%{box-shadow:0 0 18px rgba(220,38,38,.35)}}";document.head.append(st);}
+    let sonUrgenceActif=true;
+    // Déverrouille l'audio dès la première interaction réelle avec la page.
+    // Les navigateurs bloquent souvent les sons lancés automatiquement avant ce geste.
+    function deverrouillerAudio(){
+      try{
+        const AudioCtx=window.AudioContext||window.webkitAudioContext;
+        if(!AudioCtx)return;
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        if(contexteAudio.state==="suspended")contexteAudio.resume().catch(()=>{});
+      }catch(e){console.warn("Audio non disponible",e);}
+    }
+    document.addEventListener("pointerdown",deverrouillerAudio,{once:true,capture:true});
+    document.addEventListener("keydown",deverrouillerAudio,{once:true,capture:true});
+    function sonnerAlerteUrgence(){
+      if(!sonUrgenceActif)return;
+      try{
+        const AudioCtx=window.AudioContext||window.webkitAudioContext;if(!AudioCtx)return;
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        const jouer=()=>{
+          const ctx=contexteAudio;
+          [0,0.28,0.56].forEach((t)=>{
+            const osc=ctx.createOscillator(),gain=ctx.createGain();
+            osc.type="sine";osc.frequency.setValueAtTime(880,ctx.currentTime+t);
+            gain.gain.setValueAtTime(0.0001,ctx.currentTime+t);
+            gain.gain.exponentialRampToValueAtTime(0.18,ctx.currentTime+t+0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+t+0.20);
+            osc.connect(gain);gain.connect(ctx.destination);osc.start(ctx.currentTime+t);osc.stop(ctx.currentTime+t+0.22);
+          });
+        };
+        if(contexteAudio.state==="suspended")contexteAudio.resume().then(jouer).catch(e=>console.warn("Impossible de démarrer la sirène",e));
+        else jouer();
+      }catch(e){console.warn("Son d'urgence indisponible",e);}
+    }
+    function afficherEvenementGarde(zone){
+      if(!gardeNuit||gardeNuit.encours!==casSelectionne)return;
+      if(!Array.isArray(progressionCas.evenementsGarde))progressionCas.evenementsGarde=creerEvenementsGarde();
+      const evenement=progressionCas.evenementsGarde.find(e=>e.phase===progressionCas.index);
+      if(!evenement)return;
+      const estNouvelleUrgence=evenement.titre.includes("nouvelle urgence");
+      if(estNouvelleUrgence&&!evenement.alerteAffichee){evenement.alerteAffichee=true;sonnerAlerteUrgence();}
+      const panel=el("div",estNouvelleUrgence?"history-item error":"history-item");panel.style.cssText=`display:block;padding:14px;margin:12px 0;border:2px solid ${estNouvelleUrgence?'#dc2626':'var(--gold,#d6a84b)'};${estNouvelleUrgence?'background:rgba(220,38,38,.09);animation:medquizUrgencePulse 1.1s ease-in-out 3':''}`;
+      if(estNouvelleUrgence){const alerte=el("div","", "🚨 NOUVELLE URGENCE — ALERTE DE GARDE");alerte.style.cssText="font-size:1.12em;font-weight:900;color:#dc2626;margin-bottom:8px";panel.append(alerte);const son=el("button","btn btn-secondary",sonUrgenceActif?"🔊 Son activé":"🔇 Son désactivé");son.type="button";son.style.cssText="margin:0 0 8px 0";son.addEventListener("click",()=>{sonUrgenceActif=!sonUrgenceActif;son.textContent=sonUrgenceActif?"🔊 Son activé":"🔇 Son désactivé";if(sonUrgenceActif)sonnerAlerteUrgence();});panel.append(son);}
+      panel.append(el("h4","",estNouvelleUrgence?"🚑 INTERRUPTION — ÉVÉNEMENT URGENT":"🎲 ÉVÉNEMENT IMPREVU DE LA GARDE"),el("strong","",evenement.titre),el("p","",evenement.detail));
+      if(estNouvelleUrgence){const voir=el("button","btn btn-gold","Voir le tableau des urgences");voir.type="button";voir.addEventListener("click",()=>{gardeNuit.progressions[casSelectionne]=progressionCas;gardeNuit.encours=null;afficherTableauGarde();});panel.append(voir);}
+      if(evenement.resolu){panel.append(el("p","notice",evenement.retour||"Événement déjà traité."));zone.append(panel);return;}
+      panel.append(el("p","muted","Que fais-tu ? Choisis une réaction."));
+      evenement.choix.forEach(option=>{const b=el("button","btn btn-secondary",option.texte);b.type="button";b.style.cssText="display:block;width:100%;text-align:left;margin:7px 0;white-space:normal";b.addEventListener("click",()=>{evenement.resolu=true;evenement.retour=option.retour;progressionCas.stabilite=Math.max(0,Math.min(6,progressionCas.stabilite+option.delta));if(option.score)progressionCas.score+=option.score;(progressionCas.journal||(progressionCas.journal=[])).push({type:"événement de garde",titre:evenement.titre,choix:option.texte,retour:option.retour});panel.replaceChildren(el("h4","","📌 Événement traité"),el("strong","",evenement.titre),el("p","notice",option.retour));const etat=el("p","muted",`État simulé actualisé : ${progressionCas.stabilite>=5?"amélioration":progressionCas.stabilite>=3?"stable ou fragile":"préoccupant — réévaluation et aide de l'équipe"}.`);panel.append(etat);});panel.append(b);});zone.append(panel);
+    }
+    function commencerCas(index,modeUrgence=false){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}casSelectionne=index;const sauvegardee=gardeNuit&&gardeNuit.encours===index?gardeNuit.progressions[index]:null;if(sauvegardee){progressionCas=sauvegardee;progressionCas.modeUrgence=false;}else{progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],evaluations:[],decisionHistory:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{},resultatsExamens:[],modeUrgence:!!modeUrgence,debutPhase:0,tempsDepasse:false,phasesDansLeTemps:0,evenementsGarde:gardeNuit?creerEvenementsGarde(gardeNuit.urgencePatient===index):[]};}afficherEtapeCas();}
     function lancerMinuterieUrgence(zone){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}if(!progressionCas.modeUrgence)return;const duree=120;progressionCas.debutPhase=Date.now();progressionCas.tempsDepasse=false;const bloc=el("div","notice");bloc.style.cssText="font-weight:700;text-align:center;margin:12px 0";zone.append(bloc);const actualiser=()=>{const restant=Math.max(0,duree-Math.floor((Date.now()-progressionCas.debutPhase)/1000));bloc.textContent=restant>0?`⏱️ Mode urgence — ${Math.floor(restant/60)}:${String(restant%60).padStart(2,"0")} pour cette phase`:"⏰ Temps écoulé — prends le temps de sécuriser ta décision";if(restant===0){progressionCas.tempsDepasse=true;clearInterval(minuterieUrgence);minuterieUrgence=null;bloc.classList.add("error");}};actualiser();minuterieUrgence=setInterval(actualiser,1000);}
     function afficherPatientVirtuel(zone,cas){
       const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin:14px 0;border:1px solid var(--gold,#d6a84b)";
@@ -3693,6 +3785,8 @@ function lignesDePage(items) {
     }
     function afficherEtapeCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),etape=cas.etapes[progressionCas.index];zone.replaceChildren();
       zone.append(el("p","eyebrow gold-text","🏥 SERVICE D'URGENCES · SIMULATION"),el("h3","",cas.titre),el("p","muted",`${cas.specialite} · ${cas.niveau}`));
+      if(gardeNuit&&gardeNuit.encours===casSelectionne){const navigation=el("div");navigation.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0";if(progressionCas.index>0){const precedent=el("button","btn btn-secondary","← Phase précédente");precedent.type="button";precedent.addEventListener("click",()=>{if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}progressionCas.index=Math.max(0,progressionCas.index-1);afficherEtapeCas();});navigation.append(precedent);}const pause=el("button","btn btn-secondary","↩ Retour au tableau des urgences");pause.type="button";pause.addEventListener("click",()=>{if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}gardeNuit.progressions[casSelectionne]=progressionCas;gardeNuit.encours=null;afficherTableauGarde();});navigation.append(pause);zone.append(navigation);}
+      afficherEvenementGarde(zone);
       const totalPhases=cas.etapes.length;const barre=el("div");barre.style.cssText="height:8px;background:var(--border);border-radius:10px;overflow:hidden;margin:12px 0";const rempl=el("div");rempl.style.cssText=`height:100%;width:${(progressionCas.index/totalPhases)*100}%;background:var(--gold,#d6a84b);transition:width .25s`;barre.append(rempl);zone.append(barre,el("p","muted",`Phase ${progressionCas.index+1}/${totalPhases} — ${etape[0]}`));if(progressionCas.modeUrgence){zone.append(el("p","muted","Mode urgence activé : 2 minutes indicatives par phase. La sécurité du patient reste prioritaire."));lancerMinuterieUrgence(zone);}
       const dossier=el("div","history-item");dossier.style.cssText="display:block;padding:14px;margin:12px 0";dossier.append(el("strong","","📋 Dossier patient"),el("p","",cas.patient));
       const profil=el("p","muted",`Contexte du dossier : ${cas.profil.contexte}`);dossier.append(profil);if(progressionCas.index===0)dossier.append(el("p","notice",`⚠️ ${cas.urgence}`));
@@ -3727,11 +3821,9 @@ function lignesDePage(items) {
           progressionCas.examensPrescrits.forEach(nom=>{const bloc=el("div","history-item");bloc.style.cssText="display:block;padding:10px";bloc.append(el("strong","",nom));const raison=el("textarea");raison.rows=2;raison.placeholder="Pourquoi demandes-tu cet examen ? Que cherches-tu à confirmer ou éliminer ?";raison.value=progressionCas.justificationsExamens[nom]||"";raison.style.cssText="width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit";raison.addEventListener("input",()=>{progressionCas.justificationsExamens[nom]=raison.value;});bloc.append(raison);justifications.append(bloc);});
         }
         actualiserPrescriptions();
-        const ajouter=el("button","btn btn-secondary","Ajouter mes prescriptions et justifications à ma réponse");ajouter.type="button";ajouter.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Explique pourquoi tu demandes chaque examen sélectionné.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);progressionCas.resultatsExamens=construireResultatsExamens(cas,progressionCas.examensPrescrits);
-          const ancien=prescription.querySelector(".resultats-examens-simules");if(ancien)ancien.remove();
-          const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);
-          ajouter.textContent="Prescriptions ajoutées — résultats disponibles ✓";});
-        prescription.append(listeExamens,compteur,justifications,ajouter);if(progressionCas.resultatsExamens?.length){const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);}zone.append(prescription);
+        const ajouter=el("button","btn btn-secondary","1. Valider mes prescriptions");ajouter.type="button";ajouter.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Explique pourquoi tu demandes chaque examen sélectionné.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);ajouter.textContent="Prescriptions validées ✓";});
+        const recevoir=el("button","btn btn-gold","2. Afficher les résultats des examens");recevoir.type="button";recevoir.style.cssText="margin:8px 0 0 8px";recevoir.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne d'abord au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Ajoute une justification pour chaque examen avant de recevoir les résultats.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);progressionCas.resultatsExamens=construireResultatsExamens(cas,progressionCas.examensPrescrits);const ancien=prescription.querySelector(".resultats-examens-simules");if(ancien)ancien.remove();const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);recevoir.textContent="Résultats affichés ✓";});
+        prescription.append(listeExamens,compteur,justifications,ajouter,recevoir);if(progressionCas.resultatsExamens?.length){const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);}zone.append(prescription);
       }
       const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));if(premium.actif)afficherPatientVirtuel(zone,cas);zone.append(consigne,detailsGuide,reponseLibre,analyser);
       zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
@@ -3855,7 +3947,14 @@ function lignesDePage(items) {
       recap.append(el("p","muted","Ce bilan est pédagogique. Vérifie toujours les décisions avec les cours, les protocoles locaux et l'encadrement clinique."));
       zone.append(recap);
       const info=el("p","muted","Enregistrement du résultat...");zone.append(info);if(!utilisateurActuel)info.textContent="Connecte-toi pour enregistrer tes points.";else if(!progressionCas.enregistre){progressionCas.enregistre=true;const resultat={user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique",categorie:cas.specialite};let {error}=await supabase.from("quiz_history").insert(resultat);if(error){({error}=await supabase.from("quiz_history").insert({user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique"}));}if(error){console.error("Erreur d'enregistrement :",error.message);info.textContent="Résultat affiché, mais enregistrement impossible.";info.classList.add("error");progressionCas.enregistre=false;}else{info.className="notice";info.textContent="Points enregistrés dans ton historique !";await chargerHistorique();}}else info.textContent="Résultat déjà enregistré.";
-      const refaire=el("button","btn btn-gold","Rejouer cette simulation");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));const retour=el("button","btn btn-secondary","Retour aux patients");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);}
+      if(gardeNuit&&gardeNuit.encours===casSelectionne){
+        const entree=gardeNuit.ordre[gardeNuit.ordre.length-1];if(entree){entree.score=progressionCas.score;entree.total=total;}
+        if(!gardeNuit.termines.includes(casSelectionne))gardeNuit.termines.push(casSelectionne);delete gardeNuit.progressions[casSelectionne];
+        gardeNuit.points+=pointsGagnes;
+        const suivantGarde=el("button","btn btn-gold",gardeNuit.termines.length===gardeNuit.patients.length?"Terminer la garde 🌅":"Retour au tableau des urgences →");suivantGarde.type="button";suivantGarde.addEventListener("click",()=>{gardeNuit.encours=null;afficherTableauGarde();});zone.append(suivantGarde);
+      }else{
+        const refaire=el("button","btn btn-gold","Rejouer cette simulation");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));const retour=el("button","btn btn-secondary","Retour aux patients");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);
+      }}
 
     // ---------- Premium : abonnement, limites gratuites, paiement ----------
     const cleQuota = () => "medquiz_quota_" + new Date().toISOString().slice(0, 10);
