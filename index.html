@@ -278,48 +278,6 @@
       .panel, .card, .premium-hero { padding: 20px; }
       .history-item, .rank-item { align-items: flex-start; }
     }
-
-    /* ===== Mon hôpital ===== */
-    .hp-tabs { margin-bottom: 16px; }
-    .hp-scene { width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid var(--line); margin-bottom: 14px; }
-    .hp-win { fill: #0b2a44; }
-    .hp-win.on { fill: var(--gold); animation: hpWin 3s ease-in-out infinite; }
-    .hp-cross { animation: hpWin 1.6s ease-in-out infinite; }
-    .hp-amb { animation: hpDrive 9s linear infinite; }
-    .hp-siren { animation: hpBlink .6s steps(2) infinite; }
-    @keyframes hpWin { 50% { opacity: .4; } }
-    @keyframes hpBlink { 50% { opacity: .15; } }
-    @keyframes hpDrive { from { transform: translateX(-50px); } to { transform: translateX(400px); } }
-    .hp-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .hp-top h3 { font-size: 1.3rem; overflow-wrap: anywhere; }
-    .hp-lvl { display: inline-block; padding: 2px 12px; border-radius: 99px; font-weight: 800; background: rgba(242,198,109,.15); color: var(--gold); border: 1px solid rgba(242,198,109,.45); }
-    .hp-bar { height: 12px; border-radius: 8px; background: rgba(255,255,255,.08); overflow: hidden; margin: 10px 0 4px; }
-    .hp-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); transition: width .7s ease; }
-    .hp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
-    .hp-stat { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
-    .hp-stat strong { display: block; font-size: 1.25rem; color: var(--teal); }
-    .hp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-top: 16px; }
-    .hp-svc { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; text-align: center; }
-    .hp-svc.locked { background: rgba(255,255,255,.03); }
-    .hp-svc.locked .hp-ico { filter: grayscale(1); opacity: .4; }
-    .hp-svc.hp-pop { animation: hpPop .55s ease; }
-    @keyframes hpPop { 40% { transform: scale(1.05); border-color: var(--gold); } }
-    .hp-ico { position: relative; margin: 0 auto; width: 68px; height: 68px; border-radius: 18px; display: grid; place-items: center; font-size: 2rem; background: rgba(34,211,197,.1); overflow: hidden; }
-    .hp-svc:not(.locked) .hp-a-float { animation: hpFloat 3s ease-in-out infinite; }
-    .hp-svc:not(.locked) .hp-a-beat { animation: hpBeat 1.3s ease-in-out infinite; }
-    .hp-svc:not(.locked) .hp-a-blink::after { content: ""; position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: hpBlink .8s steps(2) infinite; }
-    .hp-svc:not(.locked) .hp-a-scan::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--teal); box-shadow: 0 0 8px var(--teal); animation: hpScan 2s ease-in-out infinite; }
-    @keyframes hpFloat { 50% { transform: translateY(-4px); } }
-    @keyframes hpBeat { 15% { transform: scale(1.18); } 30% { transform: scale(1); } 45% { transform: scale(1.12); } }
-    @keyframes hpScan { 0%, 100% { top: 4px; } 50% { top: 60px; } }
-    .hp-pips { display: flex; justify-content: center; gap: 5px; }
-    .hp-pips span { width: 14px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); }
-    .hp-pips span.on { background: var(--gold); }
-    .hp-svc .btn { width: 100%; margin-top: auto; }
-    .hp-svc .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-    .hp-rank-sub { display: block; font-size: .82rem; color: var(--muted); overflow-wrap: anywhere; }
-    @media (max-width: 600px) { .hp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .hp-svc { padding: 12px; } }
-    @media (prefers-reduced-motion: reduce) { .hp-scene *, .hp-ico, .hp-ico::after, .hp-bar i { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
@@ -330,7 +288,6 @@
       <a href="#quiz">Quiz</a>
       <a href="#cas-cliniques">Cas cliniques 👑</a>
       <a href="#parties">Parties</a>
-      <a href="#hopital">Hôpital 🏥</a>
       <a href="#classement">Classement</a>
       <a href="#premium">Premium</a>
       <a href="#compte" id="accountNav" class="nav-cta">Mon compte</a>
@@ -665,23 +622,8 @@
       </div>
       <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
         <a href="#quiz" class="btn btn-primary">Jouer un quiz</a>
-        <a href="#hopital" class="btn btn-secondary">🏥 Mon hôpital</a>
         <button class="btn btn-secondary" id="logout">Se déconnecter</button>
       </div>
-    </section>
-
-    <section class="page" id="hopital">
-      <div class="section-heading">
-        <span class="eyebrow">✦ Gestion</span>
-        <h2>🏥 Mon hôpital</h2>
-        <p>Gagne des points de développement en jouant, puis débloque et améliore tes services.</p>
-      </div>
-      <div class="tabs hp-tabs" role="tablist">
-        <button class="btn btn-secondary actif" id="hpTabMon" type="button">🏥 Mon hôpital</button>
-        <button class="btn btn-secondary" id="hpTabRank" type="button">🌍 Classement mondial</button>
-      </div>
-      <div id="hpMon" aria-live="polite"><p class="muted">Chargement...</p></div>
-      <div id="hpRank" class="hidden" aria-live="polite"></div>
     </section>
   </main>
 
@@ -708,7 +650,6 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (destination === "cas-cliniques") ouvrirCasCliniques();
       if (destination === "classement") chargerClassement();
-      if (destination === "hopital") ouvrirHopital();
       if (destination === "parties") majPageParties();
       if (destination === "member" && utilisateurActuel) chargerProfil(utilisateurActuel);
       if (destination === "admin") chargerAdmin();
@@ -4233,151 +4174,6 @@ function lignesDePage(items) {
       const id = window.location.hash.slice(1);
       if (id && $(id)) afficherPage(id);
     });
-
-
-    // ---------- Mon hôpital : toutes les données sont validées côté serveur (RPC hospital_*) ----------
-    const HP_ANIM = { urgences: "blink", consultations: "float", laboratoire: "float", radiologie: "scan", reanimation: "beat", bloc: "blink", pediatrie: "float", cardiologie: "beat", maternite: "float" };
-    const HP_TOTAL = 9;
-    let hpEtat = null, hpOnglet = "mon", hpAlerte = "";
-    const hpErreur = (e) => /PGRST202|Could not find the function/.test((e.code || "") + " " + (e.message || "")) ? "Le script hospital.sql n'a pas encore été exécuté dans Supabase." : (e.message || "Erreur inattendue.");
-    function hpEchec(zone, e, retry) {
-      console.error("Hôpital :", e);
-      const b = el("button", "btn btn-secondary", "Réessayer"); b.type = "button"; b.addEventListener("click", retry);
-      zone.replaceChildren(el("p", "error", hpErreur(e)), b);
-    }
-    function hpLien(texte, page, cls) {
-      const a = el("a", cls, texte); a.href = "#" + page;
-      a.addEventListener("click", (e) => { e.preventDefault(); afficherPage(page); });
-      return a;
-    }
-    function ouvrirHopital() { hpChoisir(hpOnglet); }
-    function hpChoisir(o) {
-      hpOnglet = o;
-      $("hpTabMon").classList.toggle("actif", o === "mon"); $("hpTabRank").classList.toggle("actif", o === "rank");
-      $("hpMon").classList.toggle("hidden", o !== "mon"); $("hpRank").classList.toggle("hidden", o !== "rank");
-      return o === "mon" ? chargerMonHopital() : chargerClassementHopital();
-    }
-    $("hpTabMon").addEventListener("click", () => hpChoisir("mon"));
-    $("hpTabRank").addEventListener("click", () => hpChoisir("rank"));
-
-    async function chargerMonHopital() {
-      const z = $("hpMon");
-      if (!utilisateurActuel) {
-        z.replaceChildren(el("p", "notice", "Connecte-toi pour créer ton hôpital et gagner des points en jouant. Le classement mondial reste visible par tous."), hpLien("Me connecter", "compte", "btn btn-primary"));
-        return;
-      }
-      z.replaceChildren(el("p", "muted", "Chargement de ton hôpital..."));
-      const { data, error } = await supabase.rpc("hospital_get_state");
-      if (error) { hpEchec(z, error, chargerMonHopital); return; }
-      hpEtat = data; hpRendre();
-    }
-
-    function hpScene(lvl, totalNiv, urgences) {
-      const etages = Math.min(4, 1 + Math.floor(lvl / 3)), h = etages * 28, top = 140 - h;
-      let w = "";
-      for (let i = 0; i < etages * 6; i++) w += `<rect class="hp-win${i < totalNiv ? " on" : ""}" style="animation-delay:${((i * 0.37) % 3).toFixed(2)}s" x="${112 + (i % 6) * 24}" y="${top + 8 + Math.floor(i / 6) * 28}" width="14" height="16" rx="2"/>`;
-      const amb = urgences ? `<g class="hp-amb"><rect x="0" y="146" width="26" height="12" rx="3" fill="#f4f8fc"/><rect x="18" y="148" width="8" height="5" fill="#22d3c5"/><circle class="hp-siren" cx="8" cy="144" r="3" fill="#ff8b8b"/><circle cx="6" cy="159" r="3" fill="#071426"/><circle cx="21" cy="159" r="3" fill="#071426"/></g>` : "";
-      return `<svg class="hp-scene" viewBox="0 0 360 170" role="img" aria-label="Vue de ton hôpital"><defs><linearGradient id="hpSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#123b55"/><stop offset="1" stop-color="#0d2038"/></linearGradient></defs><rect width="360" height="170" fill="url(#hpSky)"/><rect y="140" width="360" height="30" fill="#0a1a2e"/><circle cx="42" cy="128" r="14" fill="#0e3a3a"/><circle cx="318" cy="128" r="14" fill="#0e3a3a"/><rect x="100" y="${top}" width="160" height="${h}" rx="6" fill="#153550" stroke="#22d3c5" stroke-opacity=".4"/>${w}<rect x="164" y="${top - 22}" width="32" height="22" rx="4" fill="#102944" stroke="#22d3c5" stroke-opacity=".6"/><path class="hp-cross" d="M177 ${top - 19}h6v5h5v6h-5v5h-6v-5h-5v-6h5z" fill="#ff8b8b"/><rect x="171" y="124" width="18" height="16" rx="3" fill="#071426"/>${amb}</svg>`;
-    }
-
-    function hpCarte(s, d, pop) {
-      const bloque = s.level === 0, max = s.level >= s.max_level, niv = d.hospital.level;
-      const c = el("div", "hp-svc" + (bloque ? " locked" : "") + (pop ? " hp-pop" : ""));
-      const pips = el("div", "hp-pips"); pips.setAttribute("aria-label", `Niveau ${s.level} sur ${s.max_level}`);
-      for (let i = 1; i <= s.max_level; i++) pips.append(el("span", i <= s.level ? "on" : ""));
-      const b = el("button", bloque ? "btn btn-primary btn-small" : "btn btn-gold btn-small"); b.type = "button";
-      if (max) { b.textContent = "Niveau max ✓"; b.disabled = true; }
-      else if (niv < s.min_level) { b.textContent = `🔒 Hôpital niv. ${s.min_level}`; b.disabled = true; }
-      else {
-        b.textContent = `${bloque ? "Débloquer" : "Améliorer"} · ${s.next_cost} pts`;
-        b.disabled = d.balance < s.next_cost;
-        b.addEventListener("click", () => hpAcheter(s.code, b));
-      }
-      c.append(el("div", "hp-ico hp-a-" + (HP_ANIM[s.code] || "float"), s.emoji), el("strong", "", s.name), pips, el("span", "muted", bloque ? "Non débloqué" : `Niveau ${s.level} / ${s.max_level}`), b);
-      return c;
-    }
-
-    function hpRendre(popCode) {
-      const z = $("hpMon"), d = hpEtat;
-      if (!d || !d.hospital) {
-        const p = el("div", "panel");
-        p.append(el("h3", "", "Crée ton hôpital 🏥"), el("p", "muted", `Tu as déjà ${d?.xp ?? 0} points de développement. Choisis un nom, puis débloque tes premiers services.`));
-        const f = el("form"); f.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin-top:12px";
-        const i = el("input"); i.type = "text"; i.required = true; i.minLength = 3; i.maxLength = 30; i.style.flex = "1 1 200px";
-        i.value = ("Hôpital de " + pseudoActuel).slice(0, 30); i.setAttribute("aria-label", "Nom de ton hôpital");
-        const b = el("button", "btn btn-primary", "Créer mon hôpital"); b.type = "submit";
-        f.append(i, b);
-        f.addEventListener("submit", async (ev) => {
-          ev.preventDefault(); b.disabled = true; b.textContent = "Création...";
-          const { error } = await supabase.rpc("hospital_set_name", { p_name: i.value });
-          if (error) { hpAlerte = hpErreur(error); hpRendre(); return; }
-          hpAlerte = ""; chargerMonHopital();
-        });
-        z.replaceChildren(p);
-        if (hpAlerte) { z.append(el("p", "error", hpAlerte)); hpAlerte = ""; }
-        p.append(f);
-        return;
-      }
-      const srv = d.services, totalNiv = srv.reduce((a, s) => a + s.level, 0), nb = srv.filter(s => s.level > 0).length;
-      const urg = srv.find(s => s.code === "urgences");
-      const pct = d.level_next ? Math.max(0, Math.min(100, Math.round((d.xp - d.level_start) / (d.level_next - d.level_start) * 100))) : 100;
-      const tete = el("div", "panel");
-      const scene = el("div"); scene.innerHTML = hpScene(d.hospital.level, totalNiv, !!(urg && urg.level > 0)); // balisage statique : uniquement des nombres
-      const top = el("div", "hp-top");
-      const ren = el("button", "btn btn-secondary btn-small", "✏️ Renommer"); ren.type = "button"; ren.addEventListener("click", hpRenommer);
-      top.append(el("h3", "", d.hospital.name), el("span", "hp-lvl", `Niveau ${d.hospital.level}`), ren);
-      const bar = el("div", "hp-bar"); bar.setAttribute("role", "progressbar"); bar.setAttribute("aria-valuenow", pct); bar.setAttribute("aria-valuemin", 0); bar.setAttribute("aria-valuemax", 100);
-      const barre = el("i"); barre.style.width = pct + "%"; bar.append(barre);
-      const prog = el("p", "muted", d.level_next ? `${d.xp} / ${d.level_next} pts pour le niveau ${d.hospital.level + 1}` : "Niveau maximum atteint 🏆");
-      prog.style.fontSize = ".88rem";
-      const stats = el("div", "hp-stats");
-      [[Math.max(0, d.balance), "💎 Points à dépenser"], [`${nb} / ${HP_TOTAL}`, "Services débloqués"], [d.rank ? `#${d.rank}` : "—", `Rang mondial (${d.players ?? 0} hôpitaux)`]].forEach(([v, l]) => { const s = el("div", "hp-stat"); s.append(el("strong", "", String(v)), el("span", "muted", l)); stats.append(s); });
-      tete.append(scene, top, bar, prog, stats);
-      const grille = el("div", "hp-grid");
-      srv.forEach(s => grille.append(hpCarte(s, d, s.code === popCode)));
-      const bas = [tete];
-      if (hpAlerte) { bas.push(el("p", "error", hpAlerte)); hpAlerte = ""; }
-      if (d.xp === 0) {
-        const n = el("div", "notice", "Ton hôpital attend ses premiers points : réussis un QCM, une simulation clinique, une garde ou le défi du jour. "); const a = el("div", "actions"); a.style.marginTop = "10px";
-        a.append(hpLien("Jouer un quiz", "quiz", "btn btn-primary btn-small"), hpLien("Simulations cliniques", "cas-cliniques", "btn btn-secondary btn-small")); n.append(a); bas.push(n);
-      }
-      const note = el("p", "muted", "Les points sont calculés par le serveur à partir de tes résultats enregistrés (plafond quotidien identique pour tous). Le badge 👑 Premium est purement cosmétique."); note.style.cssText = "font-size:.85rem;margin-top:14px";
-      z.replaceChildren(...bas, grille, note);
-    }
-
-    async function hpAcheter(code, btn) {
-      btn.disabled = true; btn.textContent = "Achat en cours...";
-      const { data, error } = await supabase.rpc("hospital_upgrade_service", { p_service: code });
-      if (error) { hpAlerte = hpErreur(error); hpRendre(); return; }
-      hpEtat = data; hpAlerte = ""; hpRendre(code);
-    }
-    async function hpRenommer() {
-      const n = window.prompt("Nouveau nom de ton hôpital (3 à 30 caractères) :", hpEtat?.hospital?.name || "");
-      if (n === null) return;
-      const { error } = await supabase.rpc("hospital_set_name", { p_name: n });
-      if (error) { hpAlerte = hpErreur(error); hpRendre(); return; }
-      chargerMonHopital();
-    }
-
-    async function chargerClassementHopital() {
-      const z = $("hpRank");
-      z.replaceChildren(el("p", "muted", "Chargement du classement mondial..."));
-      const { data, error } = await supabase.rpc("hospital_get_leaderboard", { p_limit: 50 });
-      if (error) { hpEchec(z, error, chargerClassementHopital); return; }
-      if (!data || !data.length) { z.replaceChildren(el("div", "panel", "Aucun hôpital pour le moment. Crée le tien et prends la première place !")); return; }
-      await chargerBadges(data.map(j => j.pseudonyme));
-      const p = el("div", "panel");
-      data.forEach(j => {
-        const row = el("div", "rank-item" + (j.pseudonyme && j.pseudonyme === pseudoActuel && utilisateurActuel ? " moi" : ""));
-        const left = el("div", "rank-left"), txt = el("div");
-        txt.append(nomJoueur(j.pseudonyme), el("span", "hp-rank-sub", "🏥 " + j.hospital_name));
-        left.append(el("span", "rank-number", String(j.pos)), txt);
-        row.append(left, el("span", "rank-points", `Niv. ${j.level} · ${j.services}/${HP_TOTAL}`));
-        p.append(row);
-      });
-      z.replaceChildren(p);
-    }
-    supabase.auth.onAuthStateChange(() => { if ($("hopital").classList.contains("active")) setTimeout(() => hpChoisir(hpOnglet), 400); });
 
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
