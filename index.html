@@ -5506,13 +5506,8 @@ function lignesDePage(items) {
           for(const t of mine){
             const card=el("div","notice"),statusLabel={registration:"Inscriptions ouvertes",ready:"Prêt à démarrer",active:"En cours",finished:"Terminé",cancelled:"Annulé"}[t.status]||t.status;
             card.append(el("strong","", "🏆 "+t.title),el("p","muted",`${t.accepted_count} joueurs inscrits · ${statusLabel}`));
-            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi",async()=>{try{await socialRpc("mq_tournament_start",{p_tournament:t.id});socialNotice("Tournoi démarré ! Le tableau est créé.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
-            if(["active","finished"].includes(t.status)){
-              const matches=await socialRpc("mq_tournament_bracket",{p_tournament:t.id});
-              const bracket=el("div","social-tournament-bracket");bracket.append(el("h4","","📋 Tableau des matchs"));
-              if(!matches.length)bracket.append(el("p","muted","Le tableau sera disponible après le démarrage."));
-              matches.forEach(m=>{const row=el("div","social-tournament-choice");const p1=m.player1_name||"Exempt",p2=m.player2_name||"Exempt";row.append(el("span","",`Tour ${m.round_number} · Match ${m.match_number} : ${p1} ⚔️ ${p2}`));if(m.winner_name)row.append(el("strong","",` · 🏆 ${m.winner_name}`));else if(t.creator_id===utilisateurActuel.id&&m.player1_id&&m.player2_id){row.append(socialBtn("Vainqueur : "+p1,async()=>{if(!confirm(`Confirmer ${p1} comme vainqueur ?`))return;try{await socialRpc("mq_tournament_set_winner",{p_match:m.id,p_winner:m.player1_id});await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"),socialBtn("Vainqueur : "+p2,async()=>{if(!confirm(`Confirmer ${p2} comme vainqueur ?`))return;try{await socialRpc("mq_tournament_set_winner",{p_match:m.id,p_winner:m.player2_id});await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"));}bracket.append(row);});card.append(bracket);
-            }
+            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);if(pool.length<5)throw new Error("Pas assez de QCM disponibles.");const questions=[...pool].sort(()=>Math.random()-.5).slice(0,10).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});socialNotice("Tournoi lancé ! Tous les joueurs répondent aux mêmes questions.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
+            if(["active","finished"].includes(t.status)){const area=el("div","social-tournament-bracket");area.append(el("h4","","⚡ QCM en direct · 10 / 7 / 5 / 2 points"));card.append(area);mqTournoiAfficherPartie(area,t.id);}
             if(t.creator_id===utilisateurActuel.id&&!["cancelled","finished"].includes(t.status))card.append(socialBtn("Annuler le tournoi",async()=>{if(!confirm("Annuler définitivement ce tournoi ?"))return;try{await socialRpc("mq_tournament_cancel",{p_tournament:t.id});socialNotice("Tournoi annulé.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"));
             zone.append(card);
           }
@@ -5522,6 +5517,36 @@ function lignesDePage(items) {
           const chat=el("div","social-chat"),list=el("div","social-chat-list");list.id="socialChatList";chat.append(list);const send=el("div","social-search"),input=el("input","social-chat-input");input.placeholder="Écris un message…";input.setAttribute("aria-label","Écrire un message privé");input.maxLength=2000;let sending=false;const envoyer=async()=>{const body=input.value.trim();if(!body||sending)return;sending=true;btn.disabled=true;try{await socialRpc("mq_send_message",{p_friend:socialFriendActif.id,p_body:body});input.value="";await socialLoadMessages()}catch(e){socialNotice(e.message,true)}finally{sending=false;btn.disabled=false;input.focus()}};const btn=socialBtn("Envoyer",envoyer,"btn btn-primary");input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();envoyer()}});send.append(input,btn);chat.append(send);zone.append(chat);await socialLoadMessages();
         }
       }catch(e){zone.replaceChildren(el("h3","","MedQuiz Social"),el("p","error","Le module social n'est pas encore configuré dans Supabase. Exécute le fichier SQL fourni avec cette version. Détail : "+(e.message||"erreur inconnue")));}
+    }
+    const mqTournoiTimers=new Map();
+    function mqTournoiAfficherPartie(area,tournamentId){
+      if(mqTournoiTimers.has(tournamentId))clearInterval(mqTournoiTimers.get(tournamentId));
+      let renderedQuestion=0,answeredLocally=false,loading=false,serverOffset=0;
+      const refresh=async()=>{
+        if(!area.isConnected||loading)return;loading=true;
+        try{
+          const st=await socialRpc("mq_tournament_qcm_state",{p_tournament:tournamentId});
+          serverOffset=Date.parse(st.server_now)-Date.now();
+          const idx=Number(st.question_index)||1;
+          if(st.status==="finished"){
+            area.replaceChildren(el("h4","","🏁 Tournoi terminé !"),el("p","notice","Classement final"));
+            (st.scores||[]).forEach((x,i)=>area.append(el("p",i===0?"notice":"social-tournament-choice",`${i+1}. ${x.pseudo} — ${x.points} points${i===0?" 🏆":""}`)));
+            if(mqTournoiTimers.has(tournamentId)){clearInterval(mqTournoiTimers.get(tournamentId));mqTournoiTimers.delete(tournamentId);}return;
+          }
+          if(idx!==renderedQuestion){
+            renderedQuestion=idx;answeredLocally=!!st.my_answered;area.replaceChildren(el("p","muted",`Question ${idx}/${st.total_questions} · 20 secondes`));
+            const q=st.question;if(!q){area.append(el("p","muted","Préparation de la question…"));return;}
+            area.append(el("h3","",q.question));const answers=el("div","social-tournament-choices");
+            (q.choix||[]).forEach(choice=>{const b=socialBtn(choice,async()=>{if(answeredLocally)return;answeredLocally=true;answers.querySelectorAll("button").forEach(x=>x.disabled=true);try{const result=await socialRpc("mq_tournament_qcm_submit",{p_tournament:tournamentId,p_answer:choice});area.append(el("p",result.correct?"notice":"muted",result.correct?`Bonne réponse ! +${result.points} points`:"Réponse enregistrée : 0 point"));}catch(e){answeredLocally=false;socialNotice(e.message,true);answers.querySelectorAll("button").forEach(x=>x.disabled=false);}},"btn btn-secondary");b.style.width="100%";answers.append(b);});area.append(answers);
+          }
+          if(st.my_answered||answeredLocally){area.querySelectorAll(".social-tournament-choices button").forEach(b=>b.disabled=true);}
+          let timer=area.querySelector("[data-mq-tournoi-timer]");if(!timer){timer=el("p","chrono-text");timer.dataset.mqTournoiTimer="1";area.prepend(timer);}
+          const left=Math.max(0,Math.ceil((new Date(st.question_ends_at).getTime()-Date.now()+serverOffset)/1000));timer.textContent=`⏱ ${left} s`;
+          let scores=area.querySelector("[data-mq-tournoi-scores]");if(!scores){scores=el("div","muted");scores.dataset.mqTournoiScores="1";area.append(scores);}scores.textContent="Classement provisoire : "+(st.scores||[]).map(x=>`${x.pseudo} ${x.points} pts`).join(" · ");
+        }catch(e){if(!area.dataset.mqError){area.dataset.mqError="1";area.append(el("p","error","Tournoi QCM : "+e.message));}}
+        finally{loading=false;}
+      };
+      refresh();mqTournoiTimers.set(tournamentId,setInterval(refresh,1200));
     }
     async function socialSearch(q){const zone=socialMain();try{const data=await socialRpc("mq_search_students",{p_term:q});const results=el("div");if(!data.length)results.append(el("p","social-empty","Aucun étudiant trouvé."));data.forEach(p=>results.append(socialRow(p,"Étudiant MedQuiz",[socialBtn(p.request_pending?"Invitation envoyée":"Ajouter",async()=>{try{await socialRpc("mq_send_friend_request",{p_receiver:p.id});mqPushNotifier([p.id],"Nouvelle demande d’ami","Un étudiant souhaite t’ajouter en ami.","/#social");socialNotice("Invitation envoyée à "+p.pseudonyme+" !");await socialSearch(q)}catch(e){socialNotice(e.message,true)}},"btn btn-primary")] )));zone.append(results);}catch(e){socialNotice(e.message,true)}}
     async function socialLoadMessages(){const list=$("socialChatList");if(!list||!socialFriendActif)return;try{const data=await socialRpc("mq_get_messages",{p_friend:socialFriendActif.id});list.replaceChildren();if(!data.length)list.append(el("p","social-empty","Aucun message pour le moment. Envoie le premier message !"));data.forEach(m=>{const b=el("div","social-bubble"+(m.sender_id===utilisateurActuel.id?" mine":""));b.append(el("span","",m.body),el("small","",new Date(m.created_at).toLocaleString()));list.append(b)});list.scrollTop=list.scrollHeight;}catch(e){socialNotice(e.message,true)}}
