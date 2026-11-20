@@ -5506,7 +5506,7 @@ function lignesDePage(items) {
           for(const t of mine){
             const card=el("div","notice"),statusLabel={registration:"Inscriptions ouvertes",ready:"Prêt à démarrer",active:"En cours",finished:"Terminé",cancelled:"Annulé"}[t.status]||t.status;
             card.append(el("strong","", "🏆 "+t.title),el("p","muted",`${t.accepted_count} joueurs inscrits · ${statusLabel}`));
-            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);if(pool.length<5)throw new Error("Pas assez de QCM disponibles.");const questions=[...pool].sort(()=>Math.random()-.5).slice(0,10).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
+            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);const needed=5*Math.ceil(Math.log2(Math.max(2,Number(t.accepted_count)||2)));if(pool.length<needed)throw new Error(`Il faut au moins ${needed} QCM pour le nombre de joueurs inscrits.`);const questions=[...pool].sort(()=>Math.random()-.5).slice(0,needed).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
             if(["active","finished"].includes(t.status)){card.append(socialBtn(t.status==="finished"?"🏁 Voir le classement":"▶ Ouvrir le QCM",()=>{location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);},"btn btn-primary"));}
             if(t.creator_id===utilisateurActuel.id&&!["cancelled","finished"].includes(t.status))card.append(socialBtn("Annuler le tournoi",async()=>{if(!confirm("Annuler définitivement ce tournoi ?"))return;try{await socialRpc("mq_tournament_cancel",{p_tournament:t.id});socialNotice("Tournoi annulé.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"));
             zone.append(card);
@@ -5529,12 +5529,13 @@ function lignesDePage(items) {
           serverOffset=Date.parse(st.server_now)-Date.now();
           const idx=Number(st.question_index)||1;
           if(st.status==="finished"){
-            area.replaceChildren(el("h4","","🏁 Tournoi terminé !"),el("p","notice","Classement final"));
+            area.replaceChildren(el("h4","","🏁 Tournoi terminé !"),el("p","notice",`Champion : ${st.champion||"Vainqueur"}`),el("p","muted","Classement de la dernière manche"));
             (st.scores||[]).forEach((x,i)=>area.append(el("p",i===0?"notice":"social-tournament-choice",`${i+1}. ${x.pseudo} — ${x.points} points${i===0?" 🏆":""}`)));
             if(mqTournoiTimers.has(tournamentId)){clearInterval(mqTournoiTimers.get(tournamentId));mqTournoiTimers.delete(tournamentId);}return;
           }
-          if(idx!==renderedQuestion){
-            renderedQuestion=idx;answeredLocally=!!st.my_answered;area.replaceChildren(el("p","muted",`Question ${idx}/${st.total_questions} · 20 secondes`));
+          if(st.eliminated){area.replaceChildren(el("h3","","⛔ Tu es éliminé"),el("p","muted","Tu peux suivre la suite du tournoi et voir le champion à la fin."),el("p","muted",`Manche ${st.stage_number||1}`));return;}
+          if(idx!==renderedQuestion||area.dataset.mqStage!==String(st.stage_number||1)){
+            renderedQuestion=idx;area.dataset.mqStage=String(st.stage_number||1);answeredLocally=!!st.my_answered;area.replaceChildren(el("p","notice",`🏆 Manche ${st.stage_number||1} · ${st.alive_count||""} joueurs encore en lice`),el("p","muted",`Question ${idx}/${st.total_questions} · 20 secondes`));
             const q=st.question;if(!q){area.append(el("p","muted","Préparation de la question…"));return;}
             area.append(el("h3","",q.question));const answers=el("div","social-tournament-choices");
             (q.choix||[]).forEach(choice=>{const b=socialBtn(choice,async()=>{if(answeredLocally)return;answeredLocally=true;answers.querySelectorAll("button").forEach(x=>x.disabled=true);try{const result=await socialRpc("mq_tournament_qcm_submit",{p_tournament:tournamentId,p_answer:choice});area.append(el("p",result.correct?"notice":"muted",result.correct?`Bonne réponse ! +${result.points} points`:"Réponse enregistrée : 0 point"));}catch(e){answeredLocally=false;socialNotice(e.message,true);answers.querySelectorAll("button").forEach(x=>x.disabled=false);}},"btn btn-secondary");b.style.width="100%";answers.append(b);});area.append(answers);
@@ -5542,7 +5543,7 @@ function lignesDePage(items) {
           if(st.my_answered||answeredLocally){area.querySelectorAll(".social-tournament-choices button").forEach(b=>b.disabled=true);}
           let timer=area.querySelector("[data-mq-tournoi-timer]");if(!timer){timer=el("p","chrono-text");timer.dataset.mqTournoiTimer="1";area.prepend(timer);}
           const left=Math.max(0,Math.ceil((new Date(st.question_ends_at).getTime()-Date.now()+serverOffset)/1000));timer.textContent=`⏱ ${left} s`;
-          let scores=area.querySelector("[data-mq-tournoi-scores]");if(!scores){scores=el("div","muted");scores.dataset.mqTournoiScores="1";area.append(scores);}scores.textContent="Classement provisoire : "+(st.scores||[]).map(x=>`${x.pseudo} ${x.points} pts`).join(" · ");
+          let scores=area.querySelector("[data-mq-tournoi-scores]");if(!scores){scores=el("div","muted");scores.dataset.mqTournoiScores="1";area.append(scores);}scores.textContent="Classement de la manche : "+(st.scores||[]).map(x=>`${x.pseudo} ${x.points} pts`).join(" · ");
         }catch(e){if(!area.dataset.mqError){area.dataset.mqError="1";area.append(el("p","error","Tournoi QCM : "+e.message));}}
         finally{loading=false;}
       };
