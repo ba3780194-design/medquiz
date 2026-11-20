@@ -831,6 +831,81 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 @media(max-width:520px){.mq-stats-grid{gap:8px}.mq-stat-card{padding:13px 10px;border-radius:14px}.mq-stat-icon{width:27px;height:27px;border-radius:8px}.mq-stat-label{font-size:.78rem}.mq-stat-detail{font-size:.66rem}}
 </style>
 
+
+<style id="medquiz-premium-themes">
+/* Sélecteur des thèmes Premium */
+.mq-theme-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.mq-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.mq-theme-choice{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:10px;border:1px solid var(--mq-line,#e8e7f1);border-radius:14px;background:var(--mq-paper,#fff);color:var(--mq-ink,#17152c);text-align:left;cursor:pointer;transition:.18s}
+.mq-theme-choice:hover{transform:translateY(-2px);border-color:var(--mq-violet,#6847f5);box-shadow:0 10px 24px rgba(40,30,90,.1)}
+.mq-theme-choice.is-active{outline:2px solid var(--mq-violet,#6847f5);border-color:transparent}
+.mq-theme-choice.is-locked{opacity:.72}
+.mq-theme-choice strong{font-size:13px}.mq-theme-choice small{font-size:11px;color:var(--mq-muted,#77758c)}
+.mq-theme-preview{display:block;width:100%;height:54px;border-radius:9px;border:1px solid rgba(0,0,0,.08);background:linear-gradient(120deg,#211b48,#704cf5,#62dce7)}
+.mq-theme-preview.cyber{background:linear-gradient(120deg,#081323,#14d8c5,#a4ff5c)}
+.mq-theme-preview.ocean{background:linear-gradient(120deg,#062c48,#087eaa,#50e0d0)}
+.mq-theme-preview.emerald{background:linear-gradient(120deg,#082b25,#147c59,#a7df91)}
+.mq-theme-preview.sakura{background:linear-gradient(120deg,#44243c,#d86d9c,#ffd5df)}
+.mq-theme-preview.sunset{background:linear-gradient(120deg,#492536,#d85d43,#ffc36d)}
+.mq-theme-preview.graphite{background:linear-gradient(120deg,#20242d,#596273,#c0c6d1)}
+.mq-theme-preview.arctic{background:linear-gradient(120deg,#17324d,#58a9d8,#c8f3ff)}
+.mq-theme-status{font-size:12px;margin-top:14px}
+@media(max-width:700px){.mq-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mq-theme-heading{align-items:flex-start}}
+/* Variables de chaque palette : le thème agit sur toutes les pages, pas uniquement le profil. */
+body[data-skin="royal"],body[data-skin="cyber"],body[data-skin="ocean"],body[data-skin="emerald"],body[data-skin="sakura"],body[data-skin="sunset"],body[data-skin="graphite"],body[data-skin="arctic"]{
+ --mq-bg:var(--skin-bg);--mq-paper:var(--skin-paper);--mq-ink:var(--skin-ink);--mq-muted:var(--skin-muted);--mq-line:var(--skin-line);--mq-violet:var(--skin-accent);--mq-blue:var(--skin-accent2);--mq-shadow:0 18px 48px rgba(0,0,0,.12);
+ background:var(--skin-bg)!important;color:var(--skin-ink)!important
+}
+body[data-skin="royal"]{--skin-bg:#f1effb;--skin-paper:#fff;--skin-ink:#211b48;--skin-muted:#77718f;--skin-line:#ded9f2;--skin-accent:#704cf5;--skin-accent2:#4269df;--skin-sidebar:#211b48;--skin-hero:linear-gradient(115deg,#211b48,#382c83 58%,#4269df)}
+body[data-skin="cyber"]{--skin-bg:#071522;--skin-paper:#10283a;--skin-ink:#efffff;--skin-muted:#9bb8c7;--skin-line:#21475a;--skin-accent:#14d8c5;--skin-accent2:#a4ff5c;--skin-sidebar:#06121f;--skin-hero:linear-gradient(115deg,#071b2b,#075b65 60%,#173c48)}
+body[data-skin="ocean"]{--skin-bg:#eaf5fa;--skin-paper:#fff;--skin-ink:#12334a;--skin-muted:#648093;--skin-line:#d3e6ef;--skin-accent:#087eaa;--skin-accent2:#20b9b0;--skin-sidebar:#10344b;--skin-hero:linear-gradient(115deg,#07344f,#087eaa 62%,#20b9b0)}
+body[data-skin="emerald"]{--skin-bg:#edf5ef;--skin-paper:#fff;--skin-ink:#173b2d;--skin-muted:#6c8879;--skin-line:#d7e8dc;--skin-accent:#16835d;--skin-accent2:#83bd65;--skin-sidebar:#103b2c;--skin-hero:linear-gradient(115deg,#103b2c,#167452 60%,#70a95e)}
+body[data-skin="sakura"]{--skin-bg:#fff1f5;--skin-paper:#fff;--skin-ink:#49283d;--skin-muted:#987587;--skin-line:#f2d8e2;--skin-accent:#cf6394;--skin-accent2:#ed9ab2;--skin-sidebar:#49283d;--skin-hero:linear-gradient(115deg,#49283d,#a94e7b 60%,#e69bb2)}
+body[data-skin="sunset"]{--skin-bg:#fff4ed;--skin-paper:#fff;--skin-ink:#4a2b2b;--skin-muted:#98766c;--skin-line:#f1ddd2;--skin-accent:#d65e43;--skin-accent2:#f0a34d;--skin-sidebar:#4a2b35;--skin-hero:linear-gradient(115deg,#492536,#b94d3e 60%,#ed9a50)}
+body[data-skin="graphite"]{--skin-bg:#eceef2;--skin-paper:#fff;--skin-ink:#272d38;--skin-muted:#747e8e;--skin-line:#d9dee6;--skin-accent:#59677d;--skin-accent2:#8795a9;--skin-sidebar:#252b35;--skin-hero:linear-gradient(115deg,#252b35,#4a5668 60%,#77869a)}
+body[data-skin="arctic"]{--skin-bg:#eef7fc;--skin-paper:#fff;--skin-ink:#18364c;--skin-muted:#6c8799;--skin-line:#d8eaf4;--skin-accent:#398fc4;--skin-accent2:#69c8dc;--skin-sidebar:#18364c;--skin-hero:linear-gradient(115deg,#18364c,#398fc4 60%,#69c8dc)}
+/* Habillage global partagé par l'accueil, les salles, les formulaires, le quiz et le classement. */
+body[data-skin] .mq-sidebar{background:var(--skin-sidebar)!important}
+body[data-skin] .mq-sidebar .logo span{color:var(--skin-accent2)!important}
+body[data-skin] .mq-sidebar .nav a.active{background:linear-gradient(105deg,var(--skin-accent),var(--skin-accent2))!important}
+body[data-skin] .mq-topbar{border-color:var(--skin-line)!important;color:var(--skin-muted)!important}
+body[data-skin] .mq-breadcrumb strong,body[data-skin] .section-heading h2,body[data-skin] .card h3,body[data-skin] .panel h3{color:var(--skin-ink)!important}
+body[data-skin] .section-heading:not(#quiz .section-heading){background:linear-gradient(115deg,var(--skin-paper),var(--skin-bg))!important;border-color:var(--skin-line)!important}
+body[data-skin] .section-heading .eyebrow{color:var(--skin-accent)!important}
+body[data-skin] .card,body[data-skin] .panel,body[data-skin] .price-card,body[data-skin] .feature,body[data-skin] .qbloc,body[data-skin] .import-panel{background:var(--skin-paper)!important;border-color:var(--skin-line)!important;color:var(--skin-ink)!important}
+body[data-skin] .card p,body[data-skin] .panel p,body[data-skin] .muted,body[data-skin] .section-heading p{color:var(--skin-muted)!important}
+body[data-skin] .hero,body[data-skin] #quiz .section-heading,body[data-skin] .premium-hero,body[data-skin] .salle-barre{background:var(--skin-hero)!important;color:#fff!important}
+body[data-skin] .hero h1,body[data-skin] .premium-hero h2,body[data-skin] .premium-hero p,body[data-skin] .salle-barre h2{color:#fff!important}
+body[data-skin] .hero h1 span{color:var(--skin-accent2)!important}
+body[data-skin] .btn-primary,body[data-skin] .tabs .btn.actif{background:linear-gradient(110deg,var(--skin-accent),var(--skin-accent2))!important;color:#fff!important;border-color:transparent!important}
+body[data-skin] .btn-secondary{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .btn-gold{background:var(--skin-accent2)!important;color:#fff!important}
+body[data-skin] input:not([type=radio]):not([type=checkbox]),body[data-skin] select,body[data-skin] textarea{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] input::placeholder,body[data-skin] textarea::placeholder{color:var(--skin-muted)!important}
+body[data-skin] .quiz-answer,body[data-skin] .chat-liste{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .quiz-answer.correct{border-color:#32a879!important;background:rgba(50,168,121,.12)!important}
+body[data-skin] .quiz-answer.wrong{border-color:#d65c62!important;background:rgba(214,92,98,.1)!important}
+body[data-skin] .daily{background:var(--skin-bg)!important;border-color:var(--skin-line)!important}
+body[data-skin] .compare{background:var(--skin-paper)!important;color:var(--skin-ink)!important}
+body[data-skin] .compare th{background:var(--skin-sidebar)!important;color:#fff!important}
+body[data-skin] .compare td{color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .history-item,body[data-skin] .rank-item{border-color:var(--skin-line)!important}
+body[data-skin] .profile-number,body[data-skin] .rank-points,body[data-skin] .rank-number{color:var(--skin-accent)!important}
+body[data-skin] footer{border-color:var(--skin-line)!important;color:var(--skin-muted)!important}
+body[data-skin] .home-immersive{background:var(--skin-hero)!important;border-color:var(--skin-line)!important}
+body[data-skin] .home-intro h1 em{background:linear-gradient(95deg,var(--skin-accent2),#fff 85%);-webkit-background-clip:text;background-clip:text;color:transparent}
+body[data-skin] .home-primary{background:var(--skin-accent2)!important;color:#fff!important}
+body[data-skin] .home-secondary{border-color:rgba(255,255,255,.3)!important}
+body[data-skin] .mq-theme-choice{background:var(--skin-paper)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin="cyber"] .card,body[data-skin="cyber"] .panel,body[data-skin="cyber"] .price-card,body[data-skin="cyber"] .feature,body[data-skin="cyber"] .qbloc{box-shadow:0 12px 35px rgba(0,0,0,.22)!important}
+body[data-skin="cyber"] .section-heading:not(#quiz .section-heading){background:linear-gradient(115deg,#10283a,#0b3545)!important}
+</style>
+
+
+<style id="medquiz-survival-mode-style">
+.survival-card{border:1px solid rgba(239,68,68,.28)!important;background:linear-gradient(145deg,var(--mq-paper, var(--paper)),rgba(239,68,68,.06))!important}
+.survival-card .card-icon{background:rgba(239,68,68,.12)!important}
+</style>
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -890,6 +965,10 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 </article>
 <article class="card card-click" data-preset="culture">
 <div class="card-icon">🌍</div><h3>Culture générale</h3><p>Sciences, histoire, géographie et connaissances du monde.</p>
+</article>
+<article class="card survival-card" id="survivalCard">
+<div class="card-icon">☠️</div><h3>Mode Survie</h3><p>Une erreur et la partie s'arrête. Jusqu'où peux-tu aller ?</p>
+<button class="btn btn-primary" id="demarrerSurvie" type="button">Entrer dans l'arène →</button>
 </article>
 </div>
 <div class="quiz-layout">
@@ -1188,6 +1267,24 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 <h3>Mon abonnement</h3><span class="muted" id="badgeAbo">Gratuit</span>
 </div>
 <p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Gérer mon abonnement</a> <a class="btn btn-secondary hidden" href="#admin" id="lienAdmin">Administration</a></p>
+</div>
+<div class="panel mq-theme-panel" id="themeChooserPanel" style="margin-bottom:22px">
+  <div class="mq-theme-heading">
+    <div><span class="eyebrow">✦ PERSONNALISATION</span><h3 style="margin-top:8px">Thèmes d’affichage</h3>
+    <p class="muted" style="margin-top:5px">Choisis l’ambiance de ton espace MedQuiz. Les 8 thèmes sont réservés à Premium.</p></div>
+    <span class="badge-premium">👑 PREMIUM</span>
+  </div>
+  <div class="mq-theme-grid" id="mqThemeGrid">
+    <button class="mq-theme-choice" type="button" data-skin-choice="royal"><span class="mq-theme-preview royal"></span><strong>Royal</strong><small>Violet & bleu</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="cyber"><span class="mq-theme-preview cyber"></span><strong>Cyber</strong><small>Nuit néon</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="ocean"><span class="mq-theme-preview ocean"></span><strong>Ocean</strong><small>Bleu & turquoise</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="emerald"><span class="mq-theme-preview emerald"></span><strong>Emerald</strong><small>Vert profond</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="sakura"><span class="mq-theme-preview sakura"></span><strong>Sakura</strong><small>Rose doux</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="sunset"><span class="mq-theme-preview sunset"></span><strong>Sunset</strong><small>Ambre & corail</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="graphite"><span class="mq-theme-preview graphite"></span><strong>Graphite</strong><small>Gris élégant</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="arctic"><span class="mq-theme-preview arctic"></span><strong>Arctic</strong><small>Glacier & azur</small></button>
+  </div>
+  <p class="mq-theme-status muted" id="mqThemeStatus" aria-live="polite">Connecte-toi avec un compte Premium pour appliquer un thème.</p>
 </div>
 <div class="panel" style="margin-bottom:22px">
 <h3>Mes statistiques</h3>
@@ -3309,10 +3406,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         });
         const detail = cfg.mode === "partie" ? ` (${(ecoule / 1000).toFixed(1)} s${correct ? `, +${gain} pts` : ""})` : "";
         const debutMsg = correct ? `Bonne réponse !${detail} ` : choix === null ? `Temps écoulé ! La bonne réponse est : ${q.reponse}. ` : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `;
-        const suivant = el("button", "btn btn-primary", index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →");
+        const finSurvie = cfg.mode === "survie" && !correct;
+        const suivant = el("button", "btn btn-primary", finSurvie || index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →");
         suivant.type = "button";
         suivant.style.marginTop = "14px";
-        suivant.addEventListener("click", () => { index++; afficherQuestion(); });
+        suivant.addEventListener("click", () => { index = finSurvie ? selection.length : index + 1; afficherQuestion(); });
         const expl = premium.actif ? q.explication : String(q.explication).split(/(?<=[.!?])\s/)[0] + " 🔒 Explication complète avec Premium.";
         zone.append(el("p", "quiz-feedback", debutMsg + expl), suivant);
       }
@@ -3325,7 +3423,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         son(score >= max / 2 ? "victoire" : "fin");
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
-        zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${bonnes} bonne(s) réponse(s) sur ${selection.length}`));
+        zone.replaceChildren(el("h3", "", cfg.mode === "survie" ? "Fin de partie ☠️" : "Quiz terminé ! 🎉"), resultat, el("p", "muted", cfg.mode === "survie" ? `Tu as survécu à ${bonnes} question(s) sur ${selection.length}. ${bonnes === selection.length ? "Incroyable : aucune erreur !" : "Une mauvaise réponse a mis fin à ta série."}` : `${bonnes} bonne(s) réponse(s) sur ${selection.length}`));
         const retour = el("button", "btn btn-secondary", "← Retour à MedQuiz");
         retour.type = "button";
         retour.style.marginTop = "8px";
@@ -3343,9 +3441,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         if (cfg.mode === "defi") ecrireLocal(cleDefi(), String(score));
 
         const lien = cfg.mode === "defi" ? urlSite() : lienDuel(cfg, score);
-        const message = cfg.mode === "defi"
-          ? `🔥 J'ai fait ${score}/${max} au défi du jour MedQuiz ! Fais mieux : ${lien}`
-          : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
+        const message = cfg.mode === "survie"
+          ? `☠️ J'ai survécu à ${bonnes} question(s) sur MedQuiz ! Mon score : ${score} points. À toi de tenter le Mode Survie ! ${urlSite()}`
+          : cfg.mode === "defi"
+            ? `🔥 J'ai fait ${score}/${max} au défi du jour MedQuiz ! Fais mieux : ${lien}`
+            : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
         const actions = el("div", "actions");
         actions.style.margin = "14px 0";
         const wa = el("a", "btn btn-gold", cfg.mode === "defi" ? "Partager sur WhatsApp" : "⚔️ Défier un ami");
@@ -3418,6 +3518,17 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     });
 
     // ---------- Défi du jour ----------
+    // ---------- Mode Survie : gratuit, une seule erreur met fin à la partie ----------
+    function lancerSurvie() {
+      const categorie = $("categorieQuiz").value, niveau = $("niveauQuiz").value, theme = $("themeQuiz").value;
+      const pool = filtrer(categorie, niveau, theme);
+      if (!pool.length) { alert("Aucune question disponible pour ces filtres. Choisis un autre thème."); return; }
+      const n = Math.min(20, pool.length);
+      const seed = Math.floor(Math.random() * 1e9);
+      lancerQuiz({ titre: "☠️ Mode Survie", mode: "survie", categorie, niveau, theme, seed, chrono: 15, selection: choisirQuestions(pool, n, seed) });
+    }
+    $("demarrerSurvie")?.addEventListener("click", lancerSurvie);
+
     function lancerDefi() {
       const zone = $("zoneQuiz"), fait = lireLocal(cleDefi());
       const maxDefi = totalPoints(choisirQuestions(questionsMedQuiz, 5, Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""))));
@@ -4884,6 +4995,8 @@ function lignesDePage(items) {
     }
 
     function majUIPremium() {
+      window.medquizPremiumActive = !!premium.actif;
+      window.dispatchEvent(new CustomEvent("medquiz:premium-status", { detail: { active: !!premium.actif } }));
       const jours = premium.fin ? Math.max(0, Math.ceil((new Date(premium.fin) - Date.now()) / 864e5)) : 0;
       $("quotaInfo").textContent = premium.actif ? "👑 Premium : quiz illimités." : `Quiz gratuits restants aujourd'hui : ${quizRestants()} / ${LIMITE_QUIZ}. Quiz difficiles limités à ${LIMITE_DIFFICILE} questions.`;
       $("profileBadge").classList.toggle("hidden", !premium.actif);
@@ -5070,6 +5183,38 @@ function lignesDePage(items) {
     await chargerAbonnement();
   </script>
 <script id="medquiz-theme-controller">(()=>{const root=document.body;let saved='light';try{saved=localStorage.getItem('medquiz-theme')||'light'}catch(e){}root.dataset.theme=saved;const b=document.getElementById('themeToggle');const paint=()=>{if(b){b.textContent=root.dataset.theme==='dark'?'☀':'☾';b.setAttribute('aria-label',root.dataset.theme==='dark'?'Activer le thème clair':'Activer le thème sombre')}};paint();b?.addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('medquiz-theme',root.dataset.theme)}catch(e){}paint()})})();</script>
+<script id="medquiz-premium-theme-controller">
+(()=> {
+ const root=document.body, key="medquiz-premium-skin";
+ const names={royal:"Royal",cyber:"Cyber",ocean:"Ocean",emerald:"Emerald",sakura:"Sakura",sunset:"Sunset",graphite:"Graphite",arctic:"Arctic"};
+ const choices=[...document.querySelectorAll("[data-skin-choice]")], status=document.getElementById("mqThemeStatus");
+ let active=false, selected="";
+ try{selected=localStorage.getItem(key)||""}catch(e){}
+ const paint=()=>{
+   if(!active || !names[selected]) root.removeAttribute("data-skin");
+   else root.dataset.skin=selected;
+   choices.forEach(btn=>{
+     const on=btn.dataset.skinChoice===selected && active;
+     btn.classList.toggle("is-active",on);
+     btn.classList.toggle("is-locked",!active);
+     btn.setAttribute("aria-pressed",String(on));
+     btn.title=active?"Appliquer le thème "+names[btn.dataset.skinChoice]:"Réservé aux membres Premium";
+     const old=btn.querySelector(".mq-theme-lock"); if(old)old.remove();
+     if(!active){const lock=document.createElement("small");lock.className="mq-theme-lock";lock.textContent="🔒 Premium";btn.append(lock)}
+   });
+   if(status) status.textContent=active?(selected&&names[selected]?"Thème actif : "+names[selected]:"Choisis un thème pour personnaliser ton espace."):"Les thèmes sont réservés à Premium. Ton affichage actuel reste inchangé.";
+ };
+ choices.forEach(btn=>btn.addEventListener("click",()=>{
+   if(!active){if(status)status.textContent="Passe à Premium pour débloquer les 8 thèmes.";const link=document.querySelector('a[href="#premium"]');if(link)link.click();return}
+   selected=btn.dataset.skinChoice;
+   try{localStorage.setItem(key,selected)}catch(e){}
+   paint();
+ }));
+ window.addEventListener("medquiz:premium-status",e=>{active=!!e.detail?.active;paint()});
+ active=window.medquizPremiumActive===true;
+ paint();
+})();
+</script>
 <script id="medquiz-profile-avatar-controller">
 (()=> {
  const $ = id => document.getElementById(id);
