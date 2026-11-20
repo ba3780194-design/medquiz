@@ -3453,7 +3453,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
-          zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
+          if (d.challengeOnly) {
+            zone.append(el("p", "notice", `⚔️ Ton défi pour ${d.pseudo} est prêt ! Partage le lien pour qu'il réponde aux mêmes questions.`));
+          } else {
+            zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
+          }
         }
         if (cfg.mode === "defi") ecrireLocal(cleDefi(), String(score));
 
@@ -3462,7 +3466,9 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           ? `☠️ J'ai survécu à ${bonnes} question(s) sur MedQuiz ! Mon score : ${score} points. À toi de tenter le Mode Survie ! ${urlSite()}`
           : cfg.mode === "defi"
             ? `🔥 J'ai fait ${score}/${max} au défi du jour MedQuiz ! Fais mieux : ${lien}`
-            : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
+            : cfg.mode === "duel" && cfg.duel?.challengeOnly
+              ? `⚔️ ${cfg.duel.pseudo}, je te défie sur MedQuiz ! J'ai fait ${score}/${max} points. Réponds exactement aux mêmes questions et essaie de me battre : ${lien}`
+              : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
         const actions = el("div", "actions");
         actions.style.margin = "14px 0";
         const wa = el("a", "btn btn-gold", cfg.mode === "defi" ? "Partager sur WhatsApp" : "⚔️ Défier un ami");
@@ -5149,6 +5155,7 @@ function lignesDePage(items) {
       utilisateurActuel = sessionData.session.user;
       $("accountNav").textContent = "Mon profil";
     }
+    if(utilisateurActuel)setTimeout(mqVerifierInvitations,1200);
     {
       const duelOuvert = afficherDuelEntrant();
       const codeLien = new URLSearchParams(window.location.search).get("partie");
@@ -5201,6 +5208,75 @@ function lignesDePage(items) {
   
     // MEDQUIZ SOCIAL — fonctions connectées aux RPC sécurisées du script SQL fourni.
     let socialTab = "friends", socialFriendActif = null, socialRefreshHandle = null;
+    // ---------- Duel multijoueur synchronisé via Supabase ----------
+    let mqDuelActif=null, mqDuelChannel=null, mqDuelTimer=null, mqDuelRefreshBusy=false, mqDuelMode=null, mqDuelOffsetMs=0;
+    const mqDuelRpc=async(name,args={})=>{const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;};
+    function mqDuelNettoyer(){if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}mqDuelActif=null;mqDuelRefreshBusy=false;mqDuelMode=null;}
+    function mqDuelEcran(titre,id){mqDuelNettoyer();mqDuelActif=id;const zone=ouvrirEcranQuiz(titre);mqQuizCloseHandler=mqDuelNettoyer;return zone;}
+    async function mqCreerDuel(ami){
+      if(!utilisateurActuel){socialNotice("Connecte-toi pour défier un ami.",true);return;}
+      const pool=filtrer($("categorieQuiz").value,$("niveauQuiz").value,$("themeQuiz").value);
+      if(!pool.length){socialNotice("Aucune question disponible avec ces paramètres.",true);return;}
+      const seed=Math.floor(Math.random()*1e9), n=Math.min(Math.max(Number($("nombreQuiz").value)||5,1),pool.length,20);
+      const selection=choisirQuestions(pool,n,seed).map(q=>({type:q.type||"qcm",question:q.question,choix:q.choix||[],reponse:q.reponse,reponses:q.reponses||[],explication:q.explication||""}));
+      const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
+      try{
+        const duelId=await mqDuelRpc("mq_duel_create",{p_opponent:ami.id,p_questions:selection,p_chrono:chrono});
+        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true);
+      }catch(e){socialNotice("Impossible de créer le duel : "+e.message,true);}
+    }
+    function mqDuelAttente(id,ami,createur){
+      const zone=mqDuelEcran("⚔️ Duel en attente",id);mqDuelMode="waiting";
+      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Ton ami doit accepter l'invitation. La partie commencera automatiquement pour vous deux."));
+      const annuler=el("button","btn btn-secondary","Annuler le duel");annuler.type="button";annuler.onclick=async()=>{try{await mqDuelRpc("mq_duel_cancel",{p_duel:id});}catch(_){}mqDuelNettoyer();fermerEcranQuiz();};zone.append(annuler);
+      mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelActualiser(id)).subscribe();
+      mqDuelTimer=setInterval(()=>mqDuelActualiser(id),1200);mqDuelActualiser(id);
+    }
+    async function mqDuelAccepter(id,nom){
+      try{await mqDuelRpc("mq_duel_accept",{p_duel:id,p_accept:true});mqDuelEcran("⚔️ Duel accepté",id);mqDuelJouer(id,nom);}
+      catch(e){alert("Impossible de rejoindre le duel : "+e.message);}
+    }
+    async function mqDuelActualiser(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});
+        if(st.status==="playing"){mqDuelJouer(id,st.opponent_name||"ton ami",true);}
+        else if(st.status==="finished"){mqDuelAfficherFin(st);}
+        else if(st.status==="declined"||st.status==="cancelled"){const z=$("mqQuizZone");if(z)z.replaceChildren(el("h3","","Duel annulé"),el("p","muted",st.status==="declined"?"Ton ami a refusé le duel.":"Ce duel a été annulé."));mqDuelNettoyer();}
+      }catch(e){console.warn("Duel sync:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelJouer(id,ami,already=false){
+      if(mqDuelActif!==id)return;
+      if(mqDuelMode!=="playing"){
+        if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}
+        mqDuelMode="playing";const zone=$("mqQuizZone");if(zone){delete zone.dataset.duelRound;zone.replaceChildren(el("h3","","⚔️ Le duel commence !"),el("p","muted",`Tu affrontes ${ami}. Les deux joueurs ont le même chronomètre.`));}
+        mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duel_answers",filter:"duel_id=eq."+id},()=>mqDuelRafraichirPartie(id)).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelRafraichirPartie(id)).subscribe();mqDuelTimer=setInterval(()=>mqDuelRafraichirPartie(id),500);
+      }
+      mqDuelRafraichirPartie(id);
+    }
+    async function mqDuelRafraichirPartie(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});mqDuelOffsetMs=Date.parse(st.server_now)-Date.now();if(st.status==="finished"){mqDuelAfficherFin(st);return;}if(st.status!=="playing")return;
+        const zone=$("mqQuizZone");if(!zone)return;const round=Number(st.round)||1;
+        if(zone.dataset.duelRound===String(round)){
+          const timer=zone.querySelector("[data-duel-timer]");if(timer){const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";}
+          const score=zone.querySelector("[data-duel-score]");if(score)score.textContent=`Toi ${st.my_score} pts · ${st.opponent_name||"Adversaire"} ${st.opponent_score} pts`;
+          if(st.my_answered&&!zone.querySelector(".mq-duel-wait")){zone.append(el("p","notice mq-duel-wait","Réponse enregistrée. En attente de ton adversaire…"));}if(st.opponent_answered&&!zone.querySelector(".mq-duel-opponent-wait")){zone.append(el("p","muted mq-duel-opponent-wait","Ton adversaire a répondu."));}
+          return;
+        }
+        zone.dataset.duelRound=String(round);zone.replaceChildren();
+        const header=el("div","notice",`⚔️ Question ${round}/${st.total} · Toi ${st.my_score} pts — ${st.opponent_name} ${st.opponent_score} pts`);header.dataset.duelScore="1";zone.append(header);
+        const timer=el("p","chrono-text","⏱ …");timer.dataset.duelTimer="1";zone.append(timer);
+        const q=st.question;zone.append(el("h3","",q.question));let controls=[];
+        const submit=async answer=>{controls.forEach(b=>b.disabled=true);try{const result=await mqDuelRpc("mq_duel_submit",{p_duel:id,p_round:round,p_answer:String(answer)});zone.append(el("p",result.correct?"quiz-feedback":"notice",result.correct?"Bonne réponse ! +10 points":"Réponse enregistrée. Continue !"));zone.append(el("p","mq-duel-wait","En attente de l'autre joueur…"));}catch(e){zone.append(el("p","error",e.message));}};
+        if(q.type==="ouverte"){const input=el("input","reponse-libre");input.placeholder="Ta réponse";const b=el("button","btn btn-primary","Valider");b.type="button";b.onclick=()=>{if(input.value.trim())submit(input.value.trim());};controls=[input,b];zone.append(input,b);}
+        else (q.choix||[]).forEach(choice=>{const b=el("button","quiz-answer",choice);b.type="button";b.onclick=()=>submit(choice);controls.push(b);zone.append(b);});
+        const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";
+      }catch(e){console.warn("Duel refresh:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const b=el("button","btn btn-primary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};zone.append(b);}
+    let mqInvitationsConnues=new Set(),mqInviteBusy=false;
+    async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
+
     const socialMain = () => $("socialMain");
     function socialNotice(txt, bad=false){const n=$("socialNotice");if(!n)return;n.textContent=txt;n.style.display="block";n.classList.toggle("error",bad);}
     function socialBtn(label, action, cls="btn btn-secondary"){const b=el("button",cls,label);b.type="button";b.addEventListener("click",action);return b;}
@@ -5214,7 +5290,7 @@ function lignesDePage(items) {
         if(tab==="friends"){
           zone.replaceChildren(el("h3","","Mes amis"));const data=await socialRpc("mq_list_friends");$("socialFriendTotal").textContent=data.length;
           if(!data.length)zone.append(el("div","social-empty","👥"),el("p","social-empty","Tu n'as pas encore d'amis. Recherche des étudiants pour commencer !"),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));
-          data.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("Message",()=>{socialFriendActif=f;chargerSocial("chat")},"btn btn-secondary"),socialBtn("Défier",()=>{socialFriendActif=f;socialNotice("Ami sélectionné. Ouvre Parties pour créer une salle et partager l'invitation.");afficherPage("parties")},"btn btn-primary")] )));
+          data.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("Message",()=>{socialFriendActif=f;chargerSocial("chat")},"btn btn-secondary"),socialBtn("Défier",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")] )));
         } else if(tab==="search"){
           zone.replaceChildren(el("h3","","Trouver des étudiants"));const form=el("div","social-search"),input=el("input");input.placeholder="Pseudo de l'étudiant…";input.setAttribute("aria-label","Rechercher un étudiant");const go=socialBtn("Rechercher",async()=>{const q=input.value.trim();if(q.length<2){socialNotice("Saisis au moins 2 caractères.",true);return;}await socialSearch(q)},"btn btn-primary");form.append(input,go);zone.append(form,el("div","muted","Recherche par pseudonyme. Les comptes déjà amis ne sont pas proposés."));
         } else if(tab==="requests"){
@@ -5233,7 +5309,7 @@ function lignesDePage(items) {
     const socialOriginalAfficherPage=afficherPage;
     afficherPage=function(id){socialOriginalAfficherPage(id);if(id==="social")chargerSocial("friends");};
     window.addEventListener("hashchange",()=>{if(location.hash==="#social")chargerSocial("friends")});
-    setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();}},5000);
+    setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();mqVerifierInvitations();}},3500);
     supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user&&location.hash==="#social")setTimeout(()=>chargerSocial(socialTab),0)});
 </script>
 <script id="medquiz-theme-controller">(()=>{const root=document.body;let saved='light';try{saved=localStorage.getItem('medquiz-theme')||'light'}catch(e){}root.dataset.theme=saved;const b=document.getElementById('themeToggle');const paint=()=>{if(b){b.textContent=root.dataset.theme==='dark'?'☀':'☾';b.setAttribute('aria-label',root.dataset.theme==='dark'?'Activer le thème clair':'Activer le thème sombre')}};paint();b?.addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('medquiz-theme',root.dataset.theme)}catch(e){}paint()})})();</script>
