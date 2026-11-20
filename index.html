@@ -813,6 +813,24 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 @media(max-width:560px){#mqMyRank .mq-mr-level{order:3}#mqMyRank .mq-mr-stats{grid-template-columns:1fr 1fr}#mqMyRank .mq-mr-evo{grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){#classement #mqMyRank,#mqMyRank .mq-mr-glow,#mqMyRank .mq-mr-rank.is-gain::after,#mqMyRank .mq-mr-rank.is-gain strong{animation:none!important}#mqMyRank .mq-mr-bar i{transition:none}}
 </style>
+
+<style id="medquiz-compact-stats">
+#statsZone{margin-top:16px}
+.mq-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mq-stat-card{position:relative;overflow:hidden;min-width:0;padding:17px 16px 15px;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.025));box-shadow:0 8px 22px rgba(15,23,42,.055);display:flex;flex-direction:column;gap:5px}
+.mq-stat-card:after{content:"";position:absolute;width:84px;height:84px;border-radius:50%;right:-30px;bottom:-43px;background:var(--mq-glow);opacity:.13;pointer-events:none}
+.mq-stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.mq-stat-icon{display:grid;place-items:center;width:31px;height:31px;border-radius:10px;background:var(--mq-glow);color:var(--mq-accent);font-size:19px;font-weight:800}
+.mq-stat-dot{color:var(--mq-accent);font-size:22px;line-height:1}
+.mq-stat-value{font-size:clamp(1.45rem,3vw,1.9rem);line-height:1.1;letter-spacing:-.04em;font-weight:850;color:var(--text,inherit);font-variant-numeric:tabular-nums}
+.mq-stat-label{font-size:.88rem;font-weight:750;color:var(--text,inherit)}
+.mq-stat-detail{font-size:.73rem;color:var(--muted,#8993a5);line-height:1.35}
+.mq-stat-blue{--mq-accent:#3985f6;--mq-glow:rgba(57,133,246,.17)}
+.mq-stat-violet{--mq-accent:#9871ee;--mq-glow:rgba(152,113,238,.17)}
+.mq-stat-gold{--mq-accent:#d99b27;--mq-glow:rgba(217,155,39,.18)}
+@media(max-width:520px){.mq-stats-grid{gap:8px}.mq-stat-card{padding:13px 10px;border-radius:14px}.mq-stat-icon{width:27px;height:27px;border-radius:8px}.mq-stat-label{font-size:.78rem}.mq-stat-detail{font-size:.66rem}}
+</style>
+
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -828,7 +846,7 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 <button aria-label="Activer ou couper le son" class="son-btn" id="btnSon" title="Son" type="button">🔊</button>
 <button aria-label="Changer le thème" class="theme-toggle" id="themeToggle" type="button">☾</button></nav>
 </header>
-<main><div class="mq-topbar"><div class="mq-breadcrumb">MEDQUIZ<strong> / ESPACE D’APPRENTISSAGE</strong></div><div class="mq-top-actions"><span class="mq-live">● PLATEFORME ACTIVE</span></div></div>
+<main><div class="mq-topbar"><div class="mq-breadcrumb">MEDQUIZ<strong> / ESPACE D’APPRENTISSAGE</strong></div><div class="mq-top-actions"></div></div>
 <section class="page active" id="accueil" aria-label="Accueil MedQuiz">
   <div class="home-immersive">
     <div class="home-topline"><span class="live-dot"></span> MEDQUIZ <span class="topline-divider">/</span> CAMPUS MÉDICAL INTERACTIF <span class="topline-spacer"></span><span class="season-pill">✦ SAISON APPRENTISSAGE</span></div>
@@ -840,15 +858,12 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
         <div class="home-actions">
           <a class="home-primary" href="#quiz">Lancer une session <span>↗</span></a>
           <a class="home-secondary" href="#cas-cliniques">Explorer les cas cliniques <span>→</span></a>
-          <a class="home-daily" href="#quiz" id="defiAccueil">🔥 Défi du jour</a>
         </div>
         <div class="home-proof"><span class="proof-avatars"><i>✚</i><i>⚕</i><i>+</i></span><span>Apprends à ton rythme, progresse à chaque session.</span></div>
       </div>
       <div class="home-stage" aria-label="Illustration abstraite du campus médical">
         <div class="stage-orbit orbit-one"></div><div class="stage-orbit orbit-two"></div>
-        <div class="stage-cross">✚</div><div class="stage-core"><span class="core-ring"></span><strong>MQ</strong><small>KNOWLEDGE<br/>IN MOTION</small></div>
-        <div class="stage-float float-top"><span class="float-icon">✦</span><div><small>OBJECTIF DU JOUR</small><strong>Garde le rythme</strong></div></div>
-        <div class="stage-float float-bottom"><span class="float-pulse">↗</span><div><small>TON PROCHAIN PALIER</small><strong>Une question à la fois</strong></div></div>
+        <div class="stage-cross">✚</div><div class="stage-core"><span class="core-ring"></span><strong>MQ</strong></div>
         <div class="stage-coordinate">01 — LE CAMPUS<br/>EST À TOI</div>
       </div>
     </div>
@@ -858,7 +873,6 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
         <a class="experience-card exp-quiz" href="#quiz"><span class="exp-number">01</span><span class="exp-symbol">⌁</span><span class="exp-copy"><strong>Quiz & entraînement</strong><small>Teste tes connaissances, à ton niveau.</small></span><span class="exp-arrow">↗</span></a>
         <a class="experience-card exp-clinical" href="#cas-cliniques"><span class="exp-number">02</span><span class="exp-symbol">✚</span><span class="exp-copy"><strong>Cas cliniques</strong><small>Raisonne comme en situation réelle.</small></span><span class="exp-arrow">↗</span></a>
         <a class="experience-card exp-arena" href="#parties"><span class="exp-number">03</span><span class="exp-symbol">◎</span><span class="exp-copy"><strong>Arène multijoueur</strong><small>Défie tes amis et compare tes scores.</small></span><span class="exp-arrow">↗</span></a>
-        <a class="experience-card exp-rank" href="#classement"><span class="exp-number">04</span><span class="exp-symbol">♛</span><span class="exp-copy"><strong>Classement</strong><small>Découvre ta place dans la communauté.</small></span><span class="exp-arrow">↗</span></a>
       </div>
     </div>
     <div class="home-footerline"><span>APPRENDRE · COMPRENDRE · PROGRESSER</span><span>MEDQUIZ <b>©</b> — TON SAVOIR, TON AVENIR</span></div>
@@ -877,13 +891,6 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 <article class="card card-click" data-preset="culture">
 <div class="card-icon">🌍</div><h3>Culture générale</h3><p>Sciences, histoire, géographie et connaissances du monde.</p>
 </article>
-<article class="card card-click gold-card" data-go="classement">
-<div class="card-icon">🏆</div><h3 class="gold-text">Classement</h3><p>Découvre les joueurs qui accumulent le plus de points.</p>
-</article>
-</div>
-<div class="panel daily">
-<div><h3>🔥 Défi du jour</h3><p class="muted">5 questions chronométrées, les mêmes pour tout le monde. Un nouveau défi chaque jour.</p></div>
-<button class="btn btn-gold" id="defiJour" type="button">Relever le défi</button>
 </div>
 <div class="quiz-layout">
 <div class="panel">
@@ -1359,11 +1366,7 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
       if (document.getElementById("classement")?.classList.contains("active")) chargerClassement();
       afficherBadges(data, total);
       liste.replaceChildren();
-      const historiqueAffiche = premium.actif ? data : data.slice(0, 10);
-      if (!premium.actif) {
-        liste.append(el("p", "muted", "Compte gratuit : affichage des 10 derniers quiz. Les anciens résultats restent conservés."));
-      }
-      historiqueAffiche.forEach(resultat => {
+      const elementsHistorique = data.map(resultat => {
         const item = document.createElement("div");
         item.className = "history-item";
         const detail = document.createElement("span");
@@ -1372,8 +1375,25 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
         date.className = "muted";
         date.textContent = new Date(resultat.created_at).toLocaleString("fr-FR");
         item.append(detail, date);
-        liste.append(item);
+        return item;
       });
+      elementsHistorique.slice(0, 5).forEach(item => liste.append(item));
+      if (elementsHistorique.length > 5) {
+        const reste = document.createElement("div");
+        reste.className = "hidden";
+        elementsHistorique.slice(5).forEach(item => reste.append(item));
+        liste.append(reste);
+        const voirPlus = el("button", "btn btn-secondary", "Voir plus");
+        voirPlus.type = "button";
+        voirPlus.style.marginTop = "12px";
+        voirPlus.setAttribute("aria-expanded", "false");
+        voirPlus.addEventListener("click", () => {
+          const ouvert = reste.classList.toggle("hidden") === false;
+          voirPlus.textContent = ouvert ? "Voir moins" : "Voir plus";
+          voirPlus.setAttribute("aria-expanded", String(ouvert));
+        });
+        liste.append(voirPlus);
+      }
     }
 
     let modeClassement = "semaine";
@@ -3409,8 +3429,8 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       const seed = Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""));
       lancerQuiz({ titre: "🔥 Défi du jour", mode: "defi", seed, chrono: 20, selection: choisirQuestions(questionsMedQuiz, 5, seed) });
     }
-    $("defiJour").addEventListener("click", lancerDefi);
-    $("defiAccueil").addEventListener("click", lancerDefi);
+    $("defiJour")?.addEventListener("click", lancerDefi);
+    $("defiAccueil")?.addEventListener("click", lancerDefi);
 
     // ---------- Duel : défi reçu par lien ----------
     function afficherDuelEntrant() {
@@ -4901,43 +4921,30 @@ function lignesDePage(items) {
     }
 
     function rendreStats() {
-      const zone = $("statsZone"), h = historiqueCache;
-      if (!h.length) return;
-      const nb = h.reduce((t, x) => t + x.nombre_questions, 0), bonnes = h.reduce((t, x) => t + (x.bonnes_reponses ?? 0), 0);
-      zone.replaceChildren(el("p", "", `${h.length} quiz terminés · ${h.reduce((t, x) => t + x.score, 0)} points`));
-      if (!premium.actif) {
-        const lien = el("a", "btn btn-gold", "Débloquer les statistiques détaillées");
-        lien.href = "#premium"; lien.addEventListener("click", e => { e.preventDefault(); afficherPage("premium"); });
-        zone.append(el("p", "muted", "🔒 Taux de réussite par niveau, évolution et meilleurs scores sont réservés à Premium."), lien);
-        return;
-      }
-      const barre = (titre, pct) => { const b = el("div", "stat-bar"), i = el("i"); i.style.width = pct + "%"; b.append(i); return [el("span", "", `${titre} : ${pct} %`), b]; };
-      const pct = (a, b) => b ? Math.round(100 * a / b) : 0;
-      zone.append(...barre("Réussite globale", pct(bonnes, nb)));
-      ["facile", "moyen", "difficile"].forEach(n => { const l = h.filter(x => x.niveau === n); zone.append(...barre(`Niveau ${n}`, pct(l.reduce((t, x) => t + (x.bonnes_reponses ?? 0), 0), l.reduce((t, x) => t + x.nombre_questions, 0)))); });
-      const meilleur = Math.max(...h.map(x => pct(x.score, x.score_max ?? x.nombre_questions * 10)));
-      const recents = h.slice(0, 5);
-      const precedents = h.slice(5, 10);
-      const moyenne = arr => arr.length
-        ? Math.round(arr.reduce((t, x) => t + pct(x.score, x.score_max ?? x.nombre_questions * 10), 0) / arr.length)
+      const zone = $("statsZone"), h = historiqueCache || [];
+      zone.replaceChildren();
+      const pct = (a, b) => b ? Math.max(0, Math.min(100, Math.round(100 * a / b))) : 0;
+      const nb = h.reduce((t, x) => t + (Number(x.nombre_questions) || 0), 0);
+      const bonnes = h.reduce((t, x) => t + (Number(x.bonnes_reponses) || 0), 0);
+      const reussite = pct(bonnes, nb);
+      const meilleur = h.length
+        ? Math.max(...h.map(x => pct(Number(x.score) || 0, Number(x.score_max) || (Number(x.nombre_questions) || 0) * 10)))
         : 0;
-      const moyRecente = moyenne(recents);
-      const moyPrecedente = moyenne(precedents);
-      const evolution = precedents.length
-        ? (moyRecente > moyPrecedente ? `Progression : +${moyRecente - moyPrecedente} points` :
-          moyRecente < moyPrecedente ? `Progression : ${moyRecente - moyPrecedente} points` : "Progression : stable")
-        : "Fais au moins 6 quiz pour voir ton évolution.";
-      zone.append(
-        el("p", "muted", `${h.length} quiz analysés · ${nb} questions répondues · ${bonnes} bonnes réponses`),
-        el("p", "", `Meilleur résultat : ${meilleur} % · Moyenne des ${recents.length} derniers quiz : ${moyRecente} %`),
-        el("p", "muted", evolution)
+
+      const cartes = el("div", "mq-stats-grid");
+      const creerCarte = (icone, valeur, libelle, detail, classe) => {
+        const carte = el("div", `mq-stat-card ${classe}`);
+        const haut = el("div", "mq-stat-top");
+        haut.append(el("span", "mq-stat-icon", icone), el("span", "mq-stat-dot", "•"));
+        carte.append(haut, el("strong", "mq-stat-value", valeur), el("span", "mq-stat-label", libelle), el("span", "mq-stat-detail", detail));
+        return carte;
+      };
+      cartes.append(
+        creerCarte("◎", `${reussite}%`, "Réussite", h.length ? "Sur toutes tes réponses" : "Après ton premier quiz", "mq-stat-blue"),
+        creerCarte("▤", String(h.length), "Quiz terminés", h.length ? "Depuis ton inscription" : "Ton parcours commence ici", "mq-stat-violet"),
+        creerCarte("★", `${meilleur}%`, "Meilleur score", h.length ? "Ton meilleur résultat" : "Pas encore de record", "mq-stat-gold")
       );
-      const titreEvolution = el("p", "muted", "Évolution récente — chaque barre représente un quiz");
-      zone.append(titreEvolution);
-      h.slice(0, 5).reverse().forEach((quiz, index) => {
-        const scoreQuiz = pct(quiz.score, quiz.score_max ?? quiz.nombre_questions * 10);
-        zone.append(...barre(`Quiz ${index + 1}`, scoreQuiz));
-      });
+      zone.append(cartes);
     }
 
     // ---------- Paiement manuel Wave / Orange Money (numéros à renseigner ici) ----------
