@@ -291,6 +291,11 @@
 @media(max-width:850px){#accueil.page.active{width:96%;padding:12px 0 28px}.home-immersive{padding:24px 20px;border-radius:22px}.home-hero-grid{grid-template-columns:1fr;gap:0;padding:35px 0 5px}.home-intro h1{font-size:clamp(3.7rem,13vw,6rem)}.home-stage{min-height:330px;margin-top:12px}.stage-core{transform:scale(.82)}.experience-grid{grid-template-columns:repeat(2,1fr)}.experience-card{min-height:145px}.home-footerline{font-size:.48rem}}
 @media(max-width:480px){.home-topline{font-size:.56rem;letter-spacing:.12em}.season-pill{font-size:.48rem;padding:6px 8px}.home-immersive{padding:19px 14px}.home-intro h1{font-size:3.65rem}.home-lead{font-size:.9rem}.home-actions{align-items:stretch;flex-direction:column}.home-primary,.home-secondary{width:100%;justify-content:space-between}.home-stage{min-height:275px}.stage-float{padding:9px 10px;gap:7px}.stage-float strong{font-size:.66rem}.stage-float small{font-size:.43rem}.float-top{left:0;top:8%}.float-bottom{right:0;bottom:8%}.stage-core{transform:scale(.7)}.stage-cross{right:8%;top:7%}.experience-grid{gap:8px}.experience-card{padding:12px;min-height:140px}.exp-copy strong{font-size:.78rem}.exp-copy small{font-size:.61rem}.command-heading{font-size:.59rem}.command-heading small{font-size:.48rem}.home-footerline{flex-direction:column;gap:7px}}
 
+
+.mq-password-wrap{position:relative;display:flex;align-items:center;width:100%}
+.mq-password-wrap input{width:100%;padding-right:52px}
+.mq-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:inherit;cursor:pointer;padding:8px 10px;font-size:1.05rem;border-radius:8px}
+.mq-password-toggle:hover{background:rgba(128,128,128,.14)}
 </style>
 <style id="medquiz-creative-redesign">
 :root{--mq-bg:#f4f5fb;--mq-paper:#fff;--mq-ink:#17152c;--mq-muted:#77758c;--mq-line:#e8e7f1;--mq-violet:#6847f5;--mq-blue:#2878ff;--mq-lime:#c8f36a;--mq-shadow:0 18px 55px rgba(33,25,80,.08)}
@@ -913,6 +918,19 @@ body[data-skin="cyber"] .section-heading:not(#quiz .section-heading){background:
 body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#fff}body[data-skin] #social .social-bubble.mine{background:var(--skin-sidebar);color:#fff}
 @media(max-width:720px){#social .social-layout{grid-template-columns:1fr}#social .social-side{position:static}#social .social-tabs{display:grid;grid-template-columns:1fr 1fr}#social .social-tabs button{font-size:11px!important;padding:10px 7px!important}.social-row{align-items:flex-start;flex-wrap:wrap}.social-actions{width:100%;padding-left:56px}}
 </style>
+
+<style id="medquiz-password-mobile-fix">
+/* Bouton afficher/masquer : zone tactile visible sans masquer la saisie */
+.mq-password-wrap{position:relative!important;width:100%!important;display:flex!important;align-items:center!important}
+.mq-password-wrap input,.field .mq-password-wrap input{width:100%!important;min-width:0!important;padding-right:60px!important}
+.mq-password-wrap .mq-password-toggle{z-index:3!important;display:flex!important;align-items:center!important;justify-content:center!important;right:4px!important;top:50%!important;transform:translateY(-50%)!important;width:44px!important;height:44px!important;min-width:44px!important;padding:0!important;border:0!important;border-radius:10px!important;background:transparent!important;font-size:21px!important;line-height:1!important;touch-action:manipulation}
+.mq-password-wrap .mq-password-toggle:focus-visible{outline:2px solid #6847f5!important;outline-offset:2px!important}
+@media(max-width:640px){
+  .field .mq-password-wrap input{min-height:52px!important;padding:12px 62px 12px 14px!important;font-size:16px!important}
+  .mq-password-wrap .mq-password-toggle{right:3px!important;width:46px!important;height:46px!important;min-width:46px!important;font-size:22px!important;background:rgba(104,71,245,.07)!important}
+}
+</style>
+
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -1229,13 +1247,13 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <form id="signupForm">
 <div class="field"><label for="signupPseudo">Ton pseudonyme</label><input id="signupPseudo" maxlength="30" placeholder="Exemple : Docteur123" required="" type="text"/></div>
 <div class="field"><label for="signupEmail">Adresse e-mail</label><input id="signupEmail" placeholder="Ton e-mail" required="" type="email"/></div>
-<div class="field"><label for="signupPassword">Mot de passe</label><input id="signupPassword" minlength="6" placeholder="Minimum 6 caractères" required="" type="password"/></div>
+<div class="field"><label for="signupPassword">Mot de passe</label><div class="mq-password-wrap"><input id="signupPassword" minlength="6" placeholder="Minimum 6 caractères" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="signupPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
 <button class="btn btn-primary" type="submit">Créer mon compte</button>
 <p class="auth-switch">Déjà inscrit ? <button class="text-link" id="showLogin" type="button">Se connecter</button></p>
 </form>
 <form class="hidden" id="loginForm">
 <div class="field"><label for="loginEmail">Adresse e-mail</label><input id="loginEmail" placeholder="Ton e-mail" required="" type="email"/></div>
-<div class="field"><label for="loginPassword">Mot de passe</label><input id="loginPassword" placeholder="Ton mot de passe" required="" type="password"/></div>
+<div class="field"><label for="loginPassword">Mot de passe</label><div class="mq-password-wrap"><input id="loginPassword" placeholder="Ton mot de passe" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
 <button class="btn btn-primary" type="submit">Se connecter</button>
 <p class="auth-switch">Pas encore de compte ? <button class="text-link" id="showSignup" type="button">Créer un compte</button></p>
 </form>
@@ -1267,7 +1285,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
   </div>
 </div>
 <div class="profile-grid">
-<div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800;display:inline-block">Chargement...</div><span class="badge-pseudo hidden" id="profileBadge">👑 PREMIUM</span></div>
+<div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800;display:inline-block">Chargement...</div><span class="badge-pseudo hidden" id="profileBadge">👑 PREMIUM</span><div style="margin-top:14px"><button class="btn btn-secondary" id="editPseudoBtn" type="button">✏️ Modifier mon pseudonyme</button></div><form id="editPseudoForm" class="hidden" style="margin-top:14px"><div class="field"><label for="newPseudo">Nouveau pseudonyme</label><input id="newPseudo" type="text" maxlength="30" minlength="3" required placeholder="Ton nouveau pseudonyme"/></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="submit">Enregistrer</button><button class="btn btn-secondary" id="cancelPseudoEdit" type="button">Annuler</button></div><p id="pseudoEditMessage" aria-live="polite" class="muted" style="margin-top:10px"></p></form></div>
 <div class="panel"><p class="muted">Mes points cumulés</p><div class="profile-number" id="profilePoints">0</div></div>
 </div>
 <div class="panel" style="margin-bottom:22px">
@@ -1387,6 +1405,71 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
       message.classList.remove("error");
     });
 
+    // Afficher ou masquer les mots de passe, sans modifier leur valeur.
+    document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = $(button.dataset.passwordToggle);
+        if (!input) return;
+        const visible = input.type === "password";
+        input.type = visible ? "text" : "password";
+        button.textContent = visible ? "🙈" : "👁";
+        button.setAttribute("aria-label", visible ? "Masquer le mot de passe" : "Afficher le mot de passe");
+        button.setAttribute("aria-pressed", String(visible));
+      });
+    });
+
+    $("editPseudoBtn").addEventListener("click", () => {
+      $("newPseudo").value = pseudoActuel === "Un ami" ? "" : pseudoActuel;
+      $("pseudoEditMessage").textContent = "";
+      $("editPseudoForm").classList.remove("hidden");
+      $("newPseudo").focus();
+    });
+    $("cancelPseudoEdit").addEventListener("click", () => {
+      $("editPseudoForm").classList.add("hidden");
+      $("pseudoEditMessage").textContent = "";
+    });
+    $("editPseudoForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!utilisateurActuel) return;
+      const nouveauPseudo = $("newPseudo").value.trim().replace(/\s+/g, " ");
+      const status = $("pseudoEditMessage");
+      if (nouveauPseudo.length < 3 || nouveauPseudo.length > 30) {
+        status.textContent = "Le pseudonyme doit contenir entre 3 et 30 caractères.";
+        status.classList.add("error");
+        return;
+      }
+      if (nouveauPseudo === pseudoActuel) {
+        status.textContent = "C'est déjà ton pseudonyme actuel.";
+        status.classList.remove("error");
+        return;
+      }
+      status.textContent = "Enregistrement...";
+      status.classList.remove("error");
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .update({ pseudonyme: nouveauPseudo })
+        .eq("id", utilisateurActuel.id)
+        .select("id")
+        .maybeSingle();
+      if (profileError || !profileData) {
+        status.textContent = "Impossible de modifier le pseudonyme : " + (profileError?.message || "profil introuvable ou autorisation Supabase manquante.");
+        status.classList.add("error");
+        return;
+      }
+      const { data: authData, error: authError } = await supabase.auth.updateUser({
+        data: { pseudonyme: nouveauPseudo }
+      });
+      if (!authError && authData?.user) utilisateurActuel = authData.user;
+      pseudoActuel = nouveauPseudo;
+      $("profilePseudo").textContent = nouveauPseudo;
+      $("welcome").textContent = `Bonjour ${nouveauPseudo} !`;
+      $("profileAvatarName").textContent = nouveauPseudo;
+      status.textContent = authError
+        ? "Pseudonyme modifié dans ton profil. La synchronisation du compte sera réessayée à la prochaine connexion."
+        : "Pseudonyme modifié avec succès !";
+      $("editPseudoForm").classList.add("hidden");
+    });
+
     $("signupForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       message.textContent = "Création du compte en cours...";
@@ -1446,6 +1529,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
       pseudoActuel = pseudo;
       $("welcome").textContent = `Bonjour ${pseudo} !`;
       $("profilePseudo").textContent = pseudo;
+      $("profileAvatarName").textContent = pseudo;
       $("profilePoints").textContent = profil?.points ?? 0;
       window.dispatchEvent(new CustomEvent("medquiz:avatar-cloud", { detail: { url: profil?.avatar_url || null } }));
       await chargerHistorique(user);
