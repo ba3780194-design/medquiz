@@ -688,6 +688,131 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
 }
 </style>
 
+
+<style id="medquiz-focus-quiz-css">
+#mqQuizFocus{position:fixed;inset:0;z-index:99999;display:none;flex-direction:column;background:var(--bg,#07111f);color:var(--text,#f5f7fb);overflow:auto;overscroll-behavior:contain}
+#mqQuizFocus.is-open{display:flex;animation:mqFocusIn .24s ease-out}
+@keyframes mqFocusIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+#mqQuizFocus .mq-focus-top{height:68px;min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 clamp(16px,4vw,52px);border-bottom:1px solid rgba(148,163,184,.18);background:rgba(7,17,31,.92)}
+#mqQuizFocus .mq-focus-brand{font-weight:900;letter-spacing:.12em;font-size:.82rem;color:var(--text,#f5f7fb)}
+#mqQuizFocus .mq-focus-brand span{color:#31d6c2}
+#mqQuizFocus .mq-focus-exit{border:1px solid rgba(148,163,184,.3);background:rgba(148,163,184,.09);color:inherit;border-radius:12px;padding:10px 15px;font:inherit;font-weight:700;cursor:pointer}
+#mqQuizFocus .mq-focus-exit:hover{background:rgba(148,163,184,.18)}
+#mqQuizFocus .mq-focus-main{width:min(860px,100%);margin:0 auto;padding:clamp(22px,5vh,54px) clamp(16px,4vw,30px) 42px;flex:1;display:flex;flex-direction:column}
+#mqQuizFocus .mq-focus-kicker{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:#31d6c2;font-weight:800;margin:0 0 14px}
+#mqQuizFocus .mq-focus-progress{height:6px;border-radius:99px;background:rgba(148,163,184,.2);overflow:hidden;margin:0 0 32px}
+#mqQuizFocus .mq-focus-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#31d6c2,#d8b45a);border-radius:99px;transition:width .3s ease}
+#mqQuizFocus .quiz-area{width:100%;min-height:260px;padding:clamp(20px,4vw,38px);border-radius:24px}
+#mqQuizFocus .quiz-area h3{font-size:clamp(1.2rem,3vw,1.7rem);line-height:1.3;margin:0 0 24px}
+#mqQuizFocus .quiz-area>p:not(.chrono-text):not(.quiz-feedback){font-size:clamp(1.08rem,2.5vw,1.35rem);line-height:1.65}
+#mqQuizFocus .quiz-area .quiz-answer{width:100%;text-align:left;min-height:58px;margin:8px 0;padding:15px 18px;border-radius:15px;font-size:1rem;white-space:normal}
+#mqQuizFocus .quiz-area .quiz-feedback{line-height:1.65;padding:14px 16px;border-radius:14px;background:rgba(49,214,194,.08);margin-top:16px}
+#mqQuizFocus .quiz-area .actions{display:flex;flex-wrap:wrap;gap:10px}
+#mqQuizFocus .chrono{height:7px;border-radius:99px;overflow:hidden}
+#mqQuizFocus .chrono i{display:block;height:100%;background:linear-gradient(90deg,#31d6c2,#e6b84f);transition:width .2s linear}
+@media(max-width:640px){
+ #mqQuizFocus .mq-focus-top{height:58px;min-height:58px;padding:0 14px}
+ #mqQuizFocus .mq-focus-exit{padding:8px 11px;font-size:.85rem}
+ #mqQuizFocus .mq-focus-main{padding:22px 12px 28px}
+ #mqQuizFocus .mq-focus-progress{margin-bottom:20px}
+ #mqQuizFocus .quiz-area{padding:19px 15px;border-radius:18px;min-height:220px}
+ #mqQuizFocus .quiz-area .quiz-answer{min-height:56px;padding:14px;font-size:.96rem}
+ #mqQuizFocus .quiz-area .btn{min-height:46px}
+}
+@media(prefers-reduced-motion:reduce){#mqQuizFocus.is-open{animation:none}#mqQuizFocus .mq-focus-progress i{transition:none}}
+</style>
+
+
+<style id="medquiz-quiz-focus-fix">
+#mqQuizFocus{--fq-bg:#f4f5fb;--fq-top:#ffffff;--fq-ink:#17152c;--fq-muted:#5f5b7a;--fq-line:#dcd9ec;--fq-card:#ffffff;--fq-ans:#f6f5ff;--fq-ans-hover:#ebe7ff;--fq-accent:#6847f5;
+ background:var(--fq-bg)!important;color:var(--fq-ink)!important;z-index:2147483000!important}
+body[data-theme="dark"] #mqQuizFocus{--fq-bg:#11101c;--fq-top:#17152c;--fq-ink:#f3f1ff;--fq-muted:#b3aed0;--fq-line:#39354f;--fq-card:#1c1a2b;--fq-ans:#26233a;--fq-ans-hover:#322e4d;--fq-accent:#31d6c2}
+#mqQuizFocus .mq-focus-top{background:var(--fq-top)!important;border-bottom:1px solid var(--fq-line)!important;position:sticky;top:0;z-index:5}
+#mqQuizFocus .mq-focus-brand{color:var(--fq-ink)!important}
+#mqQuizFocus .mq-focus-exit{display:inline-flex!important;align-items:center;gap:6px;color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1px solid var(--fq-line)!important;min-height:42px;position:relative;z-index:6;touch-action:manipulation}
+#mqQuizFocus .mq-focus-exit:hover{background:var(--fq-ans-hover)!important}
+#mqQuizFocus main.mq-focus-main{margin:0 auto!important;width:min(860px,100%)!important;max-width:860px!important;padding:clamp(22px,5vh,54px) clamp(16px,4vw,30px) 42px!important;box-sizing:border-box}
+#mqQuizFocus .mq-focus-kicker{color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-area,#mqQuizFocus .panel{background:var(--fq-card)!important;color:var(--fq-ink)!important;border:1px solid var(--fq-line)!important}
+#mqQuizFocus .quiz-area h3,#mqQuizFocus .quiz-area p{color:var(--fq-ink)!important}
+#mqQuizFocus .quiz-area .muted{color:var(--fq-muted)!important}
+#mqQuizFocus .quiz-area .chrono-text{color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-area .chrono-text.urgent{color:#d93a3a!important}
+#mqQuizFocus .quiz-area .chrono{background:var(--fq-line)!important}
+#mqQuizFocus .quiz-answer{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1.5px solid var(--fq-line)!important;opacity:1!important}
+#mqQuizFocus .quiz-answer:hover:not(:disabled){background:var(--fq-ans-hover)!important;border-color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-answer:disabled{opacity:1!important;color:var(--fq-ink)!important}
+#mqQuizFocus .quiz-answer.correct{background:#d9f5e5!important;border-color:#1f9d5c!important;color:#0d4a2a!important}
+#mqQuizFocus .quiz-answer.wrong{background:#fde0e0!important;border-color:#d93a3a!important;color:#7a1414!important}
+body[data-theme="dark"] #mqQuizFocus .quiz-answer.correct{background:rgba(124,226,180,.16)!important;color:#d9f8e8!important}
+body[data-theme="dark"] #mqQuizFocus .quiz-answer.wrong{background:rgba(255,139,139,.14)!important;color:#ffdede!important}
+#mqQuizFocus .quiz-feedback{background:var(--fq-ans)!important;color:var(--fq-ink)!important;border:1px solid var(--fq-line)}
+#mqQuizFocus input.reponse-libre{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1.5px solid var(--fq-line)!important}
+#mqQuizFocus .btn-secondary{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1px solid var(--fq-line)!important}
+body:not([data-theme="dark"]) .quiz-answer{color:#17152c!important;background:#f6f5ff!important;border:1.5px solid #dcd9ec!important;opacity:1!important}
+body:not([data-theme="dark"]) .quiz-answer:disabled{opacity:1!important;color:#17152c!important}
+body:not([data-theme="dark"]) .quiz-answer.correct{background:#d9f5e5!important;border-color:#1f9d5c!important;color:#0d4a2a!important}
+body:not([data-theme="dark"]) .quiz-answer.wrong{background:#fde0e0!important;border-color:#d93a3a!important;color:#7a1414!important}
+body:not([data-theme="dark"]) .quiz-feedback{color:#3b3757!important;background:#f1efff!important}
+body:not([data-theme="dark"]) .reponse-libre{color:#17152c!important}
+#mqQuitDialog{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(10,8,30,.55)}
+#mqQuitDialog.is-open{display:flex}
+#mqQuitDialog .mq-quit-box{width:min(420px,100%);padding:24px;border-radius:18px;background:#fff;color:#17152c;box-shadow:0 24px 70px rgba(0,0,0,.35);font-family:inherit}
+body[data-theme="dark"] #mqQuitDialog .mq-quit-box{background:#1c1a2b;color:#f3f1ff}
+#mqQuitDialog h3{margin:0 0 8px;font-size:1.15rem}
+#mqQuitDialog p{margin:0 0 18px;opacity:.8;line-height:1.5}
+#mqQuitDialog .mq-quit-actions{display:flex;gap:10px;flex-wrap:wrap}
+#mqQuitDialog .mq-quit-actions button{flex:1 1 140px;min-height:46px;border-radius:12px;font-weight:800;cursor:pointer;border:1px solid transparent;touch-action:manipulation}
+#mqQuitContinue{background:linear-gradient(110deg,#6e4cf4,#3978f6);color:#fff}
+#mqQuitConfirm{background:#fde0e0;color:#7a1414;border-color:#f3b4b4!important}
+</style>
+
+<style id="medquiz-myrank-css">
+#classement #mqMyRank{position:relative;overflow:hidden;margin:0 0 22px;padding:clamp(18px,3vw,28px);border-radius:26px;color:#fff;isolation:isolate;
+ background:radial-gradient(120% 140% at 0% 0%,#3b2686 0%,transparent 55%),radial-gradient(90% 120% at 100% 100%,#2f3fa8 0%,transparent 60%),linear-gradient(150deg,#2a1b5e,#1b1142 60%,#25165a);
+ border:1px solid rgba(255,255,255,.12);box-shadow:0 26px 60px -18px rgba(42,27,94,.55),inset 0 1px 0 rgba(255,255,255,.12);
+ animation:mqMrIn .7s cubic-bezier(.2,.8,.2,1) both}
+#classement #mqMyRank[hidden]{display:none!important}
+body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28);box-shadow:0 26px 70px -20px rgba(104,71,245,.55),inset 0 1px 0 rgba(255,255,255,.1)}
+#mqMyRank .mq-mr-glow{position:absolute;z-index:-1;width:340px;height:340px;right:-90px;top:-130px;border-radius:50%;background:radial-gradient(circle,rgba(200,243,106,.22),transparent 65%);filter:blur(6px);animation:mqMrGlow 6s ease-in-out infinite}
+#mqMyRank .mq-mr-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#mqMyRank .mq-mr-avatar{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;overflow:hidden;flex:0 0 auto;font-size:24px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)}
+#mqMyRank .mq-mr-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+#mqMyRank .mq-mr-who{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+#mqMyRank .mq-mr-kicker{font-size:10px;letter-spacing:2px;font-weight:900;color:#c8f36a!important}
+#mqMyRank .mq-mr-who strong{font-size:clamp(17px,2.4vw,22px);color:#fff!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mqMyRank .mq-mr-level{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#fff!important;font-size:13px;font-weight:800}
+#mqMyRank .mq-mr-level svg{width:16px;height:16px;color:#f2c66d}
+#mqMyRank .mq-mr-level b{color:#fff!important}
+#mqMyRank .mq-mr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0 16px}
+#mqMyRank .mq-mr-stat{position:relative;padding:15px 16px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:4px;min-width:0}
+#mqMyRank .mq-mr-label{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.6px;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,.72)!important}
+#mqMyRank .mq-mr-label svg{width:14px;height:14px;flex:0 0 auto}
+#mqMyRank .mq-mr-stat strong{font-size:clamp(28px,4vw,38px);line-height:1.05;font-weight:900;letter-spacing:-.5px;color:#fff!important}
+#mqMyRank .mq-mr-stat small{font-size:12px;color:rgba(255,255,255,.65)!important;min-height:1.2em}
+#mqMyRank .mq-mr-evo.is-up strong{color:#c8f36a!important}
+#mqMyRank .mq-mr-evo.is-down strong{color:#ff9d9d!important}
+#mqMyRank .mq-mr-progress{padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+#mqMyRank .mq-mr-progress-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:800;color:rgba(255,255,255,.85)!important;margin-bottom:9px}
+#mqMyRank .mq-mr-progress-top span{color:inherit!important}
+#mqMyRank .mq-mr-bar{height:12px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
+#mqMyRank .mq-mr-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#8b6cff,#5eead4 70%,#c8f36a);box-shadow:0 0 14px rgba(94,234,212,.55);transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+#mqMyRank .mq-mr-progress small{display:block;margin-top:8px;font-size:12px;color:rgba(255,255,255,.7)!important}
+#mqMyRank .mq-mr-goal{display:flex;align-items:center;gap:14px;margin-top:12px;padding:14px 16px;border-radius:18px;background:linear-gradient(110deg,rgba(200,243,106,.16),rgba(255,255,255,.06));border:1px solid rgba(200,243,106,.3)}
+#mqMyRank .mq-mr-goal-icon{flex:0 0 auto;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:rgba(200,243,106,.2);color:#c8f36a}
+#mqMyRank .mq-mr-goal-icon svg{width:22px;height:22px}
+#mqMyRank .mq-mr-goal>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+#mqMyRank .mq-mr-goal strong{font-size:clamp(14px,2vw,16px);color:#fff!important;line-height:1.35}
+#mqMyRank .mq-mr-msg{margin:14px 2px 0;font-size:14px;line-height:1.5;font-weight:600;color:rgba(255,255,255,.9)!important}
+#mqMyRank .mq-mr-rank.is-gain::after{content:"";position:absolute;inset:-2px;border-radius:19px;pointer-events:none;border:2px solid #c8f36a;animation:mqMrGain 1.6s ease-out 2}
+#mqMyRank .mq-mr-rank.is-gain strong{animation:mqMrBump .8s cubic-bezier(.3,1.6,.5,1) 1}
+@keyframes mqMrIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes mqMrGlow{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
+@keyframes mqMrGain{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
+@keyframes mqMrBump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+@media(max-width:560px){#mqMyRank .mq-mr-level{order:3}#mqMyRank .mq-mr-stats{grid-template-columns:1fr 1fr}#mqMyRank .mq-mr-evo{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){#classement #mqMyRank,#mqMyRank .mq-mr-glow,#mqMyRank .mq-mr-rank.is-gain::after,#mqMyRank .mq-mr-rank.is-gain strong{animation:none!important}#mqMyRank .mq-mr-bar i{transition:none}}
+</style>
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -817,6 +942,38 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
 <h2>🏆 Classement MedQuiz</h2>
 <p>Les joueurs sont classés selon le total de leurs points enregistrés.</p>
 </div>
+<section id="mqMyRank" aria-label="Ma progression dans le classement" hidden>
+  <div class="mq-mr-glow" aria-hidden="true"></div>
+  <header class="mq-mr-head">
+    <span class="mq-mr-avatar" id="mqMrAvatar" aria-hidden="true">👤</span>
+    <div class="mq-mr-who"><span class="mq-mr-kicker">MA PROGRESSION</span><strong id="mqMrName">—</strong></div>
+    <span class="mq-mr-level"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg><b id="mqMrLevel">Étudiant</b></span>
+  </header>
+  <div class="mq-mr-stats">
+    <div class="mq-mr-stat mq-mr-rank" id="mqMrRankBox">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Mon classement</span>
+      <strong id="mqMrRank">—</strong><small id="mqMrRankSub"></small>
+    </div>
+    <div class="mq-mr-stat">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Mes points</span>
+      <strong id="mqMrPoints">—</strong><small id="mqMrPointsSub"></small>
+    </div>
+    <div class="mq-mr-stat mq-mr-evo" id="mqMrEvoBox">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Mon évolution</span>
+      <strong id="mqMrEvo">—</strong><small id="mqMrEvoSub"></small>
+    </div>
+  </div>
+  <div class="mq-mr-progress">
+    <div class="mq-mr-progress-top"><span id="mqMrFrom">Étudiant</span><span id="mqMrTo"></span></div>
+    <div class="mq-mr-bar" id="mqMrBar" role="progressbar" aria-label="Progression vers le niveau suivant" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="mqMrFill"></i></div>
+    <small id="mqMrProgressNote"></small>
+  </div>
+  <div class="mq-mr-goal">
+    <span class="mq-mr-goal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span>
+    <div><span class="mq-mr-label">Mon prochain objectif</span><strong id="mqMrGoal">—</strong></div>
+  </div>
+  <p class="mq-mr-msg" id="mqMrMsg" aria-live="polite"></p>
+</section>
 <div class="panel">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:12px">
 <div class="tabs" role="tablist">
@@ -1211,6 +1368,8 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
       const total = data.reduce((sum, item) => sum + (Number(item.score) || 0), 0);
       $("profilePoints").textContent = total;
       historiqueCache = data; rendreStats();
+      // Après un quiz terminé : actualise la carte si le classement est affiché (sinon il se rechargera à l'ouverture)
+      if (document.getElementById("classement")?.classList.contains("active")) chargerClassement();
       afficherBadges(data, total);
       liste.replaceChildren();
       const historiqueAffiche = premium.actif ? data : data.slice(0, 10);
@@ -1232,14 +1391,190 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
 
     let modeClassement = "semaine";
 
+    // ---------- Carte personnelle du classement ----------
+    // Lecture seule : aucun point n'est recalculé ni écrit ici. Tout vient des
+    // fonctions Supabase existantes (get_leaderboard / get_weekly_leaderboard).
+    const nbPts = v => Number(v) || 0;
+    const libelleRang = n => n === 1 ? "1er" : `${n}e`;
+    const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
+    // Rang « compétition » : 1, 2, 2, 4… Les égalités partagent le même rang.
+    function rangsCompetition(lignes) {
+      const pts = lignes.map(l => nbPts(l.points));
+      const tri = [...pts].sort((a, b) => b - a);
+      return pts.map(p => tri.indexOf(p) + 1);
+    }
+    function calculerCarteClassement(lignesTotal, lignesSemaine, pseudo) {
+      const r = { rang: null, points: null, exaequo: false, evolution: null, rangSemaine: null, pointsSemaine: null, ecart: null, cible: null, enTete: false, avance: null, nouveau: false };
+      if (!Array.isArray(lignesTotal)) return r;
+      const idx = lignesTotal.findIndex(l => l.pseudonyme === pseudo);
+      if (idx < 0) return r;
+      const pts = nbPts(lignesTotal[idx].points);
+      r.points = pts;
+      r.rang = rangsCompetition(lignesTotal)[idx];
+      r.exaequo = lignesTotal.some((l, i) => i !== idx && nbPts(l.points) === pts);
+      const sup = lignesTotal.filter(l => nbPts(l.points) > pts);
+      if (sup.length) {
+        const min = Math.min(...sup.map(l => nbPts(l.points)));
+        const cibles = lignesTotal.filter(l => nbPts(l.points) === min);
+        r.ecart = min - pts + 1; // +1 : il faut strictement dépasser
+        r.cible = { nom: cibles[0].pseudonyme, nombre: cibles.length };
+      } else {
+        r.enTete = true;
+        const inf = lignesTotal.filter(l => nbPts(l.points) < pts).map(l => nbPts(l.points));
+        if (inf.length) r.avance = pts - Math.max(...inf);
+      }
+      if (Array.isArray(lignesSemaine)) {
+        const sem = new Map(lignesSemaine.map(l => [l.pseudonyme, nbPts(l.points)]));
+        r.pointsSemaine = sem.get(pseudo) ?? 0;
+        if (r.pointsSemaine > 0) r.rangSemaine = rangsCompetition(lignesSemaine)[lignesSemaine.findIndex(l => l.pseudonyme === pseudo)];
+        // Classement général au début de la semaine = total moins points de la semaine
+        const avant = lignesTotal.map(l => Math.max(0, nbPts(l.points) - (sem.get(l.pseudonyme) || 0)));
+        if (avant[idx] > 0) r.evolution = (1 + avant.filter(v => v > avant[idx]).length) - r.rang;
+        else if (pts > 0) r.nouveau = true;
+      }
+      return r;
+    }
+    function infoNiveau(total) {
+      let i = NIVEAUX.length - 1;
+      while (i > 0 && total < NIVEAUX[i][1]) i--;
+      const [nom, seuil] = NIVEAUX[i], suivant = NIVEAUX[i + 1];
+      return {
+        nom, suivant: suivant ? suivant[0] : null,
+        restant: suivant ? suivant[1] - total : 0,
+        pct: suivant ? Math.max(0, Math.min(100, (total - seuil) / (suivant[1] - seuil) * 100)) : 100
+      };
+    }
+    function messageCarte(c, total) {
+      if (!total) return "🚀 Termine ton premier quiz pour entrer dans le classement.";
+      if (c.rang === null) return "💡 Continue à marquer des points pour faire apparaître ton rang.";
+      if (c.enTete) return c.exaequo ? "👑 Tu es en tête à égalité : un quiz de plus pour t'envoler !" : "👑 Tu domines le classement ! Garde ton avance.";
+      if (c.evolution >= 3) return `🔥 Belle remontée : +${c.evolution} places cette semaine !`;
+      if (c.evolution > 0) return `📈 Tu progresses : +${pluriel(c.evolution, "place")} cette semaine. Continue !`;
+      if (c.evolution < 0) return `💪 Tu as reculé de ${pluriel(-c.evolution, "place")} : un quiz suffit pour les reprendre.`;
+      if (c.ecart !== null && c.ecart <= 10) return `🎯 Plus que ${c.ecart} pts pour passer devant ! Un quiz et c'est joué.`;
+      return "✨ La régularité paie : un quiz de plus aujourd'hui ?";
+    }
+
+    const carteEtat = { pseudo: null, rang: null, points: null, premier: true };
+    let avatarCarte = null;
+    const reduireMouvement = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function majTexte(id, texte) {
+      const n = $(id); if (!n || n.textContent === texte) return;
+      n.textContent = texte;
+      if (!carteEtat.premier && !reduireMouvement() && n.animate) n.animate([{ opacity: .25, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 380, easing: "ease-out" });
+    }
+    function compterJusqua(id, depuis, vers) {
+      const n = $(id);
+      if (reduireMouvement() || depuis === null || depuis === vers) { majTexte(id, vers.toLocaleString("fr-FR")); return; }
+      const debut = performance.now(), duree = 900;
+      const pas = t => {
+        const k = Math.min(1, (t - debut) / duree), e = 1 - Math.pow(1 - k, 3);
+        n.textContent = Math.round(depuis + (vers - depuis) * e).toLocaleString("fr-FR");
+        if (k < 1) requestAnimationFrame(pas);
+      };
+      requestAnimationFrame(pas);
+    }
+    function majAvatarCarte() {
+      const zone = $("mqMrAvatar"); if (!zone) return;
+      const url = avatarCarte || document.querySelector("#profileAvatar img")?.src || null;
+      zone.replaceChildren();
+      if (url) { const img = document.createElement("img"); img.src = url; img.alt = ""; zone.append(img); } else zone.textContent = "👤";
+    }
+    window.addEventListener("medquiz:avatar-cloud", e => { avatarCarte = e.detail?.url || null; majAvatarCarte(); });
+
+    // Le pseudo n'est connu de chargerProfil() qu'après l'ouverture du profil : on le lit nous-mêmes si besoin
+    const profilCarte = { id: null, pseudo: null };
+    async function pseudoPourCarte() {
+      if (!utilisateurActuel) return null;
+      if (profilCarte.id === utilisateurActuel.id && profilCarte.pseudo) return profilCarte.pseudo;
+      const { data: profil } = await supabase.from("profiles").select("pseudonyme, avatar_url").eq("id", utilisateurActuel.id).maybeSingle();
+      profilCarte.id = utilisateurActuel.id;
+      profilCarte.pseudo = profil?.pseudonyme || utilisateurActuel.user_metadata?.pseudonyme || utilisateurActuel.email || null;
+      if (profil?.avatar_url && !avatarCarte) { avatarCarte = profil.avatar_url; }
+      return profilCarte.pseudo;
+    }
+    function afficherCarteClassement(resTotal, resSemaine, monPseudo) {
+      const carte = $("mqMyRank"); if (!carte) return;
+      if (!utilisateurActuel) { carte.hidden = true; return; }
+      if (carteEtat.pseudo !== monPseudo) Object.assign(carteEtat, { pseudo: monPseudo, rang: null, points: null, premier: true });
+      const lignesTotal = resTotal && !resTotal.error ? resTotal.data : null;
+      const lignesSemaine = resSemaine && !resSemaine.error ? resSemaine.data : null;
+      const c = calculerCarteClassement(lignesTotal, lignesSemaine, monPseudo);
+      // Points : classement général, sinon historique réel du joueur, sinon indisponible
+      const histo = historiqueCache.length ? historiqueCache.reduce((t, x) => t + nbPts(x.score), 0) : null;
+      const total = c.points ?? (lignesTotal ? 0 : histo);
+      const dispo = total !== null;
+      const niv = infoNiveau(total || 0);
+      const apparition = carte.hidden;
+      carte.hidden = false;
+
+      majAvatarCarte();
+      majTexte("mqMrName", monPseudo || "Joueur");
+      majTexte("mqMrLevel", dispo ? niv.nom : "—");
+
+      // Classement
+      if (c.rang !== null) {
+        majTexte("mqMrRank", libelleRang(c.rang));
+        majTexte("mqMrRankSub", c.exaequo ? "ex æquo · classement général" : `sur ${pluriel(lignesTotal.length, "joueur")}`);
+      } else {
+        majTexte("mqMrRank", "—");
+        majTexte("mqMrRankSub", !lignesTotal ? "Classement indisponible" : (total > 0 ? "Hors du classement affiché" : "Pas encore classé"));
+      }
+      // Points
+      if (dispo) compterJusqua("mqMrPoints", carteEtat.points, total); else majTexte("mqMrPoints", "—");
+      majTexte("mqMrPointsSub", c.pointsSemaine !== null ? `dont ${c.pointsSemaine.toLocaleString("fr-FR")} cette semaine` : (dispo ? "points cumulés" : "Données indisponibles"));
+      // Évolution
+      const boiteEvo = $("mqMrEvoBox");
+      boiteEvo.classList.toggle("is-up", c.evolution > 0);
+      boiteEvo.classList.toggle("is-down", c.evolution < 0);
+      if (c.evolution === null) {
+        majTexte("mqMrEvo", "—");
+        majTexte("mqMrEvoSub", c.nouveau ? "Nouveau au classement cette semaine" : (c.rang === null ? "Pas encore de données" : "Évolution indisponible"));
+      } else {
+        majTexte("mqMrEvo", c.evolution > 0 ? `▲ +${c.evolution}` : c.evolution < 0 ? `▼ ${c.evolution}` : "＝ 0");
+        majTexte("mqMrEvoSub", c.evolution === 0 ? "stable cette semaine" : `${Math.abs(c.evolution) > 1 ? "places" : "place"} cette semaine`);
+      }
+      // Progression de niveau
+      majTexte("mqMrFrom", dispo ? niv.nom : "—");
+      majTexte("mqMrTo", niv.suivant || "Niveau maximal");
+      majTexte("mqMrProgressNote", !dispo ? "Progression indisponible" : niv.suivant ? `Encore ${niv.restant.toLocaleString("fr-FR")} pts pour devenir ${niv.suivant}` : "Tu as atteint le plus haut grade. Bravo !");
+      const bar = $("mqMrBar"), pct = dispo ? Math.round(niv.pct) : 0;
+      bar.setAttribute("aria-valuenow", String(pct));
+      const remplir = () => { $("mqMrFill").style.width = pct + "%"; };
+      if (apparition && !reduireMouvement()) { $("mqMrFill").style.width = "0%"; requestAnimationFrame(() => requestAnimationFrame(remplir)); } else remplir();
+      // Objectif
+      let objectif;
+      if (!lignesTotal || !dispo) objectif = "Objectif indisponible pour le moment";
+      else if (c.rang === null) objectif = total > 0 ? "Continue pour apparaître dans le classement" : "Gagne tes premiers points avec un quiz";
+      else if (c.enTete) objectif = c.avance ? `Défends ta 1re place : tu as ${c.avance.toLocaleString("fr-FR")} pts d'avance` : "Tu es seul en tête : continue sur ta lancée !";
+      else objectif = `+${c.ecart.toLocaleString("fr-FR")} pts pour dépasser ${c.cible.nombre > 1 ? `les ${c.cible.nombre} joueurs à égalité devant toi` : c.cible.nom}`;
+      majTexte("mqMrGoal", objectif);
+      majTexte("mqMrMsg", messageCarte(c, total));
+
+      // Effet « places gagnées » (cette semaine, ou depuis le dernier affichage)
+      const gagne = c.rang !== null && ((c.evolution > 0 && carteEtat.premier) || (carteEtat.rang !== null && c.rang < carteEtat.rang));
+      const boiteRang = $("mqMrRankBox");
+      boiteRang.classList.remove("is-gain");
+      if (gagne && !reduireMouvement()) { void boiteRang.offsetWidth; boiteRang.classList.add("is-gain"); setTimeout(() => boiteRang.classList.remove("is-gain"), 3600); }
+      carteEtat.rang = c.rang; carteEtat.points = dispo ? total : carteEtat.points; carteEtat.premier = false;
+    }
+    let jetonClassement = 0;
+
     async function chargerClassement() {
       const liste = $("listeClassement");
       liste.textContent = "Chargement du classement...";
+      const jeton = ++jetonClassement;
       if (!utilisateurActuel) {
         liste.textContent = "Connecte-toi pour consulter le classement.";
+        if ($("mqMyRank")) $("mqMyRank").hidden = true;
         return;
       }
-      const { data, error } = await supabase.rpc(modeClassement === "semaine" ? "get_weekly_leaderboard" : "get_leaderboard");
+      // Les deux classements sont lus en parallèle : la carte personnelle a besoin des deux
+      const [resSemaine, resTotal] = await Promise.all([supabase.rpc("get_weekly_leaderboard"), supabase.rpc("get_leaderboard")]);
+      if (jeton !== jetonClassement) return;
+      try { afficherCarteClassement(resTotal, resSemaine, await pseudoPourCarte()); } catch (e) { console.warn("Carte personnelle indisponible :", e); }
+      if (jeton !== jetonClassement) return;
+      const { data, error } = modeClassement === "semaine" ? resSemaine : resTotal;
       if (error) {
         console.error("Erreur classement :", error.message);
         liste.textContent = modeClassement === "semaine" ? "Impossible de charger le classement de la semaine. Vérifie que le script classement.sql a été exécuté dans Supabase." : "Impossible de charger le classement. Vérifie la fonction get_leaderboard dans Supabase.";
@@ -1259,7 +1594,9 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
         if (photosError) console.warn("Photos de classement indisponibles :", photosError.message);
         (profilsPhotos || []).forEach(p => { if (p.avatar_url) avatarsParPseudo[p.pseudonyme] = p.avatar_url; });
       }
+      if (jeton !== jetonClassement) return;
       liste.replaceChildren();
+      const rangsListe = rangsCompetition(data); // égalités = même rang
       data.forEach((joueur, index) => {
         const row = document.createElement("div");
         row.className = "rank-item";
@@ -1267,7 +1604,7 @@ body[data-theme="dark"] .avatar-online{border-color:#2b2742}
         left.className = "rank-left";
         const number = document.createElement("span");
         number.className = "rank-number";
-        number.textContent = String(index + 1);
+        number.textContent = String(rangsListe[index]);
         const name = nomJoueur(joueur.pseudonyme);
         const avatar = document.createElement("span");
         avatar.className = "rank-avatar";
@@ -2847,18 +3184,59 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       }
       return a;
     }
+
+    // ---------- Écran de quiz immersif : aucune navigation ni autre salle visible ----------
+    let mqQuizOverlay = null;
+    let mqQuizCloseHandler = null;
+    function ouvrirEcranQuiz(titre) {
+      mqQuizOverlay = $("mqQuizFocus");
+      mqQuizOverlay.classList.add("is-open");
+      mqQuizOverlay.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      $("mqQuizKicker").textContent = titre || "Session en cours";
+      $("mqQuizProgress").style.width = "0%";
+      $("mqQuizZone").replaceChildren();
+      return $("mqQuizZone");
+    }
+    function fermerEcranQuiz() {
+      compteurQuiz++;
+      if (mqQuizCloseHandler) mqQuizCloseHandler();
+      mqQuizCloseHandler = null;
+      if (mqQuizOverlay) {
+        mqQuizOverlay.classList.remove("is-open");
+        mqQuizOverlay.setAttribute("aria-hidden", "true");
+      }
+      document.body.style.overflow = "";
+      afficherPage("accueil");
+    }
+    const ouvrirConfirmQuitter = () => { $("mqQuitDialog").classList.add("is-open"); $("mqQuitContinue").focus(); };
+    const fermerConfirmQuitter = () => $("mqQuitDialog").classList.remove("is-open");
+    $("mqQuizExit").addEventListener("click", ouvrirConfirmQuitter);
+    $("mqQuitContinue").addEventListener("click", fermerConfirmQuitter);
+    $("mqQuitConfirm").addEventListener("click", () => { fermerConfirmQuitter(); fermerEcranQuiz(); });
+    $("mqQuitDialog").addEventListener("click", e => { if (e.target.id === "mqQuitDialog") fermerConfirmQuitter(); });
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape" || !$("mqQuizFocus").classList.contains("is-open")) return;
+      if ($("mqQuitDialog").classList.contains("is-open")) fermerConfirmQuitter(); else ouvrirConfirmQuitter();
+    });
+
     function lancerQuiz(cfg) {
-      const zone = cfg.zone || $("zoneQuiz"), selection = cfg.selection, jeton = ++compteurQuiz;
+      const zone = cfg.zone || ouvrirEcranQuiz(cfg.titre), selection = cfg.selection, jeton = ++compteurQuiz;
       let index = 0, score = 0, bonnes = 0, minuteur = null, debut = 0, tempsTotal = 0;
       zone.scrollIntoView({ behavior: "smooth", block: "start" });
       son("demarrer");
       afficherQuestion();
 
       function arreter() { clearInterval(minuteur); minuteur = null; }
+      mqQuizCloseHandler = arreter;
 
       function afficherQuestion() {
         if (index >= selection.length) { afficherFin(); return; }
         const q = selection[index];
+        const progress = $("mqQuizProgress");
+        if (progress) progress.style.width = `${Math.round(index / selection.length * 100)}%`;
+        const kicker = $("mqQuizKicker");
+        if (kicker) kicker.textContent = `${cfg.titre} · QUESTION ${index + 1} / ${selection.length}`;
         debut = Date.now();
         zone.replaceChildren(el("h3", "", `${cfg.titre} — Question ${index + 1} / ${selection.length}`));
         let barre, texte;
@@ -2933,10 +3311,21 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       async function afficherFin() {
         arreter();
         const max = totalPoints(selection);
+        const progress = $("mqQuizProgress"); if (progress) progress.style.width = "100%";
+        const kicker = $("mqQuizKicker"); if (kicker) kicker.textContent = "SESSION TERMINÉE";
         son(score >= max / 2 ? "victoire" : "fin");
         const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
         resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
         zone.replaceChildren(el("h3", "", "Quiz terminé ! 🎉"), resultat, el("p", "muted", `${bonnes} bonne(s) réponse(s) sur ${selection.length}`));
+        const retour = el("button", "btn btn-secondary", "← Retour à MedQuiz");
+        retour.type = "button";
+        retour.style.marginTop = "8px";
+        retour.addEventListener("click", () => {
+          if (mqQuizOverlay) { mqQuizOverlay.classList.remove("is-open"); mqQuizOverlay.setAttribute("aria-hidden", "true"); }
+          document.body.style.overflow = "";
+          afficherPage("accueil");
+        });
+        zone.append(retour);
         if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
@@ -4764,6 +5153,29 @@ img,svg,video,canvas{max-width:100%}
   #classement .rank-left>span:not(.rank-number):not(.rank-avatar){font-size:12px!important}
 }
 </style>
+
+
+<div id="mqQuitDialog" role="dialog" aria-modal="true" aria-labelledby="mqQuitTitle">
+  <div class="mq-quit-box">
+    <h3 id="mqQuitTitle">Quitter cette session ?</h3>
+    <p>Ta progression en cours sera perdue.</p>
+    <div class="mq-quit-actions">
+      <button type="button" id="mqQuitContinue">Continuer le quiz</button>
+      <button type="button" id="mqQuitConfirm">Quitter</button>
+    </div>
+  </div>
+</div>
+<div id="mqQuizFocus" aria-hidden="true">
+  <div class="mq-focus-top">
+    <div class="mq-focus-brand">MED<span>QUIZ</span> <small style="opacity:.55;font-weight:600;letter-spacing:.04em">/ SESSION</small></div>
+    <button class="mq-focus-exit" id="mqQuizExit" type="button">✕ <span>Quitter</span></button>
+  </div>
+  <main class="mq-focus-main">
+    <p class="mq-focus-kicker" id="mqQuizKicker">Session en cours</p>
+    <div class="mq-focus-progress"><i id="mqQuizProgress"></i></div>
+    <div class="panel quiz-area" id="mqQuizZone" aria-live="polite"></div>
+  </main>
+</div>
 
 </body>
 </html>
