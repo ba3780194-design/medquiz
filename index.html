@@ -1178,22 +1178,9 @@ body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28)
 </div>
 <div class="panel" style="margin-bottom:22px">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap">
-<h3>Mon niveau</h3><strong class="gold-text" id="niveauJoueur">Étudiant</strong>
-</div>
-<div class="badges" id="badgesListe"></div>
-</div>
-<div class="panel" style="margin-bottom:22px">
-<div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap">
 <h3>Mon abonnement</h3><span class="muted" id="badgeAbo">Gratuit</span>
 </div>
 <p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Gérer mon abonnement</a> <a class="btn btn-secondary hidden" href="#admin" id="lienAdmin">Administration</a></p>
-</div>
-<div class="panel" id="carnetErreursPanel" style="margin-bottom:22px">
-<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-<h3>📘 Mes erreurs et mes progrès</h3>
-<button class="btn btn-secondary" id="actualiserCarnetErreurs" type="button">Actualiser</button>
-</div>
-<div id="carnetErreursZone"><p class="muted">Tes erreurs importantes apparaîtront ici après tes simulations.</p></div>
 </div>
 <div class="panel" style="margin-bottom:22px">
 <h3>Mes statistiques</h3>
@@ -3072,8 +3059,10 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       ["👑", "1000 points", (h, t) => t >= 1000]
     ];
     function afficherBadges(historique, total) {
-      $("niveauJoueur").textContent = [...NIVEAUX].reverse().find(n => total >= n[1])[0];
+      const niveau = $("niveauJoueur");
       const zone = $("badgesListe");
+      if (!niveau || !zone) return;
+      niveau.textContent = [...NIVEAUX].reverse().find(n => total >= n[1])[0];
       zone.replaceChildren();
       BADGES.forEach(([icone, nom, test]) => {
         const b = el("div", "badge" + (test(historique, total) ? "" : " locked"));
