@@ -1885,7 +1885,117 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
       {categorie:"culture",niveau:"difficile",question:"Quelle est la monnaie officielle du Japon ?",choix:["Le yuan","Le won","Le yen","Le baht"],reponse:"Le yen",explication:"Le yen est la monnaie officielle du Japon."},
       {categorie:"culture",niveau:"difficile",question:"Quel élément chimique a pour symbole Fe ?",choix:["Le fluor","Le fer","Le francium","Le phosphore"],reponse:"Le fer",explication:"Fe est le symbole chimique du fer."},
       {categorie:"culture",niveau:"difficile",question:"Quel traité est généralement associé à la fin de la Première Guerre mondiale ?",choix:["Traité de Rome","Traité de Versailles","Traité de Maastricht","Traité de Tordesillas"],reponse:"Traité de Versailles",explication:"Le traité de Versailles, signé en 1919, règle notamment la paix entre l'Allemagne et les Alliés."},
-      // Questions supplémentaires
+
+      // CHIRURGIE — nouvelles questions (QCM)
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel organe est retiré lors d'une appendicectomie ?",choix:["L'appendice", "La vésicule biliaire", "La rate", "Le côlon"],reponse:"L'appendice",explication:"L'appendicectomie consiste à retirer l'appendice vermiforme."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel examen est généralement réalisé en première intention devant une suspicion de fracture d'un membre ?",choix:["Une radiographie", "Une coloscopie", "Un électroencéphalogramme", "Une fibroscopie gastrique"],reponse:"Une radiographie",explication:"La radiographie standard permet de rechercher une rupture de la continuité osseuse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel instrument permet de saisir un tissu pendant une intervention ?",choix:["Une pince chirurgicale", "Un stéthoscope", "Un otoscope", "Un spéculum nasal"],reponse:"Une pince chirurgicale",explication:"Les pinces chirurgicales servent à saisir ou maintenir les tissus."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Comment appelle-t-on l'ablation de la vésicule biliaire ?",choix:["Cholécystectomie", "Colectomie", "Néphrectomie", "Splénectomie"],reponse:"Cholécystectomie",explication:"La cholécystectomie est l'ablation chirurgicale de la vésicule biliaire."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel est l'objectif principal de l'asepsie au bloc opératoire ?",choix:["Prévenir la contamination microbienne", "Accélérer la cicatrisation osseuse", "Diminuer la douleur", "Arrêter le saignement"],reponse:"Prévenir la contamination microbienne",explication:"L'asepsie vise à empêcher l'introduction de micro-organismes dans le champ opératoire."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel os se trouve dans la cuisse ?",choix:["Le fémur", "Le tibia", "Le radius", "La fibula"],reponse:"Le fémur",explication:"Le fémur est l'os long de la cuisse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Comment appelle-t-on la réparation d'une hernie ?",choix:["Herniorraphie", "Gastrectomie", "Thoracotomie", "Arthroscopie"],reponse:"Herniorraphie",explication:"La cure de hernie peut comporter une réparation pariétale, parfois avec prothèse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel est le rôle d'un drain chirurgical ?",choix:["Évacuer un liquide ou de l'air", "Remplacer une suture", "Mesurer la tension artérielle", "Immobiliser une fracture"],reponse:"Évacuer un liquide ou de l'air",explication:"Un drain permet l'évacuation de sang, de sérosités ou d'air selon l'intervention."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe clinique évoque classiquement une péritonite avec irritation péritonéale diffuse ?",choix:["Une contracture abdominale", "Une douleur uniquement à l'épaule", "Une toux sèche isolée", "Une hématurie isolée"],reponse:"Une contracture abdominale",explication:"La contracture abdominale est un signe majeur d'irritation péritonéale."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle est la complication précoce la plus redoutée après une chirurgie en cas d'hémostase insuffisante ?",choix:["L'hémorragie", "La cataracte", "L'arthrose", "La myopie"],reponse:"L'hémorragie",explication:"Un saignement postopératoire peut entraîner une instabilité hémodynamique et nécessite une évaluation rapide."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel examen est souvent utilisé pour confirmer une lithiase vésiculaire ?",choix:["L'échographie abdominale", "L'EEG", "La radiographie du crâne", "L'ECG"],reponse:"L'échographie abdominale",explication:"L'échographie visualise habituellement les calculs de la vésicule biliaire."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle structure est principalement lésée dans une rupture du ligament croisé antérieur ?",choix:["Le ligament croisé antérieur du genou", "Le tendon d'Achille", "Le ligament annulaire du radius", "Le ménisque externe uniquement"],reponse:"Le ligament croisé antérieur du genou",explication:"Le LCA participe à la stabilité antérieure et rotatoire du genou."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel est le traitement de référence d'une appendicite aiguë compliquée nécessitant une intervention ?",choix:["Appendicectomie avec prise en charge adaptée de l'infection", "Cholécystectomie", "Néphrectomie", "Splénectomie"],reponse:"Appendicectomie avec prise en charge adaptée de l'infection",explication:"L'appendicectomie est le traitement chirurgical usuel, associé aux antibiotiques selon le contexte."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel type d'anesthésie entraîne une perte de conscience réversible et contrôlée ?",choix:["Anesthésie générale", "Anesthésie locale seule", "Anesthésie topique", "Anesthésie de contact"],reponse:"Anesthésie générale",explication:"L'anesthésie générale associe une perte de conscience et une analgésie adaptées à l'intervention."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe doit faire suspecter un syndrome des loges aigu ?",choix:["Douleur intense disproportionnée, majorée à l'étirement passif", "Prurit isolé", "Fièvre modérée isolée", "Douleur calmée par l'étirement passif"],reponse:"Douleur intense disproportionnée, majorée à l'étirement passif",explication:"La douleur disproportionnée et à l'étirement passif est un signe d'alerte précoce."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle complication peut survenir après une immobilisation prolongée d'un membre inférieur ?",choix:["Thrombose veineuse profonde", "Otite moyenne", "Glaucome aigu", "Appendicite"],reponse:"Thrombose veineuse profonde",explication:"L'immobilisation favorise la stase veineuse et augmente le risque thromboembolique."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Dans une fracture ouverte, quelle mesure doit être réalisée rapidement en plus de la stabilisation et de l'évaluation neurovasculaire ?",choix:["Antibiothérapie précoce selon protocole", "Massage profond de la plaie", "Fermeture cutanée immédiate sans exploration", "Retrait systématique de tout matériel osseux"],reponse:"Antibiothérapie précoce selon protocole",explication:"L'antibiothérapie précoce diminue le risque infectieux ; la prise en charge dépend du degré d'ouverture."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le principe d'une anastomose digestive ?",choix:["Rétablir la continuité entre deux segments du tube digestif", "Retirer systématiquement le péritoine", "Fixer un os à un tendon", "Fermer une artère sans réparation"],reponse:"Rétablir la continuité entre deux segments du tube digestif",explication:"Une anastomose met en communication deux segments digestifs après résection ou dérivation."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel élément est essentiel dans la surveillance immédiate en salle de réveil ?",choix:["Voies aériennes, respiration, circulation et conscience", "Couleur des cheveux", "Acuité visuelle uniquement", "Appétit uniquement"],reponse:"Voies aériennes, respiration, circulation et conscience",explication:"La surveillance post-anesthésique porte notamment sur les fonctions vitales et la douleur."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel nerf est particulièrement exposé lors d'une fracture de la diaphyse humérale ?",choix:["Le nerf radial", "Le nerf optique", "Le nerf facial", "Le nerf vague"],reponse:"Le nerf radial",explication:"Le nerf radial chemine dans la gouttière radiale de l'humérus."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le risque majeur d'une torsion d'annexe non traitée ?",choix:["Ischémie puis nécrose de l'ovaire", "Hyperthyroïdie", "Insuffisance hépatique", "Cataracte"],reponse:"Ischémie puis nécrose de l'ovaire",explication:"La torsion compromet le retour veineux puis la vascularisation artérielle de l'annexe."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel examen permet le mieux d'évaluer une collection intra-abdominale profonde chez un patient stable ?",choix:["Scanner abdomino-pelvien injecté, si indiqué", "Radiographie du poignet", "Audiogramme", "ECG seul"],reponse:"Scanner abdomino-pelvien injecté, si indiqué",explication:"La tomodensitométrie injectée est très utile pour localiser et caractériser une collection profonde."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le but principal d'une stomie digestive ?",choix:["Dériver temporairement ou définitivement le contenu intestinal vers la peau", "Remplacer le foie", "Réparer une fracture", "Mesurer la pression intracrânienne"],reponse:"Dériver temporairement ou définitivement le contenu intestinal vers la peau",explication:"Une stomie permet une dérivation digestive, temporaire ou permanente selon l'indication."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel signe évoque une infection du site opératoire profond ?",choix:["Douleur croissante, fièvre et écoulement purulent de la plaie", "Cicatrice sèche et indolore", "Reprise normale de l'appétit", "Disparition de l'œdème sans douleur"],reponse:"Douleur croissante, fièvre et écoulement purulent de la plaie",explication:"Ces signes doivent faire rechercher une infection et nécessitent une évaluation clinique."},
+      // QUESTIONS ISSUES DES COURS FOURNIS — gynécologie chirurgicale
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Chez une femme non ménopausée présentant un kyste ovarien organique nécessitant une chirurgie, quel geste cherche généralement à préserver la fertilité ?",choix:["La kystectomie", "L'hystérectomie systématique", "La salpingectomie bilatérale", "La colostomie"],reponse:"La kystectomie",explication:"La kystectomie retire le kyste en conservant autant que possible le tissu ovarien sain."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quelle complication d'un kyste ovarien constitue une urgence chirurgicale ?",choix:["La torsion annexielle", "Une dysménorrhée isolée", "Un kyste fonctionnel asymptomatique", "Une aménorrhée isolée"],reponse:"La torsion annexielle",explication:"La torsion peut compromettre la vascularisation de l'ovaire et nécessite une prise en charge urgente."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel abord est souvent privilégié pour l'ablation d'un kyste ovarien lorsque les conditions le permettent ?",choix:["La cœlioscopie", "La thoracotomie", "La craniotomie", "La laparostomie systématique"],reponse:"La cœlioscopie",explication:"La cœlioscopie est un abord de référence dans de nombreuses situations adaptées."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Devant une GEU rompue avec suspicion d'hémopéritoine et choc, quelle priorité s'impose ?",choix:["Réanimation urgente et prise en charge chirurgicale sans retard injustifié", "Surveillance simple à domicile", "Attendre plusieurs jours le dosage des β-HCG", "Administrer uniquement un antalgique"],reponse:"Réanimation urgente et prise en charge chirurgicale sans retard injustifié",explication:"La rupture avec instabilité hémodynamique est une urgence vitale ; la stabilisation et la chirurgie sont prioritaires."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel type de fibrome utérin est particulièrement exposé à une torsion aiguë ?",choix:["Le fibrome sous-séreux pédiculé", "Le fibrome interstitiel", "Le fibrome sous-muqueux sessile", "Le fibrome cervical uniquement"],reponse:"Le fibrome sous-séreux pédiculé",explication:"La torsion concerne surtout le fibrome sous-séreux pédiculé et peut provoquer un abdomen aigu."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel examen confirme le diagnostic histologique d'un cancer du sein ?",choix:["L'analyse anatomopathologique d'un prélèvement biopsique", "La mammographie seule", "L'échographie seule", "Le dosage isolé du CA 15-3"],reponse:"L'analyse anatomopathologique d'un prélèvement biopsique",explication:"L'imagerie oriente le diagnostic, mais l'histologie du prélèvement confirme le cancer."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est l'objectif d'une chirurgie conservatrice du sein lorsqu'elle est indiquée ?",choix:["Retirer la tumeur avec des marges adaptées en conservant le reste du sein", "Retirer systématiquement les deux seins", "Remplacer la chimiothérapie dans tous les cas", "Retirer uniquement le mamelon sans traiter la tumeur"],reponse:"Retirer la tumeur avec des marges adaptées en conservant le reste du sein",explication:"La chirurgie conservatrice vise l'exérèse tumorale avec des marges adéquates, selon l'indication oncologique."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe clinique peut révéler une complication hémorragique sévère après un avortement compliqué ?",choix:["Hypotension avec tachycardie et signes de mauvaise perfusion", "Prurit isolé", "Hypertension isolée sans symptôme", "Rhinorrhée"],reponse:"Hypotension avec tachycardie et signes de mauvaise perfusion",explication:"L'association hypotension, tachycardie, extrémités froides et altération de conscience évoque un choc hémorragique."},
+            
+      // Banque complémentaire : questions transversales tirées des cours fournis
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen d’imagerie est réalisé en première intention devant une suspicion de kyste ovarien ?", "choix": ["Échographie-Doppler abdomino-pelvienne", "Radiographie thoracique", "Urographie intraveineuse", "Scintigraphie osseuse"], "reponse": "Échographie-Doppler abdomino-pelvienne", "explication": "Le cours présente l’échographie-Doppler abdomino-pelvienne comme l’examen de première intention."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel aspect échographique oriente plutôt vers un kyste ovarien bénin ?", "choix": ["Paroi fine et régulière, contenu homogène", "Végétations multiples et paroi irrégulière", "Néovascularisation anarchique", "Ascite avec nodules péritonéaux"], "reponse": "Paroi fine et régulière, contenu homogène", "explication": "Les critères de bénignité décrits comprennent une petite taille, des parois fines et régulières et une échostructure homogène."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Après combien de temps un kyste ovarien fonctionnel persistant doit-il faire reconsidérer son caractère organique selon le cours ?", "choix": ["Après environ trois mois", "Après 24 heures", "Après une semaine", "Après deux ans"], "reponse": "Après environ trois mois", "explication": "Le cours indique que le kyste fonctionnel disparaît généralement dans les trois mois ; la persistance fait discuter un kyste organique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel tableau évoque une torsion de kyste ovarien ?", "choix": ["Douleur pelvienne aiguë intense avec nausées ou vomissements", "Prurit vulvaire isolé", "Métrorragies indolores sans douleur", "Pollakiurie isolée"], "reponse": "Douleur pelvienne aiguë intense avec nausées ou vomissements", "explication": "La torsion se manifeste notamment par une douleur aiguë intense, souvent accompagnée de nausées et vomissements."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel est l’objectif thérapeutique important lors de la chirurgie d’un kyste ovarien chez une femme en âge de procréer ?", "choix": ["Préserver la fertilité autant que possible", "Réaliser systématiquement une hystérectomie", "Retirer les deux ovaires dans tous les cas", "Éviter toute analyse anatomopathologique"], "reponse": "Préserver la fertilité autant que possible", "explication": "Le cours place la préservation de la fertilité parmi les buts du traitement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel geste est indiqué dans la prise en charge chirurgicale d’une torsion annexielle ?", "choix": ["Détorsion chirurgicale après évaluation", "Néphrectomie", "Cholécystectomie", "Splénectomie"], "reponse": "Détorsion chirurgicale après évaluation", "explication": "La détorsion fait partie des gestes chirurgicaux décrits pour les complications des kystes ovariens."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel est le siège le plus fréquent d’une grossesse extra-utérine ?", "choix": ["L’ampoule tubaire", "La cavité utérine", "Le col vésical", "Le vagin"], "reponse": "L’ampoule tubaire", "explication": "Le cours précise que la GEU se développe le plus souvent dans l’ampoule tubaire."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel trio clinique doit faire évoquer une GEU chez une femme en activité génitale ?", "choix": ["Retard de règles, douleur pelvienne et métrorragies", "Fièvre, toux et expectoration", "Dysurie, hématurie et lombalgie", "Céphalées, photophobie et vomissements"], "reponse": "Retard de règles, douleur pelvienne et métrorragies", "explication": "Le cours insiste sur l’association retard de règles, douleur pelvienne latéralisée et métrorragies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Que signifie une β-HCG plasmatique positive dans le bilan d’une suspicion de GEU ?", "choix": ["Elle témoigne d’un trophoblaste actif mais ne confirme pas seule la GEU", "Elle confirme toujours une GEU", "Elle élimine une grossesse", "Elle prouve une rupture tubaire"], "reponse": "Elle témoigne d’un trophoblaste actif mais ne confirme pas seule la GEU", "explication": "La positivité confirme l’existence d’un trophoblaste actif ; le diagnostic repose sur la confrontation avec l’échographie et le contexte."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel résultat échographique associé à une β-HCG élevée est très évocateur de GEU dans le cours ?", "choix": ["Vacuité utérine", "Sac intra-utérin avec embryon", "Endomètre absent", "Vessie distendue"], "reponse": "Vacuité utérine", "explication": "Le cours indique que β-HCG supérieure au seuil mentionné avec vacuité utérine est très évocatrice."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "En cas de GEU rompue avec choc hémorragique, quelle conduite est prioritaire ?", "choix": ["Réanimation urgente et chirurgie sans retarder la prise en charge", "Attendre le contrôle des β-HCG à 48 heures", "Retour à domicile avec surveillance", "Administrer uniquement un antalgique"], "reponse": "Réanimation urgente et chirurgie sans retarder la prise en charge", "explication": "La rupture avec hémopéritoine et choc est une urgence vitale ; aucun examen ne doit retarder la chirurgie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel facteur de risque infectieux de GEU est particulièrement cité dans le cours ?", "choix": ["Antécédent de salpingite liée à une IST, notamment Chlamydia", "Otite moyenne", "Appendicectomie isolée", "Asthme"], "reponse": "Antécédent de salpingite liée à une IST, notamment Chlamydia", "explication": "Les infections tubaires, notamment à Chlamydia trachomatis, sont citées parmi les facteurs de risque."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Le fibrome utérin est une tumeur bénigne développée à partir de quel tissu ?", "choix": ["Muscle lisse utérin", "Épithélium bronchique", "Parenchyme rénal", "Tissu nerveux cérébral"], "reponse": "Muscle lisse utérin", "explication": "Le fibrome, ou léiomyome, se développe aux dépens du muscle lisse utérin."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel symptôme est le plus souvent révélateur d’un fibrome utérin dans le cours ?", "choix": ["Ménorragies", "Hémoptysie", "Hématurie", "Ictère"], "reponse": "Ménorragies", "explication": "Les ménorragies sont présentées comme le principal signe révélateur."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel examen est l’examen paraclinique de référence pour le diagnostic d’un fibrome utérin ?", "choix": ["Échographie pelvienne", "Radiographie du crâne", "ECG", "Électroencéphalogramme"], "reponse": "Échographie pelvienne", "explication": "L’échographie pelvienne confirme le diagnostic et précise le siège, le nombre et le volume des fibromes."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel fibrome est particulièrement exposé à une torsion aiguë ?", "choix": ["Fibrome sous-séreux pédiculé", "Fibrome interstitiel", "Fibrome sous-muqueux sessile", "Tout fibrome cervical"], "reponse": "Fibrome sous-séreux pédiculé", "explication": "Le cours souligne le risque de torsion aiguë du fibrome sous-séreux pédiculé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quelle conséquence peut résulter de ménorragies répétées liées à un fibrome ?", "choix": ["Anémie ferriprive chronique", "Polyglobulie", "Insuffisance respiratoire aiguë", "Hypercalcémie"], "reponse": "Anémie ferriprive chronique", "explication": "Les hémorragies répétées peuvent entraîner une anémie ferriprive chronique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel type de fibrome est le plus impliqué dans l’infertilité selon le cours ?", "choix": ["Fibrome intracavitaire", "Fibrome sous-séreux pédiculé uniquement", "Fibrome cervical calcifié", "Tous les fibromes sans distinction"], "reponse": "Fibrome intracavitaire", "explication": "Le cours précise que les fibromes intracavitaires sont ceux incriminés dans les troubles de la fertilité."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen est utilisé en première intention pour explorer une suspicion de cancer de l’ovaire ?", "choix": ["Échographie abdomino-pelvienne", "Radiographie du bassin seule", "ECG", "Électromyogramme"], "reponse": "Échographie abdomino-pelvienne", "explication": "Le cours décrit l’échographie abdomino-pelvienne comme examen de première intention."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel ensemble de signes échographiques est suspect de malignité ovarienne ?", "choix": ["Taille supérieure à 6 cm, parois épaisses irrégulières, végétations", "Petit kyste homogène à paroi fine", "Absence de cloison et de végétation", "Kyste simple stable de petite taille"], "reponse": "Taille supérieure à 6 cm, parois épaisses irrégulières, végétations", "explication": "Les signes suspects comprennent notamment une taille supérieure à 6 cm, des parois irrégulières, des cloisons et des végétations."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel marqueur tumoral est fréquemment suivi dans le cancer de l’ovaire ?", "choix": ["CA 125", "Troponine", "PSA", "BNP"], "reponse": "CA 125", "explication": "Le CA 125 est cité pour la surveillance et l’évaluation pronostique, mais il ne suffit pas à établir le diagnostic."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel examen confirme le diagnostic et précise le type histologique du cancer ovarien ?", "choix": ["Examen anatomopathologique", "Échographie seule", "Dosage isolé du CA 125", "Radiographie thoracique"], "reponse": "Examen anatomopathologique", "explication": "L’histologie confirme le diagnostic et précise le type et le grade histopronostique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel type histologique est indiqué comme le plus fréquent parmi les cancers épithéliaux de l’ovaire dans le cours ?", "choix": ["Cystadénocarcinome séreux", "Lymphome de Hodgkin", "Sarcome osseux", "Carcinome hépatocellulaire"], "reponse": "Cystadénocarcinome séreux", "explication": "Le cours cite le cystadénocarcinome séreux comme le type épithélial le plus fréquent."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Dans la classification FIGO résumée dans le cours, que correspond au stade III du cancer de l’ovaire ?", "choix": ["Extension extrapelvienne", "Tumeur limitée aux ovaires", "Extension pelvienne uniquement", "Métastases à distance"], "reponse": "Extension extrapelvienne", "explication": "Le cours résume le stade III par une extension extrapelvienne."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe cutané peut être observé dans un cancer du sein ?", "choix": ["Peau d’orange", "Éruption vésiculeuse généralisée", "Cyanose des doigts uniquement", "Purpura des jambes"], "reponse": "Peau d’orange", "explication": "La peau d’orange est un signe d’alerte recherché à l’inspection du sein."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel aspect mammographique peut évoquer un cancer du sein ?", "choix": ["Opacité stellaire à contours irréguliers", "Image parfaitement ronde et toujours bénigne", "Absence systématique de toute anomalie", "Calcification osseuse du thorax"], "reponse": "Opacité stellaire à contours irréguliers", "explication": "Le cours décrit l’image stellaire dense, hétérogène et spiculée parmi les signes radiologiques."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen permet de confirmer le diagnostic histologique d’un cancer du sein ?", "choix": ["Biopsie avec analyse anatomopathologique", "Mammographie seule", "Dosage isolé du CA 15-3", "Examen clinique seul"], "reponse": "Biopsie avec analyse anatomopathologique", "explication": "La confirmation repose sur l’histologie d’un prélèvement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quelle lésion évoque une maladie de Paget du sein ?", "choix": ["Lésion eczémateuse du mamelon", "Ulcération de la jambe", "Masse rénale lombaire", "Écoulement nasal purulent"], "reponse": "Lésion eczémateuse du mamelon", "explication": "Le cours décrit la maladie de Paget comme une lésion eczémateuse du mamelon, confirmée par biopsie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel ganglion est recherché lors de l’examen des aires ganglionnaires dans le cancer du sein ?", "choix": ["Ganglion axillaire suspect", "Ganglion poplité uniquement", "Ganglion inguinal uniquement", "Ganglion médiastinal par palpation directe"], "reponse": "Ganglion axillaire suspect", "explication": "L’examen recherche notamment des ganglions axillaires petits, durs et indolores."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel est le principe d’une chirurgie conservatrice du sein ?", "choix": ["Retirer la tumeur en conservant une partie du sein", "Retirer systématiquement les deux seins", "Retirer uniquement les ganglions", "Remplacer toute analyse histologique"], "reponse": "Retirer la tumeur en conservant une partie du sein", "explication": "Les gestes conservateurs incluent notamment tumorectomie, zonectomie et quadrantectomie."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel est le symptôme d’alarme majeur du cancer du corps de l’utérus chez la femme ménopausée ?", "choix": ["Métrorragies post-ménopausiques", "Toux chronique", "Hématurie terminale", "Douleur thoracique"], "reponse": "Métrorragies post-ménopausiques", "explication": "Les métrorragies post-ménopausiques constituent le maître symptôme décrit dans le cours."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen permet de visualiser la cavité utérine et de réaliser des biopsies ciblées ?", "choix": ["Hystéroscopie", "Coloscopie", "Bronchoscopie", "Cystoscopie"], "reponse": "Hystéroscopie", "explication": "L’hystéroscopie visualise la lésion endométriale et permet des biopsies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen confirme le diagnostic de cancer de l’endomètre ?", "choix": ["Biopsie endométriale avec anatomopathologie", "Échographie seule", "Dosage de la glycémie", "Radiographie abdominale"], "reponse": "Biopsie endométriale avec anatomopathologie", "explication": "L’échographie oriente, mais l’histologie confirme le diagnostic."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel type histologique est le plus souvent cité dans le cours pour le cancer du corps utérin ?", "choix": ["Carcinome endométrioïde", "Carcinome épidermoïde bronchique", "Sarcome rénal", "Lymphome cérébral"], "reponse": "Carcinome endométrioïde", "explication": "Le cours présente le carcinome endométrioïde comme la forme habituelle."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel facteur hormonal favorise le cancer de l’endomètre selon le cours ?", "choix": ["Hyperœstrogénie non contrebalancée", "Déficit isolé en cortisol", "Excès d’insuline seul", "Hypoœstrogénie permanente"], "reponse": "Hyperœstrogénie non contrebalancée", "explication": "Le cours souligne le rôle initiateur des œstrogènes et le rôle protecteur de la progestérone."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel geste chirurgical est mentionné parmi les traitements du cancer du corps utérin ?", "choix": ["Hystérectomie totale", "Néphrectomie partielle", "Cholécystectomie", "Pneumonectomie"], "reponse": "Hystérectomie totale", "explication": "L’hystérectomie totale, parfois associée à une annexectomie, figure parmi les moyens chirurgicaux."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe fonctionnel classique peut révéler un cancer du rein ?", "choix": ["Hématurie macroscopique", "Hématémèse", "Rectorragie", "Otorrhée"], "reponse": "Hématurie macroscopique", "explication": "Le cours décrit une hématurie souvent macroscopique, totale, indolore et intermittente."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen est présenté comme l’examen de référence d’imagerie du cancer du rein ?", "choix": ["Uro-TDM", "Radiographie du thorax seule", "Échographie cardiaque", "Scintigraphie thyroïdienne"], "reponse": "Uro-TDM", "explication": "L’Uro-TDM est présentée comme l’examen de référence pour caractériser la masse et participer au bilan d’extension."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quelle manœuvre clinique est décrite pour la palpation bi-manuelle de la fosse lombaire ?", "choix": ["Manœuvre de Guyon", "Manœuvre de Heimlich", "Manœuvre de Lasègue", "Manœuvre de Tinel"], "reponse": "Manœuvre de Guyon", "explication": "Le cours décrit la manœuvre de Guyon pour rechercher une masse rénale."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel aspect biologique paranéoplasique peut accompagner un cancer du rein ?", "choix": ["Hypercalcémie", "Hypoglycémie constante", "Hypokaliémie obligatoire", "Hyperbilirubinémie conjuguée isolée dans tous les cas"], "reponse": "Hypercalcémie", "explication": "L’hypercalcémie figure parmi les manifestations paranéoplasiques citées."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel type de chirurgie peut préserver davantage le parenchyme rénal ?", "choix": ["Néphrectomie partielle", "Néphrectomie élargie systématique", "Cystectomie totale", "Prostatectomie"], "reponse": "Néphrectomie partielle", "explication": "La néphrectomie partielle retire la tumeur avec une marge de parenchyme sain."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel syndrome génétique est associé dans le cours aux tumeurs rénales bilatérales ou multifocales ?", "choix": ["Maladie de Von Hippel-Lindau", "Syndrome de Marfan", "Syndrome de Turner", "Syndrome de Guillain-Barré"], "reponse": "Maladie de Von Hippel-Lindau", "explication": "Le cours cite Von Hippel-Lindau dans les formes bilatérales ou multifocales, avec avis oncogénétique."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe fonctionnel est fréquent dans une complication hémorragique après avortement ?", "choix": ["Métrorragies abondantes avec caillots", "Hémoptysie", "Épistaxis isolée", "Hématurie microscopique"], "reponse": "Métrorragies abondantes avec caillots", "explication": "Le cours décrit des métrorragies abondantes de sang rouge avec expulsion de caillots."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel ensemble de signes évoque un choc hémorragique après avortement ?", "choix": ["Hypotension, tachycardie, oligurie et extrémités froides", "Hypertension, bradycardie et polyurie", "Fièvre isolée et toux", "Prurit et urticaire"], "reponse": "Hypotension, tachycardie, oligurie et extrémités froides", "explication": "Ces signes sont décrits dans le tableau de choc hémorragique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen biologique est demandé en urgence pour évaluer l’anémie et les pertes sanguines ?", "choix": ["NFS", "Bilan lipidique", "TSH seule", "Dosage de vitamine D"], "reponse": "NFS", "explication": "La NFS fait partie du bilan biologique d’urgence."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "À l’échographie, quel élément peut être retrouvé après un avortement compliqué ?", "choix": ["Débris ovulaires dans la cavité utérine", "Calcul dans la vésicule biliaire", "Tumeur pulmonaire", "Fracture du bassin"], "reponse": "Débris ovulaires dans la cavité utérine", "explication": "Le cours cite les débris ovulaires ou un embryon sans activité cardiaque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel prélèvement microbiologique est cité dans le bilan des complications infectieuses ?", "choix": ["Hémocultures", "Prélèvement de cheveux", "Écouvillon nasal systématique uniquement", "Liquide synovial"], "reponse": "Hémocultures", "explication": "Les hémocultures sont mentionnées dans le bilan, avec les prélèvements vaginaux et l’ECBU."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel est le risque pronostique majeur des complications hémorragiques sévères après avortement ?", "choix": ["Choc hémorragique pouvant engager le pronostic vital", "Cataracte", "Surdité définitive", "Hyperthyroïdie"], "reponse": "Choc hémorragique pouvant engager le pronostic vital", "explication": "Le cours souligne le risque vital lié au choc hémorragique et le risque fonctionnel de stérilité."},
+      // CULTURE GÉNÉRALE — nouvelles questions
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Quelle est la capitale du Ghana ?",choix:["Accra", "Lomé", "Abuja", "Cotonou"],reponse:"Accra",explication:"Accra est la capitale du Ghana."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Combien de continents distingue-t-on généralement dans le modèle à sept continents ?",choix:["Sept", "Cinq", "Six", "Huit"],reponse:"Sept",explication:"Le modèle scolaire courant distingue l'Afrique, l'Antarctique, l'Asie, l'Europe, l'Amérique du Nord, l'Amérique du Sud et l'Océanie."},
+      {categorie:"culture",niveau:"facile",theme:"Sciences",question:"Quel est le symbole chimique de l'eau ?",choix:["H₂O", "CO₂", "O₂", "NaCl"],reponse:"H₂O",explication:"Une molécule d'eau contient deux atomes d'hydrogène et un atome d'oxygène."},
+      {categorie:"culture",niveau:"facile",theme:"Culture",question:"Quel animal est le symbole souvent associé à la sagesse dans les traditions occidentales ?",choix:["La chouette", "Le dauphin", "Le cheval", "Le papillon"],reponse:"La chouette",explication:"La chouette ou le hibou est fréquemment associé à la sagesse dans l'imaginaire occidental."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Dans quel pays se trouve la ville de Marrakech ?",choix:["Maroc", "Tunisie", "Algérie", "Égypte"],reponse:"Maroc",explication:"Marrakech est une ville du Maroc."},
+      {categorie:"culture",niveau:"facile",theme:"Connaissances générales",question:"Combien de minutes y a-t-il dans une heure ?",choix:["60", "30", "90", "100"],reponse:"60",explication:"Une heure compte 60 minutes."},
+      {categorie:"culture",niveau:"facile",theme:"Sciences",question:"Quel est le satellite naturel de la Terre ?",choix:["La Lune", "Mars", "Le Soleil", "Vénus"],reponse:"La Lune",explication:"La Lune est le satellite naturel de la Terre."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Quelle langue est principalement parlée au Brésil ?",choix:["Le portugais", "L'espagnol", "Le français", "L'anglais"],reponse:"Le portugais",explication:"Le portugais est la langue officielle du Brésil."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel fleuve traverse notamment l'Égypte avant de se jeter dans la Méditerranée ?",choix:["Le Nil", "Le Niger", "Le Congo", "Le Zambèze"],reponse:"Le Nil",explication:"Le Nil traverse l'Égypte du sud vers le nord et forme un delta en Méditerranée."},
+      {categorie:"culture",niveau:"moyen",theme:"Histoire",question:"En quelle année l'Organisation des Nations unies a-t-elle été fondée ?",choix:["1945", "1919", "1955", "1960"],reponse:"1945",explication:"L'ONU a été fondée en 1945, à la fin de la Seconde Guerre mondiale."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel pays a pour capitale Addis-Abeba ?",choix:["L'Éthiopie", "Le Kenya", "L'Ouganda", "Le Rwanda"],reponse:"L'Éthiopie",explication:"Addis-Abeba est la capitale de l'Éthiopie et accueille le siège de l'Union africaine."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quel scientifique est associé à la théorie de la relativité ?",choix:["Albert Einstein", "Louis Pasteur", "Charles Darwin", "Marie Curie"],reponse:"Albert Einstein",explication:"Albert Einstein a développé les théories de la relativité restreinte et générale."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quel est le plus grand organe du corps humain ?",choix:["La peau", "Le foie", "Le cerveau", "Le poumon"],reponse:"La peau",explication:"La peau est le plus grand organe du corps humain en surface."},
+      {categorie:"culture",niveau:"moyen",theme:"Littérature",question:"Quel écrivain sénégalais a notamment écrit Une si longue lettre ?",choix:["Mariama Bâ", "Ousmane Sembène", "Léopold Sédar Senghor", "Cheikh Hamidou Kane"],reponse:"Mariama Bâ",explication:"Une si longue lettre est un roman de Mariama Bâ, publié en 1979."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel détroit sépare l'Europe de l'Afrique entre l'Espagne et le Maroc ?",choix:["Le détroit de Gibraltar", "Le Bosphore", "Le détroit de Béring", "Le canal de Suez"],reponse:"Le détroit de Gibraltar",explication:"Le détroit de Gibraltar relie l'Atlantique à la Méditerranée."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quelle est l'unité de mesure de la résistance électrique ?",choix:["L'ohm", "Le watt", "Le volt", "L'ampère"],reponse:"L'ohm",explication:"La résistance électrique se mesure en ohms, symbole Ω."},
+      {categorie:"culture",niveau:"difficile",theme:"Histoire",question:"Quel accord a créé l'Union européenne dans sa forme institutionnelle moderne en 1993 ?",choix:["Le traité de Maastricht", "Le traité de Versailles", "Le traité de Rome de 1957 seul", "Le traité de Lisbonne"],reponse:"Le traité de Maastricht",explication:"Le traité de Maastricht est entré en vigueur en 1993 et a institué l'Union européenne."},
+      {categorie:"culture",niveau:"difficile",theme:"Géographie",question:"Quel pays possède le plus grand nombre d'habitants en Afrique selon les estimations récentes ?",choix:["Le Nigeria", "L'Égypte", "L'Éthiopie", "L'Afrique du Sud"],reponse:"Le Nigeria",explication:"Le Nigeria est le pays le plus peuplé du continent africain."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel physicien a formulé le principe d'incertitude ?",choix:["Werner Heisenberg", "Niels Bohr", "Max Planck", "James Clerk Maxwell"],reponse:"Werner Heisenberg",explication:"Le principe d'incertitude est associé au physicien allemand Werner Heisenberg."},
+      {categorie:"culture",niveau:"difficile",theme:"Histoire",question:"Quel événement marque conventionnellement le début de la Révolution française ?",choix:["La prise de la Bastille en 1789", "Le sacre de Napoléon en 1804", "La bataille de Waterloo en 1815", "La Commune de Paris en 1871"],reponse:"La prise de la Bastille en 1789",explication:"La prise de la Bastille, le 14 juillet 1789, est un événement symbolique majeur du début de la Révolution française."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel est le nom du processus par lequel une cellule se divise en deux cellules filles génétiquement proches ?",choix:["La mitose", "La méiose", "La fécondation", "La transcription"],reponse:"La mitose",explication:"La mitose produit deux cellules filles généralement génétiquement identiques à la cellule mère."},
+      {categorie:"culture",niveau:"difficile",theme:"Institutions",question:"Quelle institution africaine continentale a son siège à Addis-Abeba ?",choix:["L'Union africaine", "La CEDEAO", "La Banque africaine de développement", "L'UEMOA"],reponse:"L'Union africaine",explication:"Le siège de l'Union africaine se trouve à Addis-Abeba, en Éthiopie."},
+      {categorie:"culture",niveau:"difficile",theme:"Philosophie",question:"Quel philosophe est l'auteur de la formule « Je pense, donc je suis » ?",choix:["René Descartes", "Jean-Jacques Rousseau", "Platon", "Aristote"],reponse:"René Descartes",explication:"La formule résume le cogito de René Descartes."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel phénomène explique principalement l'alternance des saisons sur Terre ?",choix:["L'inclinaison de l'axe terrestre pendant la révolution autour du Soleil", "La variation quotidienne de la distance Terre-Lune", "La rotation de la Terre seule", "Les marées océaniques"],reponse:"L'inclinaison de l'axe terrestre pendant la révolution autour du Soleil",explication:"L'inclinaison de l'axe terrestre modifie l'angle et la durée d'ensoleillement des hémisphères au cours de l'année."},
+            // Questions supplémentaires
       {categorie:"medecine",niveau:"facile",question:"Quel os protège le cerveau ?",choix:["Le fémur","Le crâne","Le sternum","Le tibia"],reponse:"Le crâne",explication:"Le crâne enferme et protège le cerveau."},
       {categorie:"medecine",niveau:"facile",question:"Combien de dents un adulte possède-t-il normalement ?",choix:["20","28","32","36"],reponse:"32",explication:"Un adulte a normalement 32 dents, dents de sagesse comprises."},
       {categorie:"medecine",niveau:"facile",question:"Quel organe digère les aliments grâce à un liquide acide ?",choix:["L'estomac","Le cœur","Le poumon","Le cerveau"],reponse:"L'estomac",explication:"L'estomac sécrète de l'acide chlorhydrique qui participe à la digestion."},
@@ -5306,239 +5416,4 @@ function lignesDePage(items) {
       const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
       try{
         const duelId=await mqDuelRpc("mq_duel_create",{p_opponent:ami.id,p_questions:selection,p_chrono:chrono});
-        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true);
-      }catch(e){socialNotice("Impossible de créer le duel : "+e.message,true);}
-    }
-    function mqDuelAttente(id,ami,createur){
-      const zone=mqDuelEcran("⚔️ Duel en attente",id);mqDuelMode="waiting";
-      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Ton ami doit accepter l'invitation. La partie commencera automatiquement pour vous deux."));
-      const annuler=el("button","btn btn-secondary","Annuler le duel");annuler.type="button";annuler.onclick=async()=>{try{await mqDuelRpc("mq_duel_cancel",{p_duel:id});}catch(_){}mqDuelNettoyer();fermerEcranQuiz();};zone.append(annuler);
-      mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelActualiser(id)).subscribe();
-      mqDuelTimer=setInterval(()=>mqDuelActualiser(id),1200);mqDuelActualiser(id);
-    }
-    async function mqDuelAccepter(id,nom){
-      try{await mqDuelRpc("mq_duel_accept",{p_duel:id,p_accept:true});mqDuelEcran("⚔️ Duel accepté",id);mqDuelJouer(id,nom);}
-      catch(e){alert("Impossible de rejoindre le duel : "+e.message);}
-    }
-    async function mqDuelActualiser(id){
-      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
-      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});
-        if(st.status==="playing"){mqDuelJouer(id,st.opponent_name||"ton ami",true);}
-        else if(st.status==="finished"){mqDuelAfficherFin(st);}
-        else if(st.status==="declined"||st.status==="cancelled"){const z=$("mqQuizZone");if(z)z.replaceChildren(el("h3","","Duel annulé"),el("p","muted",st.status==="declined"?"Ton ami a refusé le duel.":"Ce duel a été annulé."));mqDuelNettoyer();}
-      }catch(e){console.warn("Duel sync:",e.message);}finally{mqDuelRefreshBusy=false;}
-    }
-    function mqDuelJouer(id,ami,already=false){
-      if(mqDuelActif!==id)return;
-      if(mqDuelMode!=="playing"){
-        if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}
-        mqDuelMode="playing";const zone=$("mqQuizZone");if(zone){delete zone.dataset.duelRound;zone.replaceChildren(el("h3","","⚔️ Le duel commence !"),el("p","muted",`Tu affrontes ${ami}. Les deux joueurs ont le même chronomètre.`));}
-        mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duel_answers",filter:"duel_id=eq."+id},()=>mqDuelRafraichirPartie(id)).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelRafraichirPartie(id)).subscribe();mqDuelTimer=setInterval(()=>mqDuelRafraichirPartie(id),500);
-      }
-      mqDuelRafraichirPartie(id);
-    }
-    async function mqDuelRafraichirPartie(id){
-      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
-      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});mqDuelOffsetMs=Date.parse(st.server_now)-Date.now();if(st.status==="finished"){mqDuelAfficherFin(st);return;}if(st.status!=="playing")return;
-        const zone=$("mqQuizZone");if(!zone)return;const round=Number(st.round)||1;
-        if(zone.dataset.duelRound===String(round)){
-          const timer=zone.querySelector("[data-duel-timer]");if(timer){const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";}
-          const score=zone.querySelector("[data-duel-score]");if(score)score.textContent=`Toi ${st.my_score} pts · ${st.opponent_name||"Adversaire"} ${st.opponent_score} pts`;
-          if(st.my_answered&&!zone.querySelector(".mq-duel-wait")){zone.append(el("p","notice mq-duel-wait","Réponse enregistrée. En attente de ton adversaire…"));}if(st.opponent_answered&&!zone.querySelector(".mq-duel-opponent-wait")){zone.append(el("p","muted mq-duel-opponent-wait","Ton adversaire a répondu."));}
-          return;
-        }
-        zone.dataset.duelRound=String(round);zone.replaceChildren();
-        const header=el("div","notice",`⚔️ Question ${round}/${st.total} · Toi ${st.my_score} pts — ${st.opponent_name} ${st.opponent_score} pts`);header.dataset.duelScore="1";zone.append(header);
-        const timer=el("p","chrono-text","⏱ …");timer.dataset.duelTimer="1";zone.append(timer);
-        const q=st.question;zone.append(el("h3","",q.question));let controls=[];
-        const submit=async answer=>{controls.forEach(b=>b.disabled=true);try{const result=await mqDuelRpc("mq_duel_submit",{p_duel:id,p_round:round,p_answer:String(answer)});zone.append(el("p",result.correct?"quiz-feedback":"notice",result.correct?`Bonne réponse ! +${Number(result.points)||0} points`:"Réponse enregistrée. Continue !"));zone.append(el("p","mq-duel-wait","En attente de ton adversaire…"));}catch(e){zone.append(el("p","error",e.message));}};
-        if(q.type==="ouverte"){const input=el("input","reponse-libre");input.placeholder="Ta réponse";const b=el("button","btn btn-primary","Valider");b.type="button";b.onclick=()=>{if(input.value.trim())submit(input.value.trim());};controls=[input,b];zone.append(input,b);}
-        else (q.choix||[]).forEach(choice=>{const b=el("button","quiz-answer",choice);b.type="button";b.onclick=()=>submit(choice);controls.push(b);zone.append(b);});
-        const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";
-      }catch(e){console.warn("Duel refresh:",e.message);}finally{mqDuelRefreshBusy=false;}
-    }
-    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const b=el("button","btn btn-primary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};zone.append(b);}
-    let mqInvitationsConnues=new Set(),mqInviteBusy=false;
-    async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
-
-    const socialMain = () => $("socialMain");
-    function socialNotice(txt, bad=false){const n=$("socialNotice");if(!n)return;n.textContent=txt;n.style.display="block";n.classList.toggle("error",bad);}
-    function socialBtn(label, action, cls="btn btn-secondary"){const b=el("button",cls,label);b.type="button";b.addEventListener("click",action);return b;}
-    function socialAvatar(url,pseudo){const a=el("div","social-avatar");if(url){const im=el("img");im.src=url;im.alt="Photo de "+pseudo;a.append(im)}else a.textContent=(pseudo||"?").slice(0,1).toUpperCase();return a;}
-    function socialRow(person, status="", actions=[]){const row=el("div","social-row");row.append(socialAvatar(person.avatar_url,person.pseudonyme));const info=el("div","social-person");const name=el("strong", "",person.pseudonyme||"Étudiant MedQuiz");const sub=el("small","",status);info.append(name,sub);row.append(info);if(actions.length){const wrap=el("div","social-actions");actions.forEach(x=>wrap.append(x));row.append(wrap)}return row;}
-    async function socialRpc(name,args={}){const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data||[];}
-    async function chargerSocial(tab=socialTab){socialTab=tab;const zone=socialMain();if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Connecte-toi pour utiliser MedQuiz Social"),el("p","muted","Ajoute des amis, échange des messages et lance des défis depuis ton compte."),socialBtn("Se connecter",()=>afficherPage("compte"),"btn btn-primary"));return;}
-      zone.replaceChildren(el("p","muted","Chargement…"));
-      try{await socialRpc("mq_ping_presence");}catch(_){}
-      try{
-        if(tab==="friends"){
-          zone.replaceChildren(el("h3","","Mes amis"));const data=await socialRpc("mq_list_friends");$("socialFriendTotal").textContent=data.length;
-          if(!data.length)zone.append(el("div","social-empty","👥"),el("p","social-empty","Tu n'as pas encore d'amis. Recherche des étudiants pour commencer !"),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));
-          data.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("Message",()=>{socialFriendActif=f;chargerSocial("chat")},"btn btn-secondary"),socialBtn("Défier",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")] )));
-        } else if(tab==="search"){
-          zone.replaceChildren(el("h3","","Trouver des étudiants"));const form=el("div","social-search"),input=el("input");input.placeholder="Pseudo de l'étudiant…";input.setAttribute("aria-label","Rechercher un étudiant");const go=socialBtn("Rechercher",async()=>{const q=input.value.trim();if(q.length<2){socialNotice("Saisis au moins 2 caractères.",true);return;}await socialSearch(q)},"btn btn-primary");form.append(input,go);zone.append(form,el("div","muted","Recherche par pseudonyme. Les comptes déjà amis ne sont pas proposés."));
-        } else if(tab==="requests"){
-          zone.replaceChildren(el("h3","","Invitations reçues"));const data=await socialRpc("mq_friend_requests_inbox");$("socialRequestCount").textContent=data.length?"· "+data.length:"";if(!data.length)zone.append(el("p","social-empty","Aucune nouvelle invitation pour le moment."));data.forEach(r=>zone.append(socialRow(r,"Souhaite rejoindre ta liste d'amis",[socialBtn("Accepter",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:true});socialNotice("Invitation acceptée !");chargerSocial("requests")},"btn btn-primary"),socialBtn("Refuser",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:false});chargerSocial("requests")})])));
-        } else if(tab==="chat"){
-          zone.replaceChildren(el("h3","","Messages privés"));const friends=await socialRpc("mq_list_friends");if(!socialFriendActif&&friends.length)socialFriendActif=friends[0];if(!socialFriendActif){zone.append(el("p","social-empty","Ajoute d'abord un ami pour démarrer une conversation."));return;}
-          const pick=el("select");pick.setAttribute("aria-label","Choisir un ami");friends.forEach(f=>{const o=el("option","",f.pseudonyme);o.value=f.id;pick.append(o)});pick.value=socialFriendActif.id;pick.addEventListener("change",()=>{socialFriendActif=friends.find(f=>f.id===pick.value);chargerSocial("chat")});zone.append(el("p","muted","Conversation avec"),pick);
-          const chat=el("div","social-chat"),list=el("div","social-chat-list");list.id="socialChatList";chat.append(list);const send=el("div","social-search"),input=el("input","social-chat-input");input.placeholder="Écris un message…";input.setAttribute("aria-label","Écrire un message privé");input.maxLength=2000;let sending=false;const envoyer=async()=>{const body=input.value.trim();if(!body||sending)return;sending=true;btn.disabled=true;try{await socialRpc("mq_send_message",{p_friend:socialFriendActif.id,p_body:body});input.value="";await socialLoadMessages()}catch(e){socialNotice(e.message,true)}finally{sending=false;btn.disabled=false;input.focus()}};const btn=socialBtn("Envoyer",envoyer,"btn btn-primary");input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();envoyer()}});send.append(input,btn);chat.append(send);zone.append(chat);await socialLoadMessages();
-        }
-      }catch(e){zone.replaceChildren(el("h3","","MedQuiz Social"),el("p","error","Le module social n'est pas encore configuré dans Supabase. Exécute le fichier SQL fourni avec cette version. Détail : "+(e.message||"erreur inconnue")));}
-    }
-    async function socialSearch(q){const zone=socialMain();try{const data=await socialRpc("mq_search_students",{p_term:q});const results=el("div");if(!data.length)results.append(el("p","social-empty","Aucun étudiant trouvé."));data.forEach(p=>results.append(socialRow(p,"Étudiant MedQuiz",[socialBtn(p.request_pending?"Invitation envoyée":"Ajouter",async()=>{try{await socialRpc("mq_send_friend_request",{p_receiver:p.id});socialNotice("Invitation envoyée à "+p.pseudonyme+" !");await socialSearch(q)}catch(e){socialNotice(e.message,true)}},"btn btn-primary")] )));zone.append(results);}catch(e){socialNotice(e.message,true)}}
-    async function socialLoadMessages(){const list=$("socialChatList");if(!list||!socialFriendActif)return;try{const data=await socialRpc("mq_get_messages",{p_friend:socialFriendActif.id});list.replaceChildren();if(!data.length)list.append(el("p","social-empty","Aucun message pour le moment. Envoie le premier message !"));data.forEach(m=>{const b=el("div","social-bubble"+(m.sender_id===utilisateurActuel.id?" mine":""));b.append(el("span","",m.body),el("small","",new Date(m.created_at).toLocaleString()));list.append(b)});list.scrollTop=list.scrollHeight;}catch(e){socialNotice(e.message,true)}}
-    document.querySelectorAll("[data-social-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-social-tab]").forEach(x=>x.className=x===b?"btn btn-primary":"btn btn-secondary");chargerSocial(b.dataset.socialTab)}));
-    $("socialQuickFind")?.addEventListener("click",()=>chargerSocial("search"));
-    const socialOriginalAfficherPage=afficherPage;
-    afficherPage=function(id){socialOriginalAfficherPage(id);if(id==="social")chargerSocial("friends");};
-    window.addEventListener("hashchange",()=>{if(location.hash==="#social")chargerSocial("friends")});
-    setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();mqVerifierInvitations();}},3500);
-    supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user&&location.hash==="#social")setTimeout(()=>chargerSocial(socialTab),0)});
-</script>
-<script id="medquiz-theme-controller">(()=>{const root=document.body;let saved='light';try{saved=localStorage.getItem('medquiz-theme')||'light'}catch(e){}root.dataset.theme=saved;const b=document.getElementById('themeToggle');const paint=()=>{if(b){b.textContent=root.dataset.theme==='dark'?'☀':'☾';b.setAttribute('aria-label',root.dataset.theme==='dark'?'Activer le thème clair':'Activer le thème sombre')}};paint();b?.addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('medquiz-theme',root.dataset.theme)}catch(e){}paint()})})();</script>
-<script id="medquiz-premium-theme-controller">
-(()=> {
- const root=document.body, key="medquiz-premium-skin";
- const names={royal:"Royal",cyber:"Cyber",ocean:"Ocean",emerald:"Emerald",sakura:"Sakura",sunset:"Sunset",graphite:"Graphite",arctic:"Arctic"};
- const choices=[...document.querySelectorAll("[data-skin-choice]")], status=document.getElementById("mqThemeStatus");
- let active=false, selected="";
- try{selected=localStorage.getItem(key)||""}catch(e){}
- const paint=()=>{
-   if(!active || !names[selected]) root.removeAttribute("data-skin");
-   else root.dataset.skin=selected;
-   choices.forEach(btn=>{
-     const on=btn.dataset.skinChoice===selected && active;
-     btn.classList.toggle("is-active",on);
-     btn.classList.toggle("is-locked",!active);
-     btn.setAttribute("aria-pressed",String(on));
-     btn.title=active?"Appliquer le thème "+names[btn.dataset.skinChoice]:"Réservé aux membres Premium";
-     const old=btn.querySelector(".mq-theme-lock"); if(old)old.remove();
-     if(!active){const lock=document.createElement("small");lock.className="mq-theme-lock";lock.textContent="🔒 Premium";btn.append(lock)}
-   });
-   if(status) status.textContent=active?(selected&&names[selected]?"Thème actif : "+names[selected]:"Choisis un thème pour personnaliser ton espace."):"Les thèmes sont réservés à Premium. Ton affichage actuel reste inchangé.";
- };
- choices.forEach(btn=>btn.addEventListener("click",()=>{
-   if(!active){if(status)status.textContent="Passe à Premium pour débloquer les 8 thèmes.";const link=document.querySelector('a[href="#premium"]');if(link)link.click();return}
-   selected=btn.dataset.skinChoice;
-   try{localStorage.setItem(key,selected)}catch(e){}
-   paint();
- }));
- window.addEventListener("medquiz:premium-status",e=>{active=!!e.detail?.active;paint()});
- active=window.medquizPremiumActive===true;
- paint();
-})();
-</script>
-<script id="medquiz-profile-avatar-controller">
-(()=> {
- const $ = id => document.getElementById(id);
- const input=$("profileAvatarInput"), avatar=$("profileAvatar"), name=$("profileAvatarName");
- if(!input||!avatar) return;
- const storageKey=()=>`medquiz-avatar:${document.getElementById("profilePseudo")?.textContent?.trim()||"guest"}`;
- const render=(data)=>{
-   avatar.replaceChildren();
-   if(data){const img=document.createElement("img");img.src=data;img.alt="Photo de profil";avatar.append(img)}
-   else avatar.textContent="👤";
- };
- const load=()=>{try{render(localStorage.getItem(storageKey()))}catch(e){render(null)}};
- const setName=()=>{const p=$("profilePseudo")?.textContent?.trim();if(p&&p!=="Chargement...")name.textContent=p};
- input.addEventListener("change",()=>{
-   const file=input.files?.[0];if(!file)return;
-   if(!/^image\/(png|jpeg|webp)$/.test(file.type)){alert("Choisis une image JPG, PNG ou WEBP.");input.value="";return}
-   if(file.size>8*1024*1024){alert("La photo doit faire moins de 8 Mo.");input.value="";return}
-   const reader=new FileReader();
-   reader.onload=()=>{
-     const img=new Image();
-     img.onload=()=>{
-       const max=480,scale=Math.min(1,max/Math.max(img.width,img.height));
-       const canvas=document.createElement("canvas");canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
-       const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,canvas.width,canvas.height);
-       const data=canvas.toDataURL("image/jpeg",.84);
-       try{localStorage.setItem(storageKey(),data);render(data);setName();window.dispatchEvent(new CustomEvent("medquiz:avatar-selected",{detail:{dataUrl:data}}));}
-       catch(e){alert("Impossible de préparer cette photo sur cet appareil. Essaie une image plus légère.");}
-     };
-     img.onerror=()=>alert("Cette image ne peut pas être ouverte.");
-     img.src=reader.result;
-   };
-   reader.readAsDataURL(file);
- });
- $("removeProfileAvatar")?.addEventListener("click",()=>{try{localStorage.removeItem(storageKey())}catch(e){}render(null);input.value="";window.dispatchEvent(new CustomEvent("medquiz:avatar-remove"));});
- window.addEventListener("medquiz:avatar-cloud",e=>{const url=e.detail?.url;render(url||null);if(url){try{localStorage.setItem(storageKey(),url)}catch(_){}}else{try{localStorage.removeItem(storageKey())}catch(_){}}});
- const observer=new MutationObserver(()=>{setName();load()});
- const pseudo=$("profilePseudo");
- if(pseudo)observer.observe(pseudo,{childList:true,characterData:true,subtree:true});
- document.querySelectorAll('a[href="#compte"],a[href="#member"]').forEach(a=>a.addEventListener("click",()=>setTimeout(()=>{setName();load()},120)));
- setName();load();
-})();
-</script>
-
-<style id="medquiz-mobile-final">
-/* Ajustements mobiles complémentaires : navigation, classement et profil */
-html,body{max-width:100%;overflow-x:hidden}
-img,svg,video,canvas{max-width:100%}
-@media(max-width:640px){
-  body{overflow-x:hidden!important}
-  .site-header.mq-sidebar{z-index:1000!important;box-shadow:0 8px 24px rgba(10,8,30,.16)!important}
-  .mq-sidebar .nav{scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-x:contain!important;white-space:nowrap!important}
-  .mq-sidebar .nav::-webkit-scrollbar{display:none!important}
-  .mq-sidebar .nav a{min-height:42px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:11px!important}
-  main{width:100%!important;min-width:0!important;box-sizing:border-box!important}
-  .page,.page.active{width:100%!important;min-width:0!important;box-sizing:border-box!important}
-  .section-heading{gap:12px!important;flex-wrap:wrap!important}
-  #classement .panel{width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:13px!important;overflow:hidden!important}
-  #classement .tabs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
-  #classement .tabs .btn{min-width:0!important;width:100%!important;white-space:normal!important;min-height:42px!important}
-  #classement .rank-item{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:12px 8px!important;min-width:0!important}
-  #classement .rank-left{gap:8px!important;flex:1 1 auto!important;min-width:0!important}
-  #classement .rank-number{width:30px!important;height:30px!important;min-width:30px!important;border-radius:10px!important;font-size:12px!important;display:grid!important;place-items:center!important}
-  #classement .rank-avatar{width:36px!important;height:36px!important;flex:0 0 36px!important}
-  #classement .rank-points{font-size:12px!important;white-space:nowrap!important;flex:0 0 auto!important}
-  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:13px!important}
-  #member .profile-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}
-  #member #profileIdentity{width:100%!important;box-sizing:border-box!important}
-  #member .profile-avatar{width:92px!important;height:92px!important}
-  button,.btn,a.btn,input,select{touch-action:manipulation}
-}
-@media(max-width:380px){
-  main{padding-left:10px!important;padding-right:10px!important}
-  .mq-sidebar .nav a{padding:0 9px!important;font-size:10px!important}
-  #classement .rank-item{padding:10px 5px!important}
-  #classement .rank-avatar{width:32px!important;height:32px!important;flex-basis:32px!important}
-  #classement .rank-points{font-size:11px!important}
-  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){font-size:12px!important}
-}
-</style>
-
-
-<div id="mqQuitDialog" role="dialog" aria-modal="true" aria-labelledby="mqQuitTitle">
-  <div class="mq-quit-box">
-    <h3 id="mqQuitTitle">Quitter cette session ?</h3>
-    <p>Ta progression en cours sera perdue.</p>
-    <div class="mq-quit-actions">
-      <button type="button" id="mqQuitContinue">Continuer le quiz</button>
-      <button type="button" id="mqQuitConfirm">Quitter</button>
-    </div>
-  </div>
-</div>
-<div id="mqQuizFocus" aria-hidden="true">
-  <div class="mq-focus-top">
-    <div class="mq-focus-brand">MED<span>QUIZ</span> <small style="opacity:.55;font-weight:600;letter-spacing:.04em">/ SESSION</small></div>
-    <button class="mq-focus-exit" id="mqQuizExit" type="button">✕ <span>Quitter</span></button>
-  </div>
-  <main class="mq-focus-main">
-    <p class="mq-focus-kicker" id="mqQuizKicker">Session en cours</p>
-    <div class="mq-focus-progress"><i id="mqQuizProgress"></i></div>
-    <div class="panel quiz-area" id="mqQuizZone" aria-live="polite"></div>
-  </main>
-</div>
-
-</body>
-</html>
-
-<style id="medquiz-shared-avatar-styles">
-#classement .rank-left{display:flex;align-items:center;gap:12px;min-width:0}
-#classement .rank-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#eee9ff,#dcd5ff);color:#7050d8;font-size:20px;border:2px solid rgba(112,80,216,.16)}
-#classement .rank-avatar img{width:100%;height:100%;object-fit:cover}
-#classement .rank-left>span:not(.rank-number):not(.rank-avatar){min-width:0}
-@media(max-width:640px){#classement .rank-avatar{width:36px;height:36px;flex-basis:36px}}
-</style>
+        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true
