@@ -5416,4 +5416,239 @@ function lignesDePage(items) {
       const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
       try{
         const duelId=await mqDuelRpc("mq_duel_create",{p_opponent:ami.id,p_questions:selection,p_chrono:chrono});
-        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true
+        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true);
+      }catch(e){socialNotice("Impossible de créer le duel : "+e.message,true);}
+    }
+    function mqDuelAttente(id,ami,createur){
+      const zone=mqDuelEcran("⚔️ Duel en attente",id);mqDuelMode="waiting";
+      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Ton ami doit accepter l'invitation. La partie commencera automatiquement pour vous deux."));
+      const annuler=el("button","btn btn-secondary","Annuler le duel");annuler.type="button";annuler.onclick=async()=>{try{await mqDuelRpc("mq_duel_cancel",{p_duel:id});}catch(_){}mqDuelNettoyer();fermerEcranQuiz();};zone.append(annuler);
+      mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelActualiser(id)).subscribe();
+      mqDuelTimer=setInterval(()=>mqDuelActualiser(id),1200);mqDuelActualiser(id);
+    }
+    async function mqDuelAccepter(id,nom){
+      try{await mqDuelRpc("mq_duel_accept",{p_duel:id,p_accept:true});mqDuelEcran("⚔️ Duel accepté",id);mqDuelJouer(id,nom);}
+      catch(e){alert("Impossible de rejoindre le duel : "+e.message);}
+    }
+    async function mqDuelActualiser(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});
+        if(st.status==="playing"){mqDuelJouer(id,st.opponent_name||"ton ami",true);}
+        else if(st.status==="finished"){mqDuelAfficherFin(st);}
+        else if(st.status==="declined"||st.status==="cancelled"){const z=$("mqQuizZone");if(z)z.replaceChildren(el("h3","","Duel annulé"),el("p","muted",st.status==="declined"?"Ton ami a refusé le duel.":"Ce duel a été annulé."));mqDuelNettoyer();}
+      }catch(e){console.warn("Duel sync:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelJouer(id,ami,already=false){
+      if(mqDuelActif!==id)return;
+      if(mqDuelMode!=="playing"){
+        if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}
+        mqDuelMode="playing";const zone=$("mqQuizZone");if(zone){delete zone.dataset.duelRound;zone.replaceChildren(el("h3","","⚔️ Le duel commence !"),el("p","muted",`Tu affrontes ${ami}. Les deux joueurs ont le même chronomètre.`));}
+        mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duel_answers",filter:"duel_id=eq."+id},()=>mqDuelRafraichirPartie(id)).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelRafraichirPartie(id)).subscribe();mqDuelTimer=setInterval(()=>mqDuelRafraichirPartie(id),500);
+      }
+      mqDuelRafraichirPartie(id);
+    }
+    async function mqDuelRafraichirPartie(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});mqDuelOffsetMs=Date.parse(st.server_now)-Date.now();if(st.status==="finished"){mqDuelAfficherFin(st);return;}if(st.status!=="playing")return;
+        const zone=$("mqQuizZone");if(!zone)return;const round=Number(st.round)||1;
+        if(zone.dataset.duelRound===String(round)){
+          const timer=zone.querySelector("[data-duel-timer]");if(timer){const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";}
+          const score=zone.querySelector("[data-duel-score]");if(score)score.textContent=`Toi ${st.my_score} pts · ${st.opponent_name||"Adversaire"} ${st.opponent_score} pts`;
+          if(st.my_answered&&!zone.querySelector(".mq-duel-wait")){zone.append(el("p","notice mq-duel-wait","Réponse enregistrée. En attente de ton adversaire…"));}if(st.opponent_answered&&!zone.querySelector(".mq-duel-opponent-wait")){zone.append(el("p","muted mq-duel-opponent-wait","Ton adversaire a répondu."));}
+          return;
+        }
+        zone.dataset.duelRound=String(round);zone.replaceChildren();
+        const header=el("div","notice",`⚔️ Question ${round}/${st.total} · Toi ${st.my_score} pts — ${st.opponent_name} ${st.opponent_score} pts`);header.dataset.duelScore="1";zone.append(header);
+        const timer=el("p","chrono-text","⏱ …");timer.dataset.duelTimer="1";zone.append(timer);
+        const q=st.question;zone.append(el("h3","",q.question));let controls=[];
+        const submit=async answer=>{controls.forEach(b=>b.disabled=true);try{const result=await mqDuelRpc("mq_duel_submit",{p_duel:id,p_round:round,p_answer:String(answer)});zone.append(el("p",result.correct?"quiz-feedback":"notice",result.correct?`Bonne réponse ! +${Number(result.points)||0} points`:"Réponse enregistrée. Continue !"));zone.append(el("p","mq-duel-wait","En attente de ton adversaire…"));}catch(e){zone.append(el("p","error",e.message));}};
+        if(q.type==="ouverte"){const input=el("input","reponse-libre");input.placeholder="Ta réponse";const b=el("button","btn btn-primary","Valider");b.type="button";b.onclick=()=>{if(input.value.trim())submit(input.value.trim());};controls=[input,b];zone.append(input,b);}
+        else (q.choix||[]).forEach(choice=>{const b=el("button","quiz-answer",choice);b.type="button";b.onclick=()=>submit(choice);controls.push(b);zone.append(b);});
+        const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";
+      }catch(e){console.warn("Duel refresh:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const b=el("button","btn btn-primary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};zone.append(b);}
+    let mqInvitationsConnues=new Set(),mqInviteBusy=false;
+    async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
+
+    const socialMain = () => $("socialMain");
+    function socialNotice(txt, bad=false){const n=$("socialNotice");if(!n)return;n.textContent=txt;n.style.display="block";n.classList.toggle("error",bad);}
+    function socialBtn(label, action, cls="btn btn-secondary"){const b=el("button",cls,label);b.type="button";b.addEventListener("click",action);return b;}
+    function socialAvatar(url,pseudo){const a=el("div","social-avatar");if(url){const im=el("img");im.src=url;im.alt="Photo de "+pseudo;a.append(im)}else a.textContent=(pseudo||"?").slice(0,1).toUpperCase();return a;}
+    function socialRow(person, status="", actions=[]){const row=el("div","social-row");row.append(socialAvatar(person.avatar_url,person.pseudonyme));const info=el("div","social-person");const name=el("strong", "",person.pseudonyme||"Étudiant MedQuiz");const sub=el("small","",status);info.append(name,sub);row.append(info);if(actions.length){const wrap=el("div","social-actions");actions.forEach(x=>wrap.append(x));row.append(wrap)}return row;}
+    async function socialRpc(name,args={}){const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data||[];}
+    async function chargerSocial(tab=socialTab){socialTab=tab;const zone=socialMain();if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Connecte-toi pour utiliser MedQuiz Social"),el("p","muted","Ajoute des amis, échange des messages et lance des défis depuis ton compte."),socialBtn("Se connecter",()=>afficherPage("compte"),"btn btn-primary"));return;}
+      zone.replaceChildren(el("p","muted","Chargement…"));
+      try{await socialRpc("mq_ping_presence");}catch(_){}
+      try{
+        if(tab==="friends"){
+          zone.replaceChildren(el("h3","","Mes amis"));const data=await socialRpc("mq_list_friends");$("socialFriendTotal").textContent=data.length;
+          if(!data.length)zone.append(el("div","social-empty","👥"),el("p","social-empty","Tu n'as pas encore d'amis. Recherche des étudiants pour commencer !"),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));
+          data.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("Message",()=>{socialFriendActif=f;chargerSocial("chat")},"btn btn-secondary"),socialBtn("Défier",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")] )));
+        } else if(tab==="search"){
+          zone.replaceChildren(el("h3","","Trouver des étudiants"));const form=el("div","social-search"),input=el("input");input.placeholder="Pseudo de l'étudiant…";input.setAttribute("aria-label","Rechercher un étudiant");const go=socialBtn("Rechercher",async()=>{const q=input.value.trim();if(q.length<2){socialNotice("Saisis au moins 2 caractères.",true);return;}await socialSearch(q)},"btn btn-primary");form.append(input,go);zone.append(form,el("div","muted","Recherche par pseudonyme. Les comptes déjà amis ne sont pas proposés."));
+        } else if(tab==="requests"){
+          zone.replaceChildren(el("h3","","Invitations reçues"));const data=await socialRpc("mq_friend_requests_inbox");$("socialRequestCount").textContent=data.length?"· "+data.length:"";if(!data.length)zone.append(el("p","social-empty","Aucune nouvelle invitation pour le moment."));data.forEach(r=>zone.append(socialRow(r,"Souhaite rejoindre ta liste d'amis",[socialBtn("Accepter",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:true});socialNotice("Invitation acceptée !");chargerSocial("requests")},"btn btn-primary"),socialBtn("Refuser",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:false});chargerSocial("requests")})])));
+        } else if(tab==="chat"){
+          zone.replaceChildren(el("h3","","Messages privés"));const friends=await socialRpc("mq_list_friends");if(!socialFriendActif&&friends.length)socialFriendActif=friends[0];if(!socialFriendActif){zone.append(el("p","social-empty","Ajoute d'abord un ami pour démarrer une conversation."));return;}
+          const pick=el("select");pick.setAttribute("aria-label","Choisir un ami");friends.forEach(f=>{const o=el("option","",f.pseudonyme);o.value=f.id;pick.append(o)});pick.value=socialFriendActif.id;pick.addEventListener("change",()=>{socialFriendActif=friends.find(f=>f.id===pick.value);chargerSocial("chat")});zone.append(el("p","muted","Conversation avec"),pick);
+          const chat=el("div","social-chat"),list=el("div","social-chat-list");list.id="socialChatList";chat.append(list);const send=el("div","social-search"),input=el("input","social-chat-input");input.placeholder="Écris un message…";input.setAttribute("aria-label","Écrire un message privé");input.maxLength=2000;let sending=false;const envoyer=async()=>{const body=input.value.trim();if(!body||sending)return;sending=true;btn.disabled=true;try{await socialRpc("mq_send_message",{p_friend:socialFriendActif.id,p_body:body});input.value="";await socialLoadMessages()}catch(e){socialNotice(e.message,true)}finally{sending=false;btn.disabled=false;input.focus()}};const btn=socialBtn("Envoyer",envoyer,"btn btn-primary");input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();envoyer()}});send.append(input,btn);chat.append(send);zone.append(chat);await socialLoadMessages();
+        }
+      }catch(e){zone.replaceChildren(el("h3","","MedQuiz Social"),el("p","error","Le module social n'est pas encore configuré dans Supabase. Exécute le fichier SQL fourni avec cette version. Détail : "+(e.message||"erreur inconnue")));}
+    }
+    async function socialSearch(q){const zone=socialMain();try{const data=await socialRpc("mq_search_students",{p_term:q});const results=el("div");if(!data.length)results.append(el("p","social-empty","Aucun étudiant trouvé."));data.forEach(p=>results.append(socialRow(p,"Étudiant MedQuiz",[socialBtn(p.request_pending?"Invitation envoyée":"Ajouter",async()=>{try{await socialRpc("mq_send_friend_request",{p_receiver:p.id});socialNotice("Invitation envoyée à "+p.pseudonyme+" !");await socialSearch(q)}catch(e){socialNotice(e.message,true)}},"btn btn-primary")] )));zone.append(results);}catch(e){socialNotice(e.message,true)}}
+    async function socialLoadMessages(){const list=$("socialChatList");if(!list||!socialFriendActif)return;try{const data=await socialRpc("mq_get_messages",{p_friend:socialFriendActif.id});list.replaceChildren();if(!data.length)list.append(el("p","social-empty","Aucun message pour le moment. Envoie le premier message !"));data.forEach(m=>{const b=el("div","social-bubble"+(m.sender_id===utilisateurActuel.id?" mine":""));b.append(el("span","",m.body),el("small","",new Date(m.created_at).toLocaleString()));list.append(b)});list.scrollTop=list.scrollHeight;}catch(e){socialNotice(e.message,true)}}
+    document.querySelectorAll("[data-social-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-social-tab]").forEach(x=>x.className=x===b?"btn btn-primary":"btn btn-secondary");chargerSocial(b.dataset.socialTab)}));
+    $("socialQuickFind")?.addEventListener("click",()=>chargerSocial("search"));
+    const socialOriginalAfficherPage=afficherPage;
+    afficherPage=function(id){socialOriginalAfficherPage(id);if(id==="social")chargerSocial("friends");};
+    window.addEventListener("hashchange",()=>{if(location.hash==="#social")chargerSocial("friends")});
+    setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();mqVerifierInvitations();}},3500);
+    supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user&&location.hash==="#social")setTimeout(()=>chargerSocial(socialTab),0)});
+</script>
+<script id="medquiz-theme-controller">(()=>{const root=document.body;let saved='light';try{saved=localStorage.getItem('medquiz-theme')||'light'}catch(e){}root.dataset.theme=saved;const b=document.getElementById('themeToggle');const paint=()=>{if(b){b.textContent=root.dataset.theme==='dark'?'☀':'☾';b.setAttribute('aria-label',root.dataset.theme==='dark'?'Activer le thème clair':'Activer le thème sombre')}};paint();b?.addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('medquiz-theme',root.dataset.theme)}catch(e){}paint()})})();</script>
+<script id="medquiz-premium-theme-controller">
+(()=> {
+ const root=document.body, key="medquiz-premium-skin";
+ const names={royal:"Royal",cyber:"Cyber",ocean:"Ocean",emerald:"Emerald",sakura:"Sakura",sunset:"Sunset",graphite:"Graphite",arctic:"Arctic"};
+ const choices=[...document.querySelectorAll("[data-skin-choice]")], status=document.getElementById("mqThemeStatus");
+ let active=false, selected="";
+ try{selected=localStorage.getItem(key)||""}catch(e){}
+ const paint=()=>{
+   if(!active || !names[selected]) root.removeAttribute("data-skin");
+   else root.dataset.skin=selected;
+   choices.forEach(btn=>{
+     const on=btn.dataset.skinChoice===selected && active;
+     btn.classList.toggle("is-active",on);
+     btn.classList.toggle("is-locked",!active);
+     btn.setAttribute("aria-pressed",String(on));
+     btn.title=active?"Appliquer le thème "+names[btn.dataset.skinChoice]:"Réservé aux membres Premium";
+     const old=btn.querySelector(".mq-theme-lock"); if(old)old.remove();
+     if(!active){const lock=document.createElement("small");lock.className="mq-theme-lock";lock.textContent="🔒 Premium";btn.append(lock)}
+   });
+   if(status) status.textContent=active?(selected&&names[selected]?"Thème actif : "+names[selected]:"Choisis un thème pour personnaliser ton espace."):"Les thèmes sont réservés à Premium. Ton affichage actuel reste inchangé.";
+ };
+ choices.forEach(btn=>btn.addEventListener("click",()=>{
+   if(!active){if(status)status.textContent="Passe à Premium pour débloquer les 8 thèmes.";const link=document.querySelector('a[href="#premium"]');if(link)link.click();return}
+   selected=btn.dataset.skinChoice;
+   try{localStorage.setItem(key,selected)}catch(e){}
+   paint();
+ }));
+ window.addEventListener("medquiz:premium-status",e=>{active=!!e.detail?.active;paint()});
+ active=window.medquizPremiumActive===true;
+ paint();
+})();
+</script>
+<script id="medquiz-profile-avatar-controller">
+(()=> {
+ const $ = id => document.getElementById(id);
+ const input=$("profileAvatarInput"), avatar=$("profileAvatar"), name=$("profileAvatarName");
+ if(!input||!avatar) return;
+ const storageKey=()=>`medquiz-avatar:${document.getElementById("profilePseudo")?.textContent?.trim()||"guest"}`;
+ const render=(data)=>{
+   avatar.replaceChildren();
+   if(data){const img=document.createElement("img");img.src=data;img.alt="Photo de profil";avatar.append(img)}
+   else avatar.textContent="👤";
+ };
+ const load=()=>{try{render(localStorage.getItem(storageKey()))}catch(e){render(null)}};
+ const setName=()=>{const p=$("profilePseudo")?.textContent?.trim();if(p&&p!=="Chargement...")name.textContent=p};
+ input.addEventListener("change",()=>{
+   const file=input.files?.[0];if(!file)return;
+   if(!/^image\/(png|jpeg|webp)$/.test(file.type)){alert("Choisis une image JPG, PNG ou WEBP.");input.value="";return}
+   if(file.size>8*1024*1024){alert("La photo doit faire moins de 8 Mo.");input.value="";return}
+   const reader=new FileReader();
+   reader.onload=()=>{
+     const img=new Image();
+     img.onload=()=>{
+       const max=480,scale=Math.min(1,max/Math.max(img.width,img.height));
+       const canvas=document.createElement("canvas");canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
+       const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,canvas.width,canvas.height);
+       const data=canvas.toDataURL("image/jpeg",.84);
+       try{localStorage.setItem(storageKey(),data);render(data);setName();window.dispatchEvent(new CustomEvent("medquiz:avatar-selected",{detail:{dataUrl:data}}));}
+       catch(e){alert("Impossible de préparer cette photo sur cet appareil. Essaie une image plus légère.");}
+     };
+     img.onerror=()=>alert("Cette image ne peut pas être ouverte.");
+     img.src=reader.result;
+   };
+   reader.readAsDataURL(file);
+ });
+ $("removeProfileAvatar")?.addEventListener("click",()=>{try{localStorage.removeItem(storageKey())}catch(e){}render(null);input.value="";window.dispatchEvent(new CustomEvent("medquiz:avatar-remove"));});
+ window.addEventListener("medquiz:avatar-cloud",e=>{const url=e.detail?.url;render(url||null);if(url){try{localStorage.setItem(storageKey(),url)}catch(_){}}else{try{localStorage.removeItem(storageKey())}catch(_){}}});
+ const observer=new MutationObserver(()=>{setName();load()});
+ const pseudo=$("profilePseudo");
+ if(pseudo)observer.observe(pseudo,{childList:true,characterData:true,subtree:true});
+ document.querySelectorAll('a[href="#compte"],a[href="#member"]').forEach(a=>a.addEventListener("click",()=>setTimeout(()=>{setName();load()},120)));
+ setName();load();
+})();
+</script>
+
+<style id="medquiz-mobile-final">
+/* Ajustements mobiles complémentaires : navigation, classement et profil */
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,video,canvas{max-width:100%}
+@media(max-width:640px){
+  body{overflow-x:hidden!important}
+  .site-header.mq-sidebar{z-index:1000!important;box-shadow:0 8px 24px rgba(10,8,30,.16)!important}
+  .mq-sidebar .nav{scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-x:contain!important;white-space:nowrap!important}
+  .mq-sidebar .nav::-webkit-scrollbar{display:none!important}
+  .mq-sidebar .nav a{min-height:42px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:11px!important}
+  main{width:100%!important;min-width:0!important;box-sizing:border-box!important}
+  .page,.page.active{width:100%!important;min-width:0!important;box-sizing:border-box!important}
+  .section-heading{gap:12px!important;flex-wrap:wrap!important}
+  #classement .panel{width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:13px!important;overflow:hidden!important}
+  #classement .tabs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+  #classement .tabs .btn{min-width:0!important;width:100%!important;white-space:normal!important;min-height:42px!important}
+  #classement .rank-item{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:12px 8px!important;min-width:0!important}
+  #classement .rank-left{gap:8px!important;flex:1 1 auto!important;min-width:0!important}
+  #classement .rank-number{width:30px!important;height:30px!important;min-width:30px!important;border-radius:10px!important;font-size:12px!important;display:grid!important;place-items:center!important}
+  #classement .rank-avatar{width:36px!important;height:36px!important;flex:0 0 36px!important}
+  #classement .rank-points{font-size:12px!important;white-space:nowrap!important;flex:0 0 auto!important}
+  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:13px!important}
+  #member .profile-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}
+  #member #profileIdentity{width:100%!important;box-sizing:border-box!important}
+  #member .profile-avatar{width:92px!important;height:92px!important}
+  button,.btn,a.btn,input,select{touch-action:manipulation}
+}
+@media(max-width:380px){
+  main{padding-left:10px!important;padding-right:10px!important}
+  .mq-sidebar .nav a{padding:0 9px!important;font-size:10px!important}
+  #classement .rank-item{padding:10px 5px!important}
+  #classement .rank-avatar{width:32px!important;height:32px!important;flex-basis:32px!important}
+  #classement .rank-points{font-size:11px!important}
+  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){font-size:12px!important}
+}
+</style>
+
+
+<div id="mqQuitDialog" role="dialog" aria-modal="true" aria-labelledby="mqQuitTitle">
+  <div class="mq-quit-box">
+    <h3 id="mqQuitTitle">Quitter cette session ?</h3>
+    <p>Ta progression en cours sera perdue.</p>
+    <div class="mq-quit-actions">
+      <button type="button" id="mqQuitContinue">Continuer le quiz</button>
+      <button type="button" id="mqQuitConfirm">Quitter</button>
+    </div>
+  </div>
+</div>
+<div id="mqQuizFocus" aria-hidden="true">
+  <div class="mq-focus-top">
+    <div class="mq-focus-brand">MED<span>QUIZ</span> <small style="opacity:.55;font-weight:600;letter-spacing:.04em">/ SESSION</small></div>
+    <button class="mq-focus-exit" id="mqQuizExit" type="button">✕ <span>Quitter</span></button>
+  </div>
+  <main class="mq-focus-main">
+    <p class="mq-focus-kicker" id="mqQuizKicker">Session en cours</p>
+    <div class="mq-focus-progress"><i id="mqQuizProgress"></i></div>
+    <div class="panel quiz-area" id="mqQuizZone" aria-live="polite"></div>
+  </main>
+</div>
+
+</body>
+</html>
+
+<style id="medquiz-shared-avatar-styles">
+#classement .rank-left{display:flex;align-items:center;gap:12px;min-width:0}
+#classement .rank-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#eee9ff,#dcd5ff);color:#7050d8;font-size:20px;border:2px solid rgba(112,80,216,.16)}
+#classement .rank-avatar img{width:100%;height:100%;object-fit:cover}
+#classement .rank-left>span:not(.rank-number):not(.rank-avatar){min-width:0}
+@media(max-width:640px){#classement .rank-avatar{width:36px;height:36px;flex-basis:36px}}
+</style>
