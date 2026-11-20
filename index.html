@@ -5506,8 +5506,8 @@ function lignesDePage(items) {
           for(const t of mine){
             const card=el("div","notice"),statusLabel={registration:"Inscriptions ouvertes",ready:"Prêt à démarrer",active:"En cours",finished:"Terminé",cancelled:"Annulé"}[t.status]||t.status;
             card.append(el("strong","", "🏆 "+t.title),el("p","muted",`${t.accepted_count} joueurs inscrits · ${statusLabel}`));
-            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{const qcmWindow=window.open("about:blank","_blank");if(!qcmWindow){socialNotice("Autorise les fenêtres pop-up pour ouvrir le QCM dans une nouvelle page.",true);return;}try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);if(pool.length<5)throw new Error("Pas assez de QCM disponibles.");const questions=[...pool].sort(()=>Math.random()-.5).slice(0,10).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});qcmWindow.location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);socialNotice("Tournoi lancé ! Le QCM s’ouvre dans une nouvelle page.");await chargerSocial("tournaments");}catch(e){qcmWindow.close();socialNotice(e.message,true);}},"btn btn-primary"));
-            if(["active","finished"].includes(t.status)){card.append(socialBtn(t.status==="finished"?"🏁 Voir le classement":"▶ Ouvrir le QCM",()=>{window.open(location.pathname+"?mq-tournoi="+encodeURIComponent(t.id),"_blank");},"btn btn-primary"));}
+            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);if(pool.length<5)throw new Error("Pas assez de QCM disponibles.");const questions=[...pool].sort(()=>Math.random()-.5).slice(0,10).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
+            if(["active","finished"].includes(t.status)){card.append(socialBtn(t.status==="finished"?"🏁 Voir le classement":"▶ Ouvrir le QCM",()=>{location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);},"btn btn-primary"));}
             if(t.creator_id===utilisateurActuel.id&&!["cancelled","finished"].includes(t.status))card.append(socialBtn("Annuler le tournoi",async()=>{if(!confirm("Annuler définitivement ce tournoi ?"))return;try{await socialRpc("mq_tournament_cancel",{p_tournament:t.id});socialNotice("Tournoi annulé.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"));
             zone.append(card);
           }
@@ -5567,8 +5567,9 @@ function lignesDePage(items) {
         const shell=el("main");shell.style.cssText="max-width:760px;margin:0 auto;";
         const title=el("h2","","🏆 MedQuiz Arena · Tournoi QCM");title.style.cssText="text-align:center;margin:12px 0 24px;font-size:1.45rem;";
         const area=el("section");area.style.cssText="background:#102944;border:1px solid rgba(188,213,232,.18);border-radius:18px;padding:clamp(18px,4vw,30px);min-height:280px;";
-        shell.append(title,area);document.body.append(shell);
-        if(!utilisateurActuel){area.append(el("p","","Connecte-toi à MedQuiz dans cette page pour participer au tournoi."));return;}
+        const back=socialBtn("← Retour à MedQuiz",()=>{location.href=location.pathname+"#social";},"btn btn-secondary");back.style.cssText="display:block;margin:0 auto 18px;";
+        shell.append(back,title,area);document.body.append(shell);
+        if(!utilisateurActuel){area.append(el("p","","Ta session MedQuiz n'est pas active. Retourne à MedQuiz, connecte-toi, puis rouvre le tournoi."));return;}
         mqTournoiAfficherPartie(area,mqTournoiPageId);
       };
       setTimeout(afficherPageTournoi,900);
