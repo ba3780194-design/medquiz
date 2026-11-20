@@ -5349,7 +5349,6 @@ function lignesDePage(items) {
       utilisateurActuel = sessionData.session.user;
       $("accountNav").textContent = "Mon profil";
     }
-    if(utilisateurActuel)setTimeout(mqVerifierInvitations,1200);
     {
       const duelOuvert = afficherDuelEntrant();
       const codeLien = new URLSearchParams(window.location.search).get("partie");
@@ -5470,6 +5469,7 @@ function lignesDePage(items) {
     function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const b=el("button","btn btn-primary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};zone.append(b);}
     let mqInvitationsConnues=new Set(),mqInviteBusy=false;
     async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
+    if(utilisateurActuel)setTimeout(mqVerifierInvitations,1200);
 
     const socialMain = () => $("socialMain");
     function socialNotice(txt, bad=false){const n=$("socialNotice");if(!n)return;n.textContent=txt;n.style.display="block";n.classList.toggle("error",bad);}
