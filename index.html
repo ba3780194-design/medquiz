@@ -1044,14 +1044,14 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <input id="geminiTitre" type="text" maxlength="60" placeholder="Titre du cours (ex. Sémiologie neurologique)">
 </div>
 <div class="field">
-<label for="geminiPdf">Ou importe directement ton cours en PDF (10 Mo maximum, 15 pages maximum)</label>
+<label for="geminiPdf">Ou importe directement ton cours en PDF (10 Mo maximum, 100 pages maximum)</label>
 <input id="geminiPdf" type="file" accept=".pdf,application/pdf" style="width:100%">
 <button class="btn btn-secondary" id="extrairePdfGemini" type="button" style="width:100%;margin-top:8px">📄 Lire le PDF et préparer le cours</button>
 <p class="muted" id="geminiPdfStatus" aria-live="polite" style="font-size:.85rem;margin:8px 0"></p>
 </div>
 <div class="field">
 <label for="geminiCours">Texte extrait du PDF (tu peux aussi le modifier ou coller ton cours) — 200 caractères minimum</label>
-<textarea id="geminiCours" rows="6" maxlength="12000" placeholder="Après lecture du PDF, le texte de ton cours apparaîtra ici. Tu peux aussi le coller directement…" style="width:100%;resize:vertical"></textarea>
+<textarea id="geminiCours" rows="6" maxlength="50000" placeholder="Après lecture du PDF, le texte de ton cours apparaîtra ici. Tu peux aussi le coller directement…" style="width:100%;resize:vertical"></textarea>
 </div>
 <div class="field">
 <label for="geminiNombre">Nombre de QCM à générer</label>
@@ -1159,7 +1159,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <p class="muted" style="font-size:.9rem">Ton document est lu <strong>sur ton appareil</strong> : il n'est envoyé nulle part. Seules les questions que tu valides sont enregistrées, et elles restent privées à ta partie.</p>
 <label class="dropzone" for="importFichier" id="importZone">
 <strong>Dépose ton document ici</strong> ou touche pour le choisir<br/>
-<span class="muted" style="font-size:.85rem">Word (.docx), PDF, photos JPG ou PNG · 10 Mo et 15 pages maximum · plusieurs photos possibles</span>
+<span class="muted" style="font-size:.85rem">Word (.docx), PDF, photos JPG ou PNG · 10 Mo et 100 pages maximum · plusieurs photos possibles</span>
 </label>
 <input accept=".docx,.pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" id="importFichier" multiple="" type="file"/>
 <div class="hidden" id="importProgres">
@@ -3437,11 +3437,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         if (propre.length < 200) {
           throw new Error("Le texte extrait est trop court. Vérifie que le PDF contient bien un cours lisible.");
         }
-        champCours.value = propre.slice(0, 12000);
+        champCours.value = propre.slice(0, 50000);
         $("geminiTitre").value = fichier.name.replace(/\.pdf$/i, "").slice(0, 60);
         statutPdf.className = "notice";
-        statutPdf.textContent = propre.length > 12000
-          ? "PDF lu. Le texte dépasse 12 000 caractères : seule la première partie sera envoyée à Gemini."
+        statutPdf.textContent = propre.length > 50000
+          ? "PDF lu. Le texte dépasse 50 000 caractères : seule la première partie sera envoyée à Gemini."
           : "PDF lu avec succès. Vérifie le texte extrait, puis clique sur « Générer avec Gemini ».";
       } catch (err) {
         statutPdf.className = "muted error";
@@ -4177,7 +4177,7 @@ function lignesDePage(items) {
 }
 
     class ErreurImport extends Error {}
-    const IMPORT_TAILLE_MAX = 10 * 1024 * 1024, IMPORT_PAGES_MAX = 15;
+    const IMPORT_TAILLE_MAX = 10 * 1024 * 1024, IMPORT_PAGES_MAX = 100;
     let importActif = false, importAnnule = false, importWorker = null;
     const BIBLIOS = {
       mammoth: { url: "https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js", pret: () => window.mammoth },
