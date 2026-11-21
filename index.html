@@ -1039,6 +1039,25 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 </div>
 <p class="muted" style="font-size:.85rem;margin-bottom:12px">Barème par bonne réponse : facile = 1 point, moyen = 5 points, difficile = 10 points.</p>
 <p class="muted" id="quotaInfo" style="font-size:.85rem;margin-bottom:12px"></p>
+<div class="field" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
+<label for="geminiTitre">Créer des QCM avec Gemini</label>
+<input id="geminiTitre" type="text" maxlength="60" placeholder="Titre du cours (ex. Sémiologie neurologique)">
+</div>
+<div class="field">
+<label for="geminiCours">Colle ton texte de cours (200 caractères minimum)</label>
+<textarea id="geminiCours" rows="6" maxlength="12000" placeholder="Colle ici ton cours. Gemini créera des QCM uniquement à partir de ce contenu…" style="width:100%;resize:vertical"></textarea>
+</div>
+<div class="field">
+<label for="geminiNombre">Nombre de QCM à générer</label>
+<select id="geminiNombre">
+<option value="3">3 QCM</option>
+<option value="5">5 QCM</option>
+<option value="10" selected>10 QCM</option>
+<option value="15">15 QCM</option>
+</select>
+</div>
+<button class="btn btn-secondary" id="genererQcmGemini" type="button" style="width:100%">✨ Générer avec Gemini</button>
+<p class="muted" id="geminiQcmStatus" aria-live="polite" style="font-size:.85rem;margin:10px 0 16px"></p>
 <button class="btn btn-primary" id="demarrerQuiz" style="width:100%">Commencer le quiz →</button>
 </div>
 <div aria-live="polite" class="panel quiz-area" id="zoneQuiz">
@@ -3371,6 +3390,95 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     $("categorieQuiz").addEventListener("change", majOptionsNombre);
     $("niveauQuiz").addEventListener("change", majOptionsNombre);
     majOptionsNombre();
+
+    // ---------- Génération de QCM avec Gemini à partir du cours de l'utilisateur ----------
+    $("genererQcmGemini").addEventListener("click", async () => {
+      const bouton = $("genererQcmGemini");
+      const statut = $("geminiQcmStatus");
+      const texte = $("geminiCours").value.trim();
+      const titre = $("geminiTitre").value.trim() || "Mon cours";
+      const niveau = $("niveauQuiz").value;
+      const count = Number($("geminiNombre").value) || 10;
+
+      if (!utilisateurActuel) {
+        statut.textContent = "Connecte-toi pour générer tes QCM.";
+        statut.className = "muted error";
+        return;
+      }
+      if (texte.length < 200) {
+        statut.textContent = "Ton cours doit contenir au moins 200 caractères.";
+        statut.className = "muted error";
+        $("geminiCours").focus();
+        return;
+      }
+
+      bouton.disabled = true;
+      bouton.textContent = "Génération en cours…";
+      statut.className = "muted";
+      statut.textContent = "Gemini analyse ton cours et prépare les QCM…";
+      try {
+        const { data, error } = await supabase.functions.invoke("generate-qcm", {
+          body: { text: texte, count, niveau, titre }
+        });
+        if (error) throw error;
+        const generees = Array.isArray(data?.questions) ? data.questions : [];
+        const valides = generees.filter(q =>
+          q && typeof q.question === "string" &&
+          Array.isArray(q.choix) && q.choix.length === 4 &&
+          typeof q.reponse === "string" && q.choix.includes(q.reponse)
+        );
+        if (!valides.length) {
+          const erreurs = {
+            quota_exceeded: "Tu as atteint ton quota de génération de QCM.",
+            text_too_short: "Le cours est trop court (200 caractères minimum).",
+            not_authenticated: "Ta session a expiré. Reconnecte-toi."
+          };
+          throw new Error(erreurs[data?.error] || data?.error || "Gemini n'a pas renvoyé de QCM valides.");
+        }
+
+        const theme = String(valides[0].theme || titre).slice(0, 60);
+        questionsMedQuiz.push(...valides.map(q => ({
+          categorie: "medecine",
+          niveau: q.niveau || niveau,
+          theme,
+          question: q.question,
+          choix: q.choix,
+          reponse: q.reponse,
+          explication: q.explication || ""
+        })));
+
+        $("categorieQuiz").value = "medecine";
+        $("niveauQuiz").value = niveau;
+        majOptionsNombre();
+        $("themeQuiz").value = theme;
+        majOptionsNombre();
+        const nombreDisponible = Math.min(valides.length, 15);
+        if ([5, 10, 15, 20, 30].includes(nombreDisponible) &&
+            [...$("nombreQuiz").options].some(o => Number(o.value) === nombreDisponible)) {
+          $("nombreQuiz").value = String(nombreDisponible);
+        } else {
+          const choixDispo = [...$("nombreQuiz").options].map(o => Number(o.value)).filter(n => n <= nombreDisponible);
+          if (choixDispo.length) $("nombreQuiz").value = String(Math.max(...choixDispo));
+        }
+        statut.className = "notice";
+        statut.textContent = `${valides.length} QCM généré(s) et ajouté(s) à ton quiz, thème « ${theme} ». Clique sur « Commencer le quiz » pour jouer.`;
+        $("zoneQuiz").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (err) {
+        console.error("Génération Gemini :", err);
+        const messageErreur = String(err?.message || "");
+        statut.className = "muted error";
+        statut.textContent = messageErreur.includes("quota_exceeded")
+          ? "Quota de génération atteint. Réessaie plus tard."
+          : messageErreur.includes("not_authenticated") || messageErreur.includes("401")
+            ? "Ta session est expirée. Reconnecte-toi puis réessaie."
+            : messageErreur.includes("text_too_short")
+              ? "Le cours doit contenir au moins 200 caractères."
+              : "Échec de génération. Vérifie ta connexion et réessaie.";
+      } finally {
+        bouton.disabled = false;
+        bouton.textContent = "✨ Générer avec Gemini";
+      }
+    });
 
     // ---------- Barème : facile = 1 point, moyen = 5 points, difficile = 10 points ----------
     const POINTS_NIVEAU = { facile: 1, moyen: 5, difficile: 10 };
