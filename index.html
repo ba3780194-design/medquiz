@@ -1044,8 +1044,14 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <input id="geminiTitre" type="text" maxlength="60" placeholder="Titre du cours (ex. Sémiologie neurologique)">
 </div>
 <div class="field">
-<label for="geminiCours">Colle ton texte de cours (200 caractères minimum)</label>
-<textarea id="geminiCours" rows="6" maxlength="12000" placeholder="Colle ici ton cours. Gemini créera des QCM uniquement à partir de ce contenu…" style="width:100%;resize:vertical"></textarea>
+<label for="geminiPdf">Ou importe directement ton cours en PDF (10 Mo maximum, 15 pages maximum)</label>
+<input id="geminiPdf" type="file" accept=".pdf,application/pdf" style="width:100%">
+<button class="btn btn-secondary" id="extrairePdfGemini" type="button" style="width:100%;margin-top:8px">📄 Lire le PDF et préparer le cours</button>
+<p class="muted" id="geminiPdfStatus" aria-live="polite" style="font-size:.85rem;margin:8px 0"></p>
+</div>
+<div class="field">
+<label for="geminiCours">Texte extrait du PDF (tu peux aussi le modifier ou coller ton cours) — 200 caractères minimum</label>
+<textarea id="geminiCours" rows="6" maxlength="12000" placeholder="Après lecture du PDF, le texte de ton cours apparaîtra ici. Tu peux aussi le coller directement…" style="width:100%;resize:vertical"></textarea>
 </div>
 <div class="field">
 <label for="geminiNombre">Nombre de QCM à générer</label>
@@ -3390,6 +3396,61 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
     $("categorieQuiz").addEventListener("change", majOptionsNombre);
     $("niveauQuiz").addEventListener("change", majOptionsNombre);
     majOptionsNombre();
+
+    // ---------- Import PDF pour la génération Gemini ----------
+    $("extrairePdfGemini").addEventListener("click", async () => {
+      const fichier = $("geminiPdf").files?.[0];
+      const bouton = $("extrairePdfGemini");
+      const statutPdf = $("geminiPdfStatus");
+      const champCours = $("geminiCours");
+      if (!fichier) {
+        statutPdf.textContent = "Choisis d'abord un fichier PDF.";
+        statutPdf.className = "muted error";
+        return;
+      }
+      if (fichier.size > 10 * 1024 * 1024) {
+        statutPdf.textContent = "Le PDF dépasse 10 Mo. Réduis sa taille puis réessaie.";
+        statutPdf.className = "muted error";
+        return;
+      }
+      const signature = [...new Uint8Array(await fichier.slice(0, 5).arrayBuffer())]
+        .map(x => x.toString(16).padStart(2, "0")).join("");
+      if (signature !== "255044462d") {
+        statutPdf.textContent = "Ce fichier n'est pas un PDF valide.";
+        statutPdf.className = "muted error";
+        return;
+      }
+      if (importActif) {
+        statutPdf.textContent = "Une autre importation est déjà en cours. Attends qu'elle se termine.";
+        statutPdf.className = "muted error";
+        return;
+      }
+
+      bouton.disabled = true;
+      bouton.textContent = "Lecture du PDF…";
+      statutPdf.className = "muted";
+      statutPdf.textContent = "Lecture du document. Les PDF scannés sont également pris en charge par reconnaissance de texte.";
+      try {
+        importAnnule = false;
+        const extrait = await lirePdf(fichier);
+        const propre = String(extrait || "").replace(/\u0000/g, "").trim();
+        if (propre.length < 200) {
+          throw new Error("Le texte extrait est trop court. Vérifie que le PDF contient bien un cours lisible.");
+        }
+        champCours.value = propre.slice(0, 12000);
+        $("geminiTitre").value = fichier.name.replace(/\.pdf$/i, "").slice(0, 60);
+        statutPdf.className = "notice";
+        statutPdf.textContent = propre.length > 12000
+          ? "PDF lu. Le texte dépasse 12 000 caractères : seule la première partie sera envoyée à Gemini."
+          : "PDF lu avec succès. Vérifie le texte extrait, puis clique sur « Générer avec Gemini ».";
+      } catch (err) {
+        statutPdf.className = "muted error";
+        statutPdf.textContent = err?.message === "__annule__" ? "Lecture annulée." : (err?.message || "Impossible de lire ce PDF.");
+      } finally {
+        bouton.disabled = false;
+        bouton.textContent = "📄 Lire le PDF et préparer le cours";
+      }
+    });
 
     // ---------- Génération de QCM avec Gemini à partir du cours de l'utilisateur ----------
     $("genererQcmGemini").addEventListener("click", async () => {
