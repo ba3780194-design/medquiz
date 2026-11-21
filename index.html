@@ -1339,6 +1339,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 </section>
 </main>
 <footer>© 2026 MedQuiz — Apprendre chaque jour.</footer>
+<script type="module" src="medquiz-extras.js"></script>
 <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
@@ -3690,9 +3691,16 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           return;
         }
         info.textContent = "Enregistrement de ton score...";
-        let { error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length, bonnes_reponses: bonnes, score_max: max, niveau: cfg.niveau || (cfg.mode === "defi" ? "mixte" : null) });
+        const ligneHisto = { user_id: utilisateurActuel.id, score, nombre_questions: selection.length, bonnes_reponses: bonnes, score_max: max, niveau: cfg.niveau || (cfg.mode === "defi" ? "mixte" : null) };
+        let { error } = navigator.onLine ? await supabase.from("quiz_history").insert(ligneHisto) : { error: { message: "offline" } };
         // Si le script points.sql n'a pas encore été exécuté, on enregistre au format simple
-        if (error) ({ error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length }));
+        if (error && navigator.onLine) ({ error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length }));
+        if (error && (!navigator.onLine || /fetch|network|offline/i.test(error.message)) && window.MQ?.queueHistory) {
+          window.MQ.queueHistory(ligneHisto);
+          info.className = "notice";
+          info.textContent = "Hors ligne : ton score sera enregistré automatiquement dès que tu seras reconnecté.";
+          return;
+        }
         if (error) {
           console.error("Erreur d'enregistrement :", error.message);
           info.textContent = "Ton résultat est affiché, mais son enregistrement a échoué.";
@@ -5232,6 +5240,7 @@ function lignesDePage(items) {
         const r = Array.isArray(data) ? data[0] : data;
         if (error) console.warn("Abonnement indisponible :", error.message);
         else if (r?.active) premium = { actif: true, plan: r.plan_code, fin: r.ends_at };
+        if (!premium.actif && window.MQ_bonusFin && new Date(window.MQ_bonusFin) > new Date()) premium = { actif: true, plan: "parrainage", fin: window.MQ_bonusFin };
       }
       await actualiserQuota();
       majUIPremium();
@@ -5343,6 +5352,11 @@ function lignesDePage(items) {
       majPageParties();
       chargerAbonnement();
     });
+
+    window.MQ = { supabase, el, $, afficherPage, lancerQuiz, melangerChoix,
+      getUser: () => utilisateurActuel, getPremium: () => premium, getQuestions: () => questionsMedQuiz,
+      refreshPremium: () => chargerAbonnement() };
+    window.dispatchEvent(new Event("medquiz:ready"));
 
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session?.user) {
