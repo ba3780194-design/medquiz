@@ -3526,15 +3526,31 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         $("zoneQuiz").scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (err) {
         console.error("Génération Gemini :", err);
-        const messageErreur = String(err?.message || "");
+        let codeErreur = String(err?.message || "Erreur inconnue");
+        let detailErreur = "";
+        // Supabase masque parfois le détail HTTP dans err.context : on le récupère pour afficher la vraie cause.
+        try {
+          if (err?.context && typeof err.context.json === "function") {
+            const detail = await err.context.clone().json();
+            codeErreur = String(detail?.error || detail?.message || codeErreur);
+            detailErreur = String(detail?.detail || "");
+          }
+        } catch (_) {}
         statut.className = "muted error";
-        statut.textContent = messageErreur.includes("quota_exceeded")
-          ? "Quota de génération atteint. Réessaie plus tard."
-          : messageErreur.includes("not_authenticated") || messageErreur.includes("401")
-            ? "Ta session est expirée. Reconnecte-toi puis réessaie."
-            : messageErreur.includes("text_too_short")
-              ? "Le cours doit contenir au moins 200 caractères."
-              : "Échec de génération. Vérifie ta connexion et réessaie.";
+        const messages = {
+          quota_exceeded: "Quota de génération atteint. Réessaie plus tard.",
+          quota_check_failed: "Impossible de vérifier ton quota. Vérifie la fonction SQL consume_qcm_generation dans Supabase.",
+          not_authenticated: "Ta session a expiré. Reconnecte-toi puis réessaie.",
+          text_too_short: "Le cours doit contenir au moins 200 caractères.",
+          ai_key_missing: "La clé GEMINI_API_KEY est absente des secrets Supabase.",
+          ai_failed: "Gemini a refusé la demande. Vérifie la clé API, le modèle et les limites de l'API.",
+          ai_bad_output: "Gemini a répondu dans un format illisible. Réessaie avec moins de texte ou moins de QCM.",
+          no_valid_question: "Gemini n'a pas produit de QCM au format attendu. Réessaie avec un cours plus clair.",
+          FunctionsFetchError: "Impossible de joindre Supabase. Vérifie ta connexion et le déploiement de generate-qcm.",
+          FunctionsRelayError: "Supabase n'a pas pu transmettre la demande. Vérifie le déploiement de generate-qcm.",
+          FunctionsHttpError: "La fonction Supabase a renvoyé une erreur : " + codeErreur
+        };
+        statut.textContent = (messages[codeErreur] || ("Erreur de génération : " + codeErreur.slice(0, 220))) + (detailErreur ? " Détail : " + detailErreur.slice(0, 220) : "");
       } finally {
         bouton.disabled = false;
         bouton.textContent = "✨ Générer avec Gemini";
