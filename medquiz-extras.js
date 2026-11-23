@@ -52,8 +52,14 @@ const addPage = (id, eyebrow, titre, sous) => {
 };
 const exBody = addPage("examen", "✦ MODE EXAMEN", "Examen blanc", "Conditions réelles : chronomètre global, correction à la fin, aucune aide pendant l'épreuve.");
 // L'Examen blanc est accessible uniquement depuis la rubrique Quiz.
-const ouvrirExamen = () => { MQ.afficherPage("examen"); renderExamConfig(); };
-document.getElementById("ouvrirExamenBlanc")?.addEventListener("click", ouvrirExamen);
+// Délégation d'événement : le clic reste fonctionnel même si le bouton est recréé.
+document.addEventListener("click", (event) => {
+  const bouton = event.target.closest("#ouvrirExamenBlanc");
+  if (!bouton) return;
+  event.preventDefault();
+  MQ.afficherPage("examen");
+  renderExamConfig();
+});
 
 // ====================== HORS LIGNE ======================
 const bar = el("div"); bar.id = "mqxBar"; bar.setAttribute("role", "status"); document.body.prepend(bar);
