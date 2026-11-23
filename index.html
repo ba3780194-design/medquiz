@@ -3909,7 +3909,8 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
         const correct = choix !== null && (q.type === "ouverte" ? reponseOuverteCorrecte(choix, q.reponses) : choix === q.reponse);
         son(correct ? "bon" : "mauvais");
         const rapide = cfg.mode === "partie" && cfg.chrono > 0;
-        const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : pointsQuestion(q);
+        // Mode Survie : la valeur augmente de 1 point tous les 5 paliers.
+        const gain = !correct ? 0 : cfg.mode === "survie" ? Math.ceil((index + 1) / 5) : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : pointsQuestion(q);
         score += gain;
         if (correct) bonnes++;
         zone.querySelectorAll(".quiz-answer, .reponse-libre, .valider").forEach(b => { b.disabled = true; });
@@ -3930,7 +3931,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
 
       async function afficherFin() {
         arreter();
-        const max = totalPoints(selection);
+        const max = cfg.mode === "survie" ? selection.reduce((total, _, i) => total + Math.ceil((i + 1) / 5), 0) : totalPoints(selection);
         const progress = $("mqQuizProgress"); if (progress) progress.style.width = "100%";
         const kicker = $("mqQuizKicker"); if (kicker) kicker.textContent = "SESSION TERMINÉE";
         son(score >= max / 2 ? "victoire" : "fin");
@@ -3946,6 +3947,13 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           afficherPage("accueil");
         });
         zone.append(retour);
+        if (cfg.mode === "survie" && bonnes < selection.length) {
+          const rejouer = el("button", "btn btn-primary", "↻ Rejouer");
+          rejouer.type = "button";
+          rejouer.style.margin = "8px 8px 0 0";
+          rejouer.addEventListener("click", () => lancerSurvie());
+          zone.insertBefore(rejouer, retour);
+        }
         if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
         if (cfg.mode === "duel") {
           const d = cfg.duel;
