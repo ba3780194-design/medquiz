@@ -5,7 +5,7 @@ const MQ = await ready();
 const { supabase, el } = MQ;
 
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* stockage indisponible */ } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 const fullExplanation = (q) => MQ.getPremium().actif ? q.explication : String(q.explication || "").split(/(?<=[.!?])\s/)[0] + " 🔒 Explication complète avec Premium.";
@@ -72,7 +72,15 @@ const go = (id) => { MQ.afficherPage(id); ({ examen: renderExamConfig, generateu
 // ====================== HORS LIGNE ======================
 const bar = el("div"); bar.id = "mqxBar"; bar.setAttribute("role", "status"); document.body.prepend(bar);
 const OUTBOX = "mqx_outbox_v1";
-MQ.queueHistory = (row) => { const q = lsGet(OUTBOX, []); q.push({ ...row, _t: Date.now() }); lsSet(OUTBOX, q); majBar(); };
+MQ.queueHistory = (row) => {
+  // Conserve le résultat localement avant toute tentative réseau.
+  const q = lsGet(OUTBOX, []);
+  q.push({ ...row, _t: Date.now(), _local_id: `${Date.now()}-${Math.random().toString(36).slice(2)}` });
+  const saved = lsSet(OUTBOX, q);
+  majBar();
+  if (saved && navigator.onLine) flushOutbox();
+  return saved;
+};
 function majBar() {
   const n = lsGet(OUTBOX, []).length;
   const off = !navigator.onLine;
@@ -83,20 +91,41 @@ function majBar() {
 }
 let flushing = false;
 async function flushOutbox() {
-  if (flushing || !navigator.onLine || !MQ.getUser()) return;
+  const user = MQ.getUser();
+  if (flushing || !navigator.onLine || !user) return;
   flushing = true;
   try {
-    let q = lsGet(OUTBOX, []);
+    const q = lsGet(OUTBOX, []);
     const restants = [];
     for (const item of q) {
-      if (item.user_id !== MQ.getUser().id) { restants.push(item); continue; }
-      const { _t, ...row } = item;
-      let { error } = await supabase.from("quiz_history").insert(row);
-      if (error) ({ error } = await supabase.from("quiz_history").insert({ user_id: row.user_id, score: row.score, nombre_questions: row.nombre_questions }));
-      if (error) restants.push(item);
+      // Ne jamais envoyer l'historique d'un autre compte.
+      if (item.user_id !== user.id) { restants.push(item); continue; }
+      const { _t, _local_id, ...row } = item;
+      try {
+        let { error } = await supabase.from("quiz_history").insert(row);
+        if (error) {
+          ({ error } = await supabase.from("quiz_history").insert({
+            user_id: row.user_id,
+            score: row.score,
+            nombre_questions: row.nombre_questions
+          }));
+        }
+        if (error) restants.push(item);
+      } catch {
+        // Une coupure réseau ou une erreur temporaire garde le résultat en attente.
+        restants.push(item);
+      }
+      if (!navigator.onLine) {
+        const index = q.indexOf(item);
+        restants.push(...q.slice(index + 1).filter((x) => !restants.includes(x)));
+        break;
+      }
     }
     lsSet(OUTBOX, restants);
-  } finally { flushing = false; majBar(); }
+  } finally {
+    flushing = false;
+    majBar();
+  }
 }
 window.addEventListener("online", () => { majBar(); flushOutbox(); });
 window.addEventListener("offline", majBar);
@@ -205,6 +234,9 @@ const MAX_FILE = 5 * 1024 * 1024;
 async function lireFichier(f) {
   if (f.size > MAX_FILE) throw new Error("Fichier trop volumineux (5 Mo max).");
   if (/\.pdf$/i.test(f.name)) {
+    if (!navigator.onLine) {
+      throw new Error("La lecture des PDF nécessite actuellement Internet. Pour travailler hors ligne, utilise un fichier TXT ou MD, ou colle directement ton cours.");
+    }
     const pdfjs = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
     pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
     const pdf = await pdfjs.getDocument({ data: await f.arrayBuffer() }).promise;
@@ -242,8 +274,16 @@ function renderGenerator() {
       if (!navigator.onLine) { info.textContent = "Tu es hors ligne : la génération nécessite une connexion."; return; }
       if (txt.value.trim().length < 200) { info.textContent = "Ajoute au moins 200 caractères de cours."; return; }
       gen.disabled = true; info.textContent = "Génération en cours (10 à 30 s)…";
-      const { data, error } = await supabase.functions.invoke("generate-qcm", { body: { text: txt.value, count: +nb.value, niveau: niv.value, titre: titre.value || "Mon cours" } });
-      gen.disabled = false;
+      let data = null, error = null;
+      try {
+        ({ data, error } = await supabase.functions.invoke("generate-qcm", {
+          body: { text: txt.value, count: +nb.value, niveau: niv.value, titre: titre.value || "Mon cours" }
+        }));
+      } catch (e) {
+        error = e;
+      } finally {
+        gen.disabled = false;
+      }
       let code = data?.error;
       if (error && !code) { try { code = (await error.context?.json?.())?.error; } catch { /* ignore */ } }
       if (code === "quota_exceeded") { info.textContent = "Limite quotidienne atteinte. Reviens demain, ou passe Premium pour plus de générations."; return; }
@@ -279,7 +319,7 @@ function renderGenerator() {
 const REF_KEY = "mqx_ref_pending";
 try { const r = new URLSearchParams(location.search).get("ref"); if (r && /^[A-Za-z0-9]{4,16}$/.test(r)) localStorage.setItem(REF_KEY, r.toUpperCase()); } catch { /* ignore */ }
 async function claimPending() {
-  if (!MQ.getUser()) return;
+  if (!navigator.onLine || !MQ.getUser()) return;
   let code; try { code = localStorage.getItem(REF_KEY); } catch { return; }
   if (!code) return;
   const { data, error } = await supabase.rpc("claim_referral", { p_code: code });
@@ -287,7 +327,7 @@ async function claimPending() {
   return data;
 }
 async function chargerBonus() {
-  if (!MQ.getUser()) { window.MQ_bonusFin = null; return null; }
+  if (!navigator.onLine || !MQ.getUser()) { if (!MQ.getUser()) window.MQ_bonusFin = null; return null; }
   const { data, error } = await supabase.rpc("my_referral");
   if (error) return null;
   const r = Array.isArray(data) ? data[0] : data;
@@ -300,6 +340,10 @@ async function renderReferral() {
   prBody.replaceChildren();
   if (!MQ.getUser()) { prBody.append(el("p", "notice", "Connecte-toi pour obtenir ton lien de parrainage.")); const b = el("button", "btn btn-primary", "Me connecter"); b.type = "button"; b.addEventListener("click", () => MQ.afficherPage("compte")); prBody.append(b); return; }
   prBody.append(el("p", "muted", "Chargement…"));
+  if (!navigator.onLine) {
+    prBody.replaceChildren(el("p", "notice", "Le parrainage nécessite une connexion Internet. Tes autres fonctions hors ligne restent disponibles."));
+    return;
+  }
   await claimPending();
   const r = await chargerBonus();
   prBody.replaceChildren();
