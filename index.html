@@ -1050,6 +1050,58 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 }
 @media (prefers-reduced-motion:reduce){#mqSkinFx,.mq-skin-wipe{display:none!important}}
 </style>
+<style id="medquiz-exam-rewards">
+/* 🏅 Récompenses Examen blanc */
+.mq-exam-rewards{margin-top:16px;padding-top:14px;border-top:1px dashed var(--mq-line,#e3e0f2)}
+.mq-exam-rewards h4{margin:0 0 4px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mq-muted,#77718f)}
+.mq-exam-rewards .mq-er-stats{font-size:12px;color:var(--mq-muted,#77718f);margin-bottom:10px}
+.mq-er-badges{display:flex;flex-wrap:wrap;gap:8px}
+.mq-er-badge{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:19px;background:linear-gradient(145deg,#ffe9a8,#e6b84f);box-shadow:0 4px 10px rgba(230,184,79,.35);cursor:help;transition:transform .2s}
+.mq-er-badge:hover{transform:translateY(-3px) scale(1.12) rotate(-6deg)}
+.mq-er-badge.locked{filter:grayscale(1);opacity:.35;box-shadow:none;background:#cfcfda}
+#mqExamReward{position:fixed;inset:0;z-index:100002;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(12,10,32,.72);backdrop-filter:blur(6px);overflow:auto}
+#mqExamReward.is-open{display:flex}
+.mq-er-card{position:relative;width:min(440px,100%);padding:30px 24px 24px;border-radius:26px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 0%,var(--er-glow,rgba(242,198,109,.35)),transparent 60%),linear-gradient(160deg,#241d52,#17152c);border:1px solid rgba(255,255,255,.16);box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden}
+.mq-er-card h2{margin:14px 0 4px;font-size:26px;letter-spacing:-.5px;color:#fff}
+.mq-er-card p{margin:0;color:#cfcbe8;font-size:14px;line-height:1.6}
+.mq-er-ring{position:relative;width:150px;height:150px;margin:0 auto}
+.mq-er-ring svg{overflow:visible;position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.mq-er-ring circle{fill:none;stroke-width:9;stroke-linecap:round}
+.mq-er-ring .bg{stroke:rgba(255,255,255,.12)}
+.mq-er-ring .fg{stroke:var(--er-c,#e6b84f);stroke-dasharray:408;stroke-dashoffset:408;filter:drop-shadow(0 0 8px var(--er-c,#e6b84f))}
+.mq-er-medal{position:absolute;inset:22px;border-radius:50%;display:grid;place-items:center;font-size:52px;background:radial-gradient(circle at 30% 25%,#fff8,transparent 40%),linear-gradient(145deg,var(--er-c1,#ffe9a8),var(--er-c,#e6b84f));box-shadow:0 8px 24px rgba(0,0,0,.35),inset 0 -6px 12px rgba(0,0,0,.18);overflow:hidden}
+.mq-er-medal:after{content:"";position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.7),transparent);transform:translateX(-150%) skewX(-20deg)}
+.mq-er-score{margin-top:14px;font-size:34px;font-weight:950;color:#fff}
+.mq-er-score small{font-size:15px;font-weight:700;color:#cfcbe8}
+.mq-er-new{margin-top:18px;text-align:left}
+.mq-er-new h5{margin:0 0 8px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--er-c,#e6b84f)}
+.mq-er-item{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:7px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)}
+.mq-er-item .ic{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:19px;background:linear-gradient(145deg,#ffe9a8,#e6b84f)}
+.mq-er-item b{display:block;font-size:13px;color:#fff}.mq-er-item span{font-size:12px;color:#bdb8dd}
+.mq-er-btn{margin-top:16px;width:100%;padding:14px;border:0;border-radius:14px;font-weight:900;font-size:14px;cursor:pointer;color:#2c210b;background:linear-gradient(110deg,#ffe9a8,#e6b84f)}
+.mq-er-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.mq-er-confetti i{position:absolute;top:-14px;width:8px;height:14px;border-radius:2px;opacity:0}
+@media (prefers-reduced-motion:no-preference){
+@keyframes mqErCard{0%{opacity:0;transform:translateY(40px) scale(.85)}60%{transform:translateY(-6px) scale(1.02)}100%{opacity:1;transform:none}}
+@keyframes mqErMedal{0%{opacity:0;transform:scale(0) rotate(-200deg)}65%{transform:scale(1.18) rotate(12deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes mqErRing{to{stroke-dashoffset:var(--er-off,408)}}
+@keyframes mqErShine{0%,55%{transform:translateX(-150%) skewX(-20deg)}100%{transform:translateX(380%) skewX(-20deg)}}
+@keyframes mqErConf{0%{transform:translate3d(0,0,0) rotate(0);opacity:1}100%{transform:translate3d(var(--dx,0),520px,0) rotate(var(--r,720deg));opacity:.9}}
+@keyframes mqErItem{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+@keyframes mqErPulse{0%,100%{box-shadow:0 0 0 0 rgba(230,184,79,.6)}70%{box-shadow:0 0 0 12px rgba(230,184,79,0)}}
+@keyframes mqErFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#mqExamReward.is-open .mq-er-card{animation:mqErCard .65s cubic-bezier(.2,.8,.25,1) both}
+#mqExamReward.is-open .mq-er-medal{animation:mqErMedal .8s cubic-bezier(.2,.8,.25,1) .5s both}
+#mqExamReward.is-open .mq-er-medal:after{animation:mqErShine 3s ease-in-out 1.4s infinite}
+#mqExamReward.is-open .mq-er-ring{animation:mqErFloat 3.4s ease-in-out 1.4s infinite}
+#mqExamReward.is-open .mq-er-ring .fg{animation:mqErRing 1.5s cubic-bezier(.3,.7,.2,1) .35s forwards}
+#mqExamReward.is-open .mq-er-item{animation:mqErItem .5s cubic-bezier(.2,.8,.25,1) both}
+#mqExamReward.is-open .mq-er-btn{animation:mqErPulse 2.2s ease-out 1.6s infinite}
+.mq-er-confetti i{animation:mqErConf var(--d,3s) cubic-bezier(.3,.5,.5,1) var(--t,0s) both}
+.mq-er-badge.fresh{animation:mqErPulse 1.6s ease-out 3}
+}
+@media (prefers-reduced-motion:reduce){#mqExamReward .mq-er-ring .fg{stroke-dashoffset:var(--er-off,408)}.mq-er-confetti{display:none}}
+</style>
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -6155,6 +6207,134 @@ img,svg,video,canvas{max-width:100%}
   }
   new MutationObserver(sync).observe(body,{attributes:true,attributeFilter:['data-skin']});
   sync();first=false;
+})();
+</script>
+<script id="medquiz-exam-rewards-js">
+(function(){
+  var KEY='medquiz-exam-rewards-v1';
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var BADGES=[
+    {id:'first',ic:'🎓',n:'Premier examen',d:'Terminer ton premier examen blanc'},
+    {id:'admis',ic:'🥉',n:'Admis',d:'Obtenir au moins 50 %'},
+    {id:'bien',ic:'🥈',n:'Mention Bien',d:'Obtenir au moins 70 %'},
+    {id:'tresbien',ic:'🥇',n:'Mention Très Bien',d:'Obtenir au moins 85 %'},
+    {id:'parfait',ic:'💎',n:'Sans faute',d:'Obtenir 100 %'},
+    {id:'five',ic:'📚',n:'Assidu',d:'Terminer 5 examens blancs'},
+    {id:'streak3',ic:'🔥',n:'Série de 3',d:'Être admis 3 fois de suite'},
+    {id:'progres',ic:'📈',n:'En progrès',d:'Battre ton meilleur score'}
+  ];
+  var TIERS=[
+    {min:100,ic:'💎',t:'Sans faute !',m:'Un parcours parfait. Tu es prêt(e) pour le jour J.',c:'#6fe7ff',c1:'#e6fbff',glow:'rgba(111,231,255,.4)'},
+    {min:85,ic:'🥇',t:'Mention Très Bien',m:'Excellent travail, ta préparation paie.',c:'#e6b84f',c1:'#ffe9a8',glow:'rgba(242,198,109,.4)'},
+    {min:70,ic:'🥈',t:'Mention Bien',m:'Très bon score, continue sur cette lancée.',c:'#aeb7c6',c1:'#f1f4f9',glow:'rgba(190,200,220,.35)'},
+    {min:50,ic:'🥉',t:'Admis !',m:'Tu as validé l’examen. Vise la mention la prochaine fois.',c:'#cd8b4f',c1:'#f6d2ae',glow:'rgba(205,139,79,.35)'},
+    {min:0,ic:'🌱',t:'Continue !',m:'Pas encore admis, mais chaque examen te rapproche du but. Reprends tes erreurs et réessaie.',c:'#7bd88f',c1:'#d6f7dd',glow:'rgba(123,216,143,.3)'}
+  ];
+  function load(){try{var d=JSON.parse(localStorage.getItem(KEY)||'null');if(d&&d.badges)return d}catch(e){}return{exams:0,best:0,streak:0,badges:{},history:[]}}
+  function save(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch(e){}}
+  function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+
+  /* --- Bandeau de récompenses dans la carte Examen blanc --- */
+  function renderStrip(fresh){
+    var card=document.getElementById('examenBlancCard');if(!card)return;
+    var box=card.querySelector('.mq-exam-rewards');
+    if(!box){box=el('div','mq-exam-rewards');card.appendChild(box)}
+    var d=load();box.innerHTML='';
+    box.appendChild(el('h4','','🏅 Mes récompenses'));
+    box.appendChild(el('div','mq-er-stats',d.exams?('Examens : '+d.exams+' · Meilleur score : '+d.best+' %'):'Termine un examen blanc pour débloquer tes médailles.'));
+    var row=el('div','mq-er-badges');
+    BADGES.forEach(function(b){
+      var on=!!d.badges[b.id];var x=el('span','mq-er-badge'+(on?'':' locked')+(fresh&&fresh.indexOf(b.id)>-1?' fresh':''),b.ic);
+      x.title=b.n+' — '+b.d;row.appendChild(x);
+    });
+    box.appendChild(row);
+  }
+
+  /* --- Fenêtre de récompense --- */
+  function confetti(host,colors){
+    if(reduce)return;var w=el('div','mq-er-confetti');
+    for(var i=0;i<46;i++){var p=el('i');p.style.left=(Math.random()*100)+'%';p.style.background=colors[i%colors.length];
+      p.style.setProperty('--dx',((Math.random()-.5)*160)+'px');p.style.setProperty('--r',(300+Math.random()*700)+'deg');
+      p.style.setProperty('--d',(2.4+Math.random()*1.8).toFixed(2)+'s');p.style.setProperty('--t',(.5+Math.random()*1.1).toFixed(2)+'s');w.appendChild(p)}
+    host.appendChild(w);
+  }
+  function show(pct,bonnes,total,newOnes,tier){
+    var old=document.getElementById('mqExamReward');if(old)old.remove();
+    var ov=el('div');ov.id='mqExamReward';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');
+    var card=el('div','mq-er-card');
+    card.style.setProperty('--er-c',tier.c);card.style.setProperty('--er-c1',tier.c1);card.style.setProperty('--er-glow',tier.glow);
+    var ring=el('div','mq-er-ring');
+    ring.innerHTML='<svg viewBox="0 0 140 140"><circle class="bg" cx="70" cy="70" r="65"/><circle class="fg" cx="70" cy="70" r="65"/></svg>';
+    ring.style.setProperty('--er-off',(408*(1-pct/100)).toFixed(1));
+    ring.appendChild(el('div','mq-er-medal',tier.ic));card.appendChild(ring);
+    card.appendChild(el('h2','',tier.t));
+    var sc=el('div','mq-er-score');sc.innerHTML='<span id="mqErNum">0</span> %<br><small>'+bonnes+' / '+total+' bonnes réponses</small>';card.appendChild(sc);
+    card.appendChild(el('p','',tier.m));card.lastChild.style.marginTop='10px';
+    if(newOnes.length){
+      var nw=el('div','mq-er-new');nw.appendChild(el('h5','','✦ Récompenses débloquées'));
+      newOnes.forEach(function(b,i){var it=el('div','mq-er-item');it.style.animationDelay=(1.1+i*.18)+'s';
+        it.appendChild(el('div','ic',b.ic));var t=el('div');t.appendChild(el('b','',b.n));t.appendChild(el('span','',b.d));it.appendChild(t);nw.appendChild(it)});
+      card.appendChild(nw);
+    }
+    var btn=el('button','mq-er-btn','Continuer');btn.type='button';card.appendChild(btn);
+    ov.appendChild(card);document.body.appendChild(ov);
+    confetti(card,[tier.c,tier.c1,'#fff','#8b75ff','#31d6c2']);
+    requestAnimationFrame(function(){ov.classList.add('is-open')});
+    // compteur
+    var num=ov.querySelector('#mqErNum');
+    if(reduce){num.textContent=pct}else{var t0=null;(function step(ts){if(!t0)t0=ts;var k=Math.min(1,(ts-t0)/1500);num.textContent=Math.round(pct*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step)})(performance.now?performance.now():0)}
+    function close(){ov.remove()}
+    btn.addEventListener('click',close);
+    ov.addEventListener('click',function(e){if(e.target===ov)close()});
+    document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',esc)}});
+  }
+
+  function award(bonnes,total){
+    if(!total)return;
+    var pct=Math.round(bonnes/total*100),d=load(),before=Object.keys(d.badges);
+    var prevBest=d.best;
+    d.exams++;d.best=Math.max(d.best,pct);d.streak=pct>=50?d.streak+1:0;
+    d.history.push({pct:pct,t:Date.now()});d.history=d.history.slice(-20);
+    var got=[];function unlock(id){if(!d.badges[id]){d.badges[id]=Date.now();got.push(id)}}
+    unlock('first');if(pct>=50)unlock('admis');if(pct>=70)unlock('bien');if(pct>=85)unlock('tresbien');if(pct>=100)unlock('parfait');
+    if(d.exams>=5)unlock('five');if(d.streak>=3)unlock('streak3');if(d.exams>1&&pct>prevBest)unlock('progres');
+    save(d);
+    var tier=TIERS.filter(function(t){return pct>=t.min})[0];
+    var newOnes=BADGES.filter(function(b){return got.indexOf(b.id)>-1});
+    show(pct,bonnes,total,newOnes,tier);renderStrip(got);
+  }
+
+  /* --- Détection d'un examen blanc terminé --- */
+  var examFlag=false,done=false,watching=false;
+  function isExamTitle(s){return /examen/i.test(s||'')}
+  function zoneText(){var z=document.getElementById('mqQuizZone');return z?z.textContent:''}
+  function tryResult(){
+    var tx=zoneText(),m=tx.match(/(\d+)\s*\/\s*(\d+)\s*(points|pts)?/i);
+    if(!m)return false;
+    // Barème en points ET décompte des bonnes réponses si dispo
+    var sc=+m[1],mx=+m[2];if(!mx)return false;
+    var bonnes=sc,total=mx,mb=tx.match(/(\d+)\s*(?:bonnes? réponses?|réponses? correctes?)\s*(?:sur|\/)\s*(\d+)/i);
+    if(mb){bonnes=+mb[1];total=+mb[2]}
+    award(bonnes,total);return true;
+  }
+  function onKicker(){
+    var k=document.getElementById('mqQuizKicker');if(!k)return;var tx=k.textContent||'';
+    if(isExamTitle(tx)){examFlag=true;done=false}
+    else if(/TERMIN/i.test(tx)){
+      if(examFlag&&!done){
+        var tries=0;(function wait(){if(done)return;if(tryResult()){done=true;examFlag=false;return}if(++tries<12)setTimeout(wait,250)})();
+      }
+    }else if(!/^\s*Session en cours\s*$/i.test(tx)){examFlag=false;done=false}
+  }
+  function init(){
+    renderStrip();
+    var k=document.getElementById('mqQuizKicker');
+    if(k&&!watching){watching=true;new MutationObserver(onKicker).observe(k,{childList:true,characterData:true,subtree:true})}
+    var b=document.getElementById('ouvrirExamenBlanc');
+    if(b)b.addEventListener('click',function(){examFlag=true;done=false},true);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  window.medquizExamRewardsDemo=function(p){var t=Math.round((p==null?80:p));award(t,100)};
 })();
 </script>
 </body>
