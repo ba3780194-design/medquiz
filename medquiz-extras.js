@@ -51,23 +51,9 @@ const addPage = (id, eyebrow, titre, sous) => {
   s.append(h, body); main.append(s); return body;
 };
 const exBody = addPage("examen", "✦ MODE EXAMEN", "Examen blanc", "Conditions réelles : chronomètre global, correction à la fin, aucune aide pendant l'épreuve.");
-const gnBody = addPage("generateur", "✦ TES COURS", "QCM depuis tes cours", "Colle ton texte ou importe un fichier : l'IA te prépare des QCM sur ton propre cours.");
-const prBody = addPage("parrainage", "✦ PARRAINAGE", "Invite tes amis", "Un ami qui termine 3 quiz = 7 jours d'explications complètes pour vous deux.");
-
-const go = (id) => { MQ.afficherPage(id); ({ examen: renderExamConfig, generateur: renderGenerator, parrainage: renderReferral })[id](); };
-
-// ---------- Lanceur (la barre latérale est volontairement laissée intacte) ----------
-{
-  const fab = el("div"); fab.id = "mqxFab";
-  const menu = el("div"); menu.id = "mqxMenu";
-  [["📝 Examen blanc", "examen"], ["📚 QCM de mes cours", "generateur"], ["🎁 Parrainage", "parrainage"]].forEach(([t, id]) => {
-    const b = el("button", "btn btn-secondary", t); b.type = "button";
-    b.addEventListener("click", () => { menu.classList.remove("on"); go(id); }); menu.append(b);
-  });
-  const toggle = el("button", "btn btn-primary", "✦ Outils"); toggle.type = "button";
-  toggle.addEventListener("click", () => menu.classList.toggle("on"));
-  fab.append(menu, toggle); document.body.append(fab);
-}
+// L'Examen blanc est accessible uniquement depuis la rubrique Quiz.
+const ouvrirExamen = () => { MQ.afficherPage("examen"); renderExamConfig(); };
+document.getElementById("ouvrirExamenBlanc")?.addEventListener("click", ouvrirExamen);
 
 // ====================== HORS LIGNE ======================
 const bar = el("div"); bar.id = "mqxBar"; bar.setAttribute("role", "status"); document.body.prepend(bar);
