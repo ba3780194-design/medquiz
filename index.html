@@ -1008,6 +1008,10 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <div class="card-icon">☠️</div><h3>Mode Survie</h3><p>Une erreur et la partie s'arrête. Jusqu'où peux-tu aller ?</p>
 <button class="btn btn-primary" id="demarrerSurvie" type="button">Entrer dans l'arène →</button>
 </article>
+<article class="card" id="examenBlancCard">
+<div class="card-icon">📝</div><h3>Examen blanc</h3><p>Entraîne-toi en conditions réelles avec chronomètre et correction à la fin.</p>
+<button class="btn btn-primary" id="ouvrirExamenBlanc" type="button">Commencer l'examen →</button>
+</article>
 </div>
 <div class="quiz-layout">
 <div class="panel">
@@ -1194,11 +1198,12 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 </div>
 </section>
 <section class="page" id="premium">
+<div id="premiumAccueil">
 <div class="premium-hero">
 <span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
 <h2>Va plus loin dans ton apprentissage.</h2>
 <p>Quiz illimités, explications complètes de chaque réponse et statistiques détaillées.</p>
-<div style="margin-top:22px"><a class="btn btn-gold" href="#tarifs" id="voirTarifs">Voir les tarifs — dès 1 000 FCFA/mois</a></div>
+<div style="margin-top:22px"><button class="btn btn-gold" type="button" id="voirTarifs">Voir les tarifs — dès 1 000 FCFA/mois</button></div>
 </div>
 <div class="section-heading"><h2>Gratuit ou Premium</h2></div>
 <div class="compare-wrap"><table class="compare"><thead><tr><th>Fonctionnalité</th><th>Gratuit</th><th>Premium</th></tr></thead><tbody>
@@ -1208,7 +1213,10 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <tr><td>Statistiques personnelles</td><td>Basiques</td><td>✓ Détaillées</td></tr>
 <tr><td>Médecine, culture générale, défi du jour</td><td>✓ Oui</td><td>✓ Oui</td></tr>
 </tbody></table></div>
-<div class="section-heading" id="tarifs"><h2>Nos tarifs</h2></div>
+</div>
+<div id="vueTarifs" class="hidden">
+<div class="section-heading"><h2>Nos tarifs</h2><p class="muted">Choisis la formule qui te convient.</p></div>
+<button class="btn btn-secondary" id="retourPremium" type="button" style="margin:0 0 22px">← Retour à Premium</button>
 <div class="pricing">
 <div class="price-card"><h3>Abonnement mensuel</h3><div class="price">1 000 FCFA</div><p>Pour un mois</p><button class="btn btn-gold" data-plan="mensuel" type="button">Choisir</button></div>
 <div class="price-card"><h3>Abonnement trimestriel</h3><div class="price">2 500 FCFA</div><p>Pour trois mois</p><button class="btn btn-gold" data-plan="trimestriel" type="button">Choisir</button></div>
@@ -1228,6 +1236,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <div class="pay-methods"><span>Wave</span><span>Orange Money</span></div>
 <p class="muted">Tu envoies le montant par Wave ou Orange Money, puis tu déclares ta transaction ici. Ton Premium est activé dès que le paiement est vérifié.</p>
 <p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Mon abonnement</a></p>
+</div>
 </div>
 </section>
 <section class="page" id="abonnement">
@@ -1404,6 +1413,10 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
     function afficherPage(id) {
       const destination = id === "compte" && utilisateurActuel ? "member" : (id === "member" && !utilisateurActuel ? "compte" : id);
       document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === destination));
+      if (destination === "premium") {
+        $("premiumAccueil")?.classList.remove("hidden");
+        $("vueTarifs")?.classList.add("hidden");
+      }
       document.querySelectorAll(".nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${id}`));
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (destination === "cas-cliniques") ouvrirCasCliniques();
@@ -5558,7 +5571,16 @@ function lignesDePage(items) {
       if (ref && /^[A-Za-z0-9]{4,16}$/.test(ref)) localStorage.setItem("mqx_ref_pending", ref.toUpperCase());
       if (localStorage.getItem("mqx_ref_pending")) $("refInvite").hidden = false;
     } catch (e) { /* stockage indisponible */ }
-    $("voirTarifs")?.addEventListener("click", e => { e.preventDefault(); $("tarifs").scrollIntoView({ behavior: "smooth" }); });
+    $("voirTarifs")?.addEventListener("click", () => {
+      $("premiumAccueil").classList.add("hidden");
+      $("vueTarifs").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    $("retourPremium")?.addEventListener("click", () => {
+      $("vueTarifs").classList.add("hidden");
+      $("premiumAccueil").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
     $("essaiGratuit")?.addEventListener("click", e => {
       e.preventDefault();
       const tirage = melangerChoix(questionsMedQuiz.filter(q => q.choix && q.choix.length === 4 && q.niveau !== "difficile")).slice(0, 5);
