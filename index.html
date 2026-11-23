@@ -941,6 +941,115 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 }
 </style>
 
+<style id="medquiz-premium-animations">
+/* ✦ Animations Premium */
+#premium .premium-hero .mq-prem-particles{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+#premium .premium-hero .mq-prem-particles i{position:absolute;bottom:-14px;display:block;width:var(--s,6px);height:var(--s,6px);border-radius:50%;background:radial-gradient(circle,#fff 0,rgba(255,224,140,.9) 45%,rgba(255,224,140,0) 70%);opacity:0}
+#premium .premium-hero .eyebrow,#premium .premium-hero h2,#premium .premium-hero p,#premium .premium-hero .btn{position:relative;z-index:1}
+@media (prefers-reduced-motion:no-preference){
+@keyframes mqPremAurora{0%{transform:translate3d(-12%,-8%,0) rotate(0deg)}50%{transform:translate3d(10%,8%,0) rotate(180deg)}100%{transform:translate3d(-12%,-8%,0) rotate(360deg)}}
+@keyframes mqPremSparkle{0%,100%{transform:rotate(0deg) scale(1);opacity:.7}50%{transform:rotate(180deg) scale(1.18);opacity:1}}
+@keyframes mqPremRise{0%{transform:translate3d(0,0,0) scale(.6);opacity:0}15%{opacity:.9}100%{transform:translate3d(var(--dx,20px),-340px,0) scale(1.1);opacity:0}}
+@keyframes mqPremShine{0%{transform:translateX(-130%) skewX(-20deg)}55%,100%{transform:translateX(330%) skewX(-20deg)}}
+@keyframes mqPremPulse{0%,100%{box-shadow:0 0 0 0 rgba(242,198,109,.55)}70%{box-shadow:0 0 0 16px rgba(242,198,109,0)}}
+@keyframes mqPremGlow{0%,100%{filter:drop-shadow(0 6px 14px rgba(110,76,244,.25))}50%{filter:drop-shadow(0 12px 30px rgba(110,76,244,.6))}}
+@keyframes mqPremBestIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:translateY(-7px) scale(1)}}
+@keyframes mqPremRowIn{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:translateX(0)}}
+@keyframes mqPremPop{0%{opacity:0;transform:translateY(-8px) scale(.4)}70%{transform:translateY(0) scale(1.15)}100%{opacity:1;transform:scale(1)}}
+@keyframes mqPremFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* Hero : aurore lumineuse + étoile qui tourne + particules */
+#premium .premium-hero:before{content:"";position:absolute;width:75%;aspect-ratio:1;left:-10%;top:-40%;background:radial-gradient(circle,rgba(255,215,120,.26),rgba(120,90,255,.16) 45%,transparent 70%);filter:blur(34px);pointer-events:none;z-index:0;animation:mqPremAurora 14s linear infinite}
+#premium .premium-hero:after{animation:mqPremSparkle 6s ease-in-out infinite}
+#premium .premium-hero .mq-prem-particles i{animation:mqPremRise var(--d,7s) linear var(--t,0s) infinite}
+#premium .premium-hero .eyebrow{animation:mqPremFloat 3.4s ease-in-out infinite}
+
+/* Bouton or : reflet qui balaie + pulsation */
+#premium #voirTarifs,#premium .price-card .btn-gold{position:relative;overflow:hidden;animation:mqPremPulse 2.4s ease-out infinite}
+#premium #voirTarifs:after,#premium .price-card .btn-gold:after{content:"";position:absolute;top:0;left:0;width:36%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent);animation:mqPremShine 3.2s ease-in-out infinite;pointer-events:none}
+#premium #voirTarifs:hover{transform:translateY(-2px) scale(1.04)}
+
+/* Tableau comparatif : lignes qui arrivent en cascade */
+#premium .compare tbody tr{animation:mqPremRowIn .5s cubic-bezier(.2,.75,.25,1) both}
+#premium .compare tbody tr:nth-child(1){animation-delay:.15s}
+#premium .compare tbody tr:nth-child(2){animation-delay:.23s}
+#premium .compare tbody tr:nth-child(3){animation-delay:.31s}
+#premium .compare tbody tr:nth-child(4){animation-delay:.39s}
+#premium .compare tbody tr:nth-child(5){animation-delay:.47s}
+#premium .compare tbody tr:nth-child(6){animation-delay:.55s}
+#premium .compare tbody tr:nth-child(n+7){animation-delay:.63s}
+#premium .compare tbody tr{transition:background .2s}
+#premium .compare tbody tr:hover{background:rgba(110,76,244,.07)}
+
+/* Cartes tarifs : arrivée échelonnée, relief au survol, carte populaire lumineuse */
+.page.active#premium .price-card{transition:transform .28s cubic-bezier(.2,.75,.25,1),filter .28s}
+.page.active#premium .pricing .price-card:nth-child(1){animation-delay:.05s}
+.page.active#premium .pricing .price-card:nth-child(2){animation-delay:.18s}
+.page.active#premium .pricing .price-card:nth-child(3){animation-delay:.31s}
+.page.active#premium .price-card:not(.best):hover{transform:translateY(-8px) scale(1.02)}
+.page.active#premium .price-card.best{animation:mqPremBestIn .6s cubic-bezier(.2,.75,.25,1) .31s both,mqPremGlow 3s ease-in-out .95s infinite}
+.page.active#premium .price-card.best:hover{transform:translateY(-14px) scale(1.03)}
+#premium .price-card.best:before{animation:mqPremFloat 2.6s ease-in-out infinite}
+#premium .price-card .price{display:inline-block;animation:mqPremPop .6s cubic-bezier(.2,.75,.25,1) .35s both}
+}
+@media (prefers-reduced-motion:reduce){#premium .mq-prem-particles{display:none}}
+</style>
+<style id="medquiz-theme-animations">
+/* ✦ Animations des thèmes Premium */
+#mqSkinFx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;display:none}
+body[data-skin] #mqSkinFx{display:block}
+#mqSkinFx i{position:absolute;display:block;left:var(--x,50%);top:-30px;width:var(--s,8px);height:var(--s,8px);opacity:0;will-change:transform,opacity;font-style:normal;line-height:1;text-align:center}
+.mq-skin-wipe{position:fixed;left:0;top:0;width:20px;height:20px;border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%) scale(0);opacity:.9}
+.mq-skin-toast{position:fixed;left:50%;bottom:34px;z-index:100000;transform:translateX(-50%);padding:11px 20px;border-radius:40px;background:var(--skin-sidebar,#211b48);color:#fff;font-weight:800;font-size:13px;box-shadow:0 14px 40px rgba(0,0,0,.28);border:1px solid var(--skin-accent2,#fff);pointer-events:none}
+@media (prefers-reduced-motion:no-preference){
+@keyframes mqFxFall{0%{transform:translate3d(0,-5vh,0) rotate(0);opacity:0}10%{opacity:var(--o,.7)}90%{opacity:var(--o,.7)}100%{transform:translate3d(var(--dx,40px),108vh,0) rotate(var(--r,360deg));opacity:0}}
+@keyframes mqFxRise{0%{transform:translate3d(0,0,0) scale(.6);opacity:0}12%{opacity:var(--o,.6)}100%{transform:translate3d(var(--dx,30px),-112vh,0) scale(1.1);opacity:0}}
+@keyframes mqFxFirefly{0%,100%{transform:translate3d(0,0,0);opacity:0}20%{opacity:var(--o,.9)}50%{transform:translate3d(var(--dx,40px),var(--dy,-40px),0);opacity:.15}80%{opacity:var(--o,.9)}}
+@keyframes mqFxTwinkle{0%,100%{transform:scale(.4) rotate(0);opacity:0}50%{transform:scale(1.2) rotate(180deg);opacity:var(--o,.8)}}
+@keyframes mqFxStreak{0%{transform:translate3d(0,-20vh,0);opacity:0}8%{opacity:var(--o,.55)}100%{transform:translate3d(0,115vh,0);opacity:0}}
+@keyframes mqSkinWipe{0%{transform:translate(-50%,-50%) scale(0);opacity:.85}70%{opacity:.55}100%{transform:translate(-50%,-50%) scale(var(--k,160));opacity:0}}
+@keyframes mqSkinToast{0%{opacity:0;transform:translate(-50%,20px) scale(.9)}15%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-10px) scale(.95)}}
+@keyframes mqThemeIn{from{opacity:0;transform:translateY(16px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes mqThemeFlow{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+@keyframes mqThemeShine{0%{transform:translateX(-120%) skewX(-20deg)}60%,100%{transform:translateX(320%) skewX(-20deg)}}
+@keyframes mqThemeRing{0%,100%{box-shadow:0 0 0 0 var(--ring,rgba(110,76,244,.55))}70%{box-shadow:0 0 0 9px rgba(110,76,244,0)}}
+@keyframes mqSkinGlow{0%,100%{text-shadow:0 0 0 transparent}50%{text-shadow:0 0 14px var(--skin-accent2,#fff)}}
+@keyframes mqScan{0%{transform:translateY(-120%)}100%{transform:translateY(420%)}}
+
+/* Sélecteur de thèmes : cartes animées */
+.mq-theme-grid .mq-theme-choice{animation:mqThemeIn .5s cubic-bezier(.2,.75,.25,1) both;transition:transform .25s cubic-bezier(.2,.75,.25,1),box-shadow .25s,border-color .25s;overflow:hidden;position:relative}
+.mq-theme-grid .mq-theme-choice:nth-child(1){animation-delay:.04s}.mq-theme-grid .mq-theme-choice:nth-child(2){animation-delay:.10s}
+.mq-theme-grid .mq-theme-choice:nth-child(3){animation-delay:.16s}.mq-theme-grid .mq-theme-choice:nth-child(4){animation-delay:.22s}
+.mq-theme-grid .mq-theme-choice:nth-child(5){animation-delay:.28s}.mq-theme-grid .mq-theme-choice:nth-child(6){animation-delay:.34s}
+.mq-theme-grid .mq-theme-choice:nth-child(7){animation-delay:.40s}.mq-theme-grid .mq-theme-choice:nth-child(8){animation-delay:.46s}
+.mq-theme-choice:hover{transform:translateY(-6px) scale(1.04)!important}
+.mq-theme-choice:active{transform:scale(.96)!important}
+.mq-theme-preview{background-size:200% 100%!important;animation:mqThemeFlow 3.5s ease-in-out infinite alternate;position:relative;overflow:hidden}
+.mq-theme-preview:after{content:"";position:absolute;top:0;left:0;width:35%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);animation:mqThemeShine 3.6s ease-in-out infinite}
+.mq-theme-choice:hover .mq-theme-preview{animation-duration:1.6s}
+.mq-theme-choice.is-active{animation:mqThemeIn .5s both,mqThemeRing 2s ease-out .6s infinite}
+.mq-theme-choice.is-popped{animation:mqThemeRing .7s ease-out 1}
+
+/* Couleurs d'ambiance selon le thème */
+body[data-skin="royal"]{--ring:rgba(112,76,245,.55)}body[data-skin="cyber"]{--ring:rgba(20,216,197,.6)}body[data-skin="ocean"]{--ring:rgba(8,126,170,.55)}
+body[data-skin="emerald"]{--ring:rgba(22,131,93,.55)}body[data-skin="sakura"]{--ring:rgba(207,99,148,.55)}body[data-skin="sunset"]{--ring:rgba(214,94,67,.55)}
+body[data-skin="graphite"]{--ring:rgba(89,103,125,.5)}body[data-skin="arctic"]{--ring:rgba(57,143,196,.55)}
+body[data-skin] .mq-sidebar .logo span{animation:mqSkinGlow 3s ease-in-out infinite}
+body[data-skin] #premium .premium-hero:before{background:radial-gradient(circle,color-mix(in srgb,var(--skin-accent2) 42%,transparent),color-mix(in srgb,var(--skin-accent) 25%,transparent) 45%,transparent 70%)}
+body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:auto;height:34%;left:0;top:0;border-radius:0;filter:blur(18px);background:linear-gradient(180deg,transparent,rgba(20,216,197,.38),transparent);animation:mqScan 4.5s linear infinite}
+
+/* Particules par thème */
+#mqSkinFx[data-fx="royal"] i{top:auto;bottom:-20px;color:#f2c66d;font-size:var(--s);width:auto;height:auto;animation:mqFxRise var(--d,12s) linear var(--t,0s) infinite;text-shadow:0 0 10px rgba(242,198,109,.8)}
+#mqSkinFx[data-fx="cyber"] i{width:2px;height:calc(var(--s)*5);border-radius:2px;background:linear-gradient(180deg,transparent,#14d8c5,#a4ff5c);box-shadow:0 0 8px #14d8c5;animation:mqFxStreak var(--d,6s) linear var(--t,0s) infinite}
+#mqSkinFx[data-fx="ocean"] i{top:auto;bottom:-20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.55),rgba(80,224,208,.12));box-shadow:0 0 6px rgba(8,126,170,.4);animation:mqFxRise var(--d,11s) ease-in var(--t,0s) infinite}
+#mqSkinFx[data-fx="emerald"] i{border-radius:50%;background:#d6ff9a;box-shadow:0 0 12px 4px rgba(167,223,145,.8);top:var(--y,50%);animation:mqFxFirefly var(--d,8s) ease-in-out var(--t,0s) infinite}
+#mqSkinFx[data-fx="sakura"] i{width:var(--s);height:calc(var(--s)*.75);border-radius:150% 0 150% 0;background:linear-gradient(135deg,#ffd5df,#ed9ab2);box-shadow:0 0 6px rgba(237,154,178,.5);animation:mqFxFall var(--d,12s) ease-in-out var(--t,0s) infinite}
+#mqSkinFx[data-fx="sunset"] i{top:auto;bottom:-20px;border-radius:50%;background:radial-gradient(circle,#ffe2a1,#f0a34d 50%,rgba(214,94,67,0));box-shadow:0 0 10px rgba(240,163,77,.7);animation:mqFxRise var(--d,12s) ease-out var(--t,0s) infinite}
+#mqSkinFx[data-fx="graphite"] i{border-radius:50%;background:rgba(192,198,209,.8);box-shadow:0 0 5px rgba(255,255,255,.4);top:var(--y,50%);animation:mqFxTwinkle var(--d,6s) ease-in-out var(--t,0s) infinite}
+#mqSkinFx[data-fx="arctic"] i{color:#fff;font-size:var(--s);width:auto;height:auto;text-shadow:0 0 8px rgba(105,200,220,.9);animation:mqFxFall var(--d,13s) linear var(--t,0s) infinite}
+}
+@media (prefers-reduced-motion:reduce){#mqSkinFx,.mq-skin-wipe{display:none!important}}
+</style>
 </head>
 <body>
 <header class="site-header mq-sidebar">
@@ -5969,6 +6078,85 @@ img,svg,video,canvas{max-width:100%}
   </main>
 </div>
 
+<script id="medquiz-premium-animations-js">
+(function(){
+  try{
+    var hero=document.querySelector('#premium .premium-hero');
+    if(!hero||hero.querySelector('.mq-prem-particles'))return;
+    if(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+    var wrap=document.createElement('div');wrap.className='mq-prem-particles';wrap.setAttribute('aria-hidden','true');
+    for(var i=0;i<16;i++){
+      var p=document.createElement('i');
+      p.style.left=(Math.random()*100)+'%';
+      p.style.setProperty('--s',(3+Math.random()*7).toFixed(1)+'px');
+      p.style.setProperty('--d',(5+Math.random()*6).toFixed(1)+'s');
+      p.style.setProperty('--t',(-Math.random()*9).toFixed(1)+'s');
+      p.style.setProperty('--dx',((Math.random()-.5)*80).toFixed(0)+'px');
+      wrap.appendChild(p);
+    }
+    hero.insertBefore(wrap,hero.firstChild);
+  }catch(e){}
+})();
+</script>
+<script id="medquiz-theme-animations-js">
+(function(){
+  var body=document.body;
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var fx=document.createElement('div');fx.id='mqSkinFx';fx.setAttribute('aria-hidden','true');body.appendChild(fx);
+  var NAMES={royal:'Royal',cyber:'Cyber',ocean:'Ocean',emerald:'Emerald',sakura:'Sakura',sunset:'Sunset',graphite:'Graphite',arctic:'Arctic'};
+  var CHAR={royal:'✦',arctic:'❄'};
+  var N=window.innerWidth<700?14:24;
+  var clickedAt=0,last=null,first=true,origin={x:innerWidth/2,y:innerHeight/2};
+  function r(a,b){return a+Math.random()*(b-a)}
+  function build(skin){
+    fx.innerHTML='';fx.dataset.fx=skin||'';
+    if(!skin||reduce)return;
+    for(var k=0;k<N;k++){
+      var p=document.createElement('i');
+      var big=skin==='sakura'?r(9,15):skin==='arctic'?r(8,18):skin==='royal'?r(8,18):skin==='ocean'?r(8,24):skin==='cyber'?r(3,8):r(3,8);
+      p.style.setProperty('--x',r(0,100).toFixed(1)+'%');
+      p.style.setProperty('--y',r(8,92).toFixed(1)+'%');
+      p.style.setProperty('--s',big.toFixed(1)+'px');
+      p.style.setProperty('--d',r(7,15).toFixed(1)+'s');
+      p.style.setProperty('--t',(-r(0,14)).toFixed(1)+'s');
+      p.style.setProperty('--dx',r(-90,90).toFixed(0)+'px');
+      p.style.setProperty('--dy',r(-70,70).toFixed(0)+'px');
+      p.style.setProperty('--r',r(180,720).toFixed(0)+'deg');
+      p.style.setProperty('--o',r(.35,.8).toFixed(2));
+      if(CHAR[skin])p.textContent=CHAR[skin];
+      fx.appendChild(p);
+    }
+  }
+  function wipe(skin){
+    if(reduce)return;
+    var cs=getComputedStyle(body);
+    var c=cs.getPropertyValue('--skin-accent2').trim()||cs.getPropertyValue('--skin-accent').trim()||'#8b75ff';
+    var w=document.createElement('div');w.className='mq-skin-wipe';
+    w.style.background='radial-gradient(circle,'+c+','+(cs.getPropertyValue('--skin-accent').trim()||c)+')';
+    w.style.left=origin.x+'px';w.style.top=origin.y+'px';
+    w.style.setProperty('--k',Math.ceil(Math.hypot(innerWidth,innerHeight)/10*1.3));
+    w.style.animation='mqSkinWipe .9s cubic-bezier(.3,.7,.2,1) forwards';
+    body.appendChild(w);setTimeout(function(){w.remove()},1000);
+    var t=document.createElement('div');t.className='mq-skin-toast';t.textContent='✦ Thème '+(NAMES[skin]||'')+' activé';
+    t.style.animation='mqSkinToast 2.2s ease forwards';body.appendChild(t);setTimeout(function(){t.remove()},2300);
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-skin-choice]');
+    if(!b)return;
+    var rc=b.getBoundingClientRect();origin={x:rc.left+rc.width/2,y:rc.top+rc.height/2};clickedAt=Date.now();
+    b.classList.remove('is-popped');void b.offsetWidth;b.classList.add('is-popped');
+  },true);
+  function sync(){
+    var s=body.getAttribute('data-skin')||'';
+    if(s===last)return;
+    var prev=last;last=s;build(s);
+    if(s&&!first&&prev!==null&&Date.now()-clickedAt<1500)wipe(s);
+    first=false;
+  }
+  new MutationObserver(sync).observe(body,{attributes:true,attributeFilter:['data-skin']});
+  sync();first=false;
+})();
+</script>
 </body>
 </html>
 
