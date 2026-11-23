@@ -1,327 +1,5959 @@
-// MedQuiz extras : examen blanc, mode hors ligne, parrainage, générateur de QCM.
-// Chargé par <script type="module" src="medquiz-extras.js"></script>, s'appuie sur window.MQ (voir index.html).
-const ready = () => new Promise((res) => (window.MQ ? res(window.MQ) : window.addEventListener("medquiz:ready", () => res(window.MQ), { once: true })));
-const MQ = await ready();
-const { supabase, el } = MQ;
+<!DOCTYPE html>
 
-const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* stockage indisponible */ } };
-const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-const fullExplanation = (q) => MQ.getPremium().actif ? q.explication : String(q.explication || "").split(/(?<=[.!?])\s/)[0] + " 🔒 Explication complète avec Premium.";
-
-// ---------- Styles ----------
-const css = document.createElement("style");
-css.textContent = `
-#mqxBar{position:fixed;left:0;right:0;top:0;z-index:9999;background:#7a4b00;color:#fff;text-align:center;padding:6px 12px;font-size:.85rem;display:none}
-#mqxBar.on{display:block}
-#mqxFab{position:fixed;left:16px;bottom:16px;z-index:900}
-#mqxFab>button{border-radius:999px;padding:12px 18px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
-#mqxMenu{display:none;margin-bottom:8px;flex-direction:column;gap:6px;background:var(--card,#fff);color:inherit;border:1px solid rgba(128,128,128,.3);border-radius:14px;padding:8px}
-#mqxMenu.on{display:flex}
-#mqxMenu button{text-align:left}
-.mqx-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:14px 0}
-.mqx-field{display:flex;flex-direction:column;gap:4px;font-size:.9rem}
-.mqx-field select,.mqx-field input,.mqx-field textarea{padding:10px;border-radius:10px;border:1px solid rgba(128,128,128,.4);font:inherit;background:transparent;color:inherit}
-.mqx-field textarea{min-height:180px;resize:vertical}
-.mqx-top{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;background:var(--bg,Canvas)}
-.mqx-timer{font-variant-numeric:tabular-nums;font-weight:700}
-.mqx-timer.urgent{color:#c0392b}
-.mqx-dots{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
-.mqx-dots button{width:34px;height:34px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer}
-.mqx-dots button.done{background:rgba(46,125,50,.25)}
-.mqx-dots button.flag{outline:2px solid #e0a800}
-.mqx-dots button.cur{border-width:2px;font-weight:700}
-.mqx-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:12px;border-radius:12px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer;font:inherit}
-.mqx-opt.sel{border-color:#2e7d32;background:rgba(46,125,50,.15)}
-.mqx-ok{border-left:4px solid #2e7d32;padding-left:10px;margin:12px 0}
-.mqx-ko{border-left:4px solid #c0392b;padding-left:10px;margin:12px 0}
-.mqx-bar{height:8px;border-radius:4px;background:rgba(128,128,128,.25);overflow:hidden}.mqx-bar i{display:block;height:100%;background:#2e7d32}
-.mqx-code{font-size:1.6rem;font-weight:800;letter-spacing:.15em}
-`;
-document.head.append(css);
-
-// ---------- Pages ----------
-const main = document.querySelector("main");
-const addPage = (id, eyebrow, titre, sous) => {
-  const s = el("section", "page"); s.id = id;
-  const h = el("div", "section-heading");
-  h.append(el("span", "eyebrow", eyebrow), el("h2", "", titre), el("p", "", sous));
-  const body = el("div"); body.id = id + "Body";
-  s.append(h, body); main.append(s); return body;
-};
-const exBody = addPage("examen", "✦ MODE EXAMEN", "Examen blanc", "Conditions réelles : chronomètre global, correction à la fin, aucune aide pendant l'épreuve.");
-const gnBody = addPage("generateur", "✦ TES COURS", "QCM depuis tes cours", "Colle ton texte ou importe un fichier : l'IA te prépare des QCM sur ton propre cours.");
-const prBody = addPage("parrainage", "✦ PARRAINAGE", "Invite tes amis", "Un ami qui termine 3 quiz = 7 jours d'explications complètes pour vous deux.");
-
-const go = (id) => { MQ.afficherPage(id); ({ examen: renderExamConfig, generateur: renderGenerator, parrainage: renderReferral })[id](); };
-
-// ---------- Lanceur (la barre latérale est volontairement laissée intacte) ----------
-{
-  const fab = el("div"); fab.id = "mqxFab";
-  const menu = el("div"); menu.id = "mqxMenu";
-  [["📝 Examen blanc", "examen"], ["📚 QCM de mes cours", "generateur"], ["🎁 Parrainage", "parrainage"]].forEach(([t, id]) => {
-    const b = el("button", "btn btn-secondary", t); b.type = "button";
-    b.addEventListener("click", () => { menu.classList.remove("on"); go(id); }); menu.append(b);
-  });
-  const toggle = el("button", "btn btn-primary", "✦ Outils"); toggle.type = "button";
-  toggle.addEventListener("click", () => menu.classList.toggle("on"));
-  fab.append(menu, toggle); document.body.append(fab);
-}
-
-// ====================== HORS LIGNE ======================
-const bar = el("div"); bar.id = "mqxBar"; bar.setAttribute("role", "status"); document.body.prepend(bar);
-const OUTBOX = "mqx_outbox_v1";
-MQ.queueHistory = (row) => { const q = lsGet(OUTBOX, []); q.push({ ...row, _t: Date.now() }); lsSet(OUTBOX, q); majBar(); };
-function majBar() {
-  const n = lsGet(OUTBOX, []).length;
-  const off = !navigator.onLine;
-  bar.classList.toggle("on", off || n > 0);
-  bar.textContent = off
-    ? `Hors ligne — les quiz restent disponibles${n ? ` · ${n} résultat(s) en attente de synchronisation` : ""}.`
-    : `${n} résultat(s) en attente de synchronisation…`;
-}
-let flushing = false;
-async function flushOutbox() {
-  if (flushing || !navigator.onLine || !MQ.getUser()) return;
-  flushing = true;
-  try {
-    let q = lsGet(OUTBOX, []);
-    const restants = [];
-    for (const item of q) {
-      if (item.user_id !== MQ.getUser().id) { restants.push(item); continue; }
-      const { _t, ...row } = item;
-      let { error } = await supabase.from("quiz_history").insert(row);
-      if (error) ({ error } = await supabase.from("quiz_history").insert({ user_id: row.user_id, score: row.score, nombre_questions: row.nombre_questions }));
-      if (error) restants.push(item);
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="#071426" name="theme-color"/>
+<!-- Le manifeste PWA est chargé uniquement via un serveur HTTP(S). -->
+<link href="icon-192.png" rel="apple-touch-icon"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="yes" name="mobile-web-app-capable"/>
+<title>MedQuiz — Apprendre, jouer, progresser</title>
+<meta name="description" content="Quiz de médecine, cas cliniques et défis entre amis. Révise gratuitement sur MedQuiz."/>
+<meta property="og:site_name" content="MedQuiz"/>
+<meta property="og:type" content="website"/>
+<meta property="og:locale" content="fr_FR"/>
+<meta property="og:title" content="MedQuiz — Révise la médecine en jouant"/>
+<meta property="og:description" content="Quiz, cas cliniques, examens blancs. Défie tes amis !"/>
+<!-- IMPORTANT : remplace https://TON-SITE par l'adresse réelle du site (og.png à placer à la racine) -->
+<meta property="og:image" content="https://TON-SITE/og.png"/>
+<meta property="og:url" content="https://TON-SITE/"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<style>
+    .price-card .btn[data-plan] { opacity: 1; cursor: pointer; }
+    .stat-bar { height: 10px; border-radius: 8px; background: rgba(255,255,255,.08); overflow: hidden; margin: 4px 0 12px; }
+    .stat-bar i { display: block; height: 100%; background: var(--gold); }
+    .badge-pseudo { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; font-size: .68rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; vertical-align: middle; background: rgba(242,198,109,.15); color: var(--gold); border: 1px solid rgba(242,198,109,.45); }
+    .badge-premium { display: inline-block; padding: 3px 12px; border-radius: 99px; font-weight: 800; background: rgba(242,198,109,.15); color: var(--gold); }
+    :root {
+      --navy: #071426;
+      --navy-2: #0d2038;
+      --panel: #102944;
+      --panel-2: #153550;
+      --teal: #22d3c5;
+      --teal-dark: #0ba99f;
+      --white: #f4f8fc;
+      --muted: #a9bacb;
+      --gold: #f2c66d;
+      --line: rgba(188, 213, 232, .14);
+      --danger: #ff8b8b;
+      --success: #7ce2b4;
+      --shadow: 0 18px 50px rgba(0,0,0,.22);
     }
-    lsSet(OUTBOX, restants);
-  } finally { flushing = false; majBar(); }
-}
-window.addEventListener("online", () => { majBar(); flushOutbox(); });
-window.addEventListener("offline", majBar);
-majBar(); flushOutbox();
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 80% 0%, #123b55 0, transparent 30%), var(--navy);
+      color: var(--white);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+    button, input, select { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; }
+    .site-header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 16px max(5%, calc((100% - 1180px)/2));
+      background: rgba(7,20,38,.9); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+    }
+    .logo { font-size: 1.55rem; font-weight: 850; letter-spacing: -.8px; }
+    .logo span { color: var(--teal); }
+    .nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .nav a {
+      color: var(--muted); font-weight: 650; font-size: .93rem;
+      padding: 9px 13px; border-radius: 10px; transition: .2s;
+    }
+    .nav a:hover, .nav a.active { color: var(--white); background: rgba(34,211,197,.1); }
+    .nav .nav-cta { background: var(--teal); color: #06212b; }
+    .nav .nav-cta:hover { background: #5ce8dc; color: #06212b; }
+    main { min-height: 70vh; }
+    .page { display: none; width: min(1180px, 90%); margin: 0 auto; padding: 58px 0 76px; }
+    .page.active { display: block; }
+    .hero {
+      min-height: 580px; grid-template-columns: 1.2fr .8fr;
+      align-items: center; gap: 45px; padding-top: 65px; padding-bottom: 65px;
+    }
+    .page.hero.active { display: grid; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 9px; color: var(--teal);
+      background: rgba(34,211,197,.1); border: 1px solid rgba(34,211,197,.22);
+      padding: 7px 13px; border-radius: 999px; font-size: .82rem; font-weight: 800;
+      letter-spacing: .08em; text-transform: uppercase;
+    }
+    h1 { font-size: clamp(2.6rem, 6vw, 4.8rem); line-height: 1.04; letter-spacing: -2.5px; margin: 22px 0; }
+    h1 span { color: var(--teal); }
+    .hero-copy { color: var(--muted); max-width: 620px; font-size: 1.1rem; margin-bottom: 28px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      border: 0; border-radius: 12px; padding: 13px 19px; font-weight: 800;
+      transition: transform .2s, background .2s; min-height: 48px;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { background: var(--teal); color: #05232c; }
+    .btn-primary:hover { background: #5ce8dc; }
+    .btn-secondary { color: var(--white); background: rgba(255,255,255,.06); border: 1px solid var(--line); }
+    .btn-secondary:hover { background: rgba(255,255,255,.11); }
+    .btn-gold { background: var(--gold); color: #2c210b; }
+    .btn-gold:hover { background: #ffda8d; }
+    .hero-visual {
+      min-height: 360px; position: relative; display: grid; place-items: center;
+      border: 1px solid rgba(34,211,197,.2); border-radius: 30px;
+      background: linear-gradient(145deg, rgba(34,211,197,.13), rgba(255,255,255,.025));
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .hero-visual:before, .hero-visual:after {
+      content: ""; position: absolute; border: 1px solid rgba(34,211,197,.18); border-radius: 50%;
+      width: 290px; height: 290px;
+    }
+    .hero-visual:after { width: 390px; height: 390px; }
+    .hero-icon { position: relative; z-index: 1; font-size: 7rem; filter: drop-shadow(0 12px 25px rgba(34,211,197,.25)); }
+    .floating-score {
+      position: absolute; z-index: 2; right: 9%; bottom: 12%; padding: 14px 18px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 15px;
+      box-shadow: var(--shadow); font-weight: 800;
+    }
+    .floating-score strong { color: var(--teal); font-size: 1.35rem; display: block; }
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 25px; }
+    .stat { background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 15px; padding: 17px; }
+    .stat strong { display: block; color: var(--teal); font-size: 1.35rem; }
+    .stat span { color: var(--muted); font-size: .86rem; }
+    .section-heading { margin-bottom: 28px; }
+    .section-heading h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); letter-spacing: -.8px; margin: 12px 0 7px; }
+    .section-heading p { color: var(--muted); }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px; }
+    .card {
+      text-align: left; background: linear-gradient(145deg, rgba(21,53,80,.95), rgba(13,32,56,.95));
+      border: 1px solid var(--line); border-radius: 20px; padding: 25px;
+      box-shadow: 0 12px 35px rgba(0,0,0,.12);
+    }
+    .card-click { cursor: pointer; transition: .22s; }
+    .card-click:hover { transform: translateY(-5px); border-color: rgba(34,211,197,.5); }
+    .card-icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 16px;
+      background: rgba(34,211,197,.12); font-size: 1.7rem; margin-bottom: 17px; }
+    .card h3 { font-size: 1.16rem; margin-bottom: 7px; }
+    .card p { color: var(--muted); font-size: .94rem; }
+    .gold-card { border-color: rgba(242,198,109,.35); }
+    .gold-card .card-icon { background: rgba(242,198,109,.13); }
+    .gold-text { color: var(--gold); }
+    .panel {
+      background: rgba(16,41,68,.82); border: 1px solid var(--line);
+      border-radius: 20px; padding: 25px; box-shadow: var(--shadow);
+    }
+    .quiz-layout { display: grid; grid-template-columns: .82fr 1.18fr; gap: 20px; align-items: start; }
+    .field { margin: 15px 0; }
+    label { display: block; color: var(--muted); font-size: .9rem; font-weight: 700; margin-bottom: 7px; }
+    input, select {
+      width: 100%; min-height: 47px; padding: 11px 13px; color: var(--white);
+      background: #091b30; border: 1px solid var(--line); border-radius: 10px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(34,211,197,.1); }
+    select option { background: #0d2038; }
+    .quiz-area { min-height: 260px; }
+    .quiz-area h3 { font-size: 1.3rem; margin-bottom: 12px; }
+    .quiz-answer {
+      display: block; width: 100%; text-align: left; margin: 10px 0; padding: 13px 15px;
+      color: var(--white); background: rgba(255,255,255,.045); border: 1px solid var(--line);
+      border-radius: 11px; transition: .15s;
+    }
+    .quiz-answer:hover:not(:disabled) { border-color: var(--teal); background: rgba(34,211,197,.08); }
+    .quiz-answer:disabled { cursor: default; opacity: .85; }
+    .quiz-answer.correct { border-color: var(--success); background: rgba(124,226,180,.12); }
+    .quiz-answer.wrong { border-color: var(--danger); background: rgba(255,139,139,.1); }
+    .quiz-feedback { padding: 13px; border-radius: 11px; margin-top: 14px; background: rgba(255,255,255,.05); color: var(--muted); }
+    .muted { color: var(--muted); }
+    .notice { padding: 12px 14px; border-radius: 10px; margin-top: 13px; background: rgba(34,211,197,.08); color: var(--teal); }
+    .error { color: var(--danger); }
+    .auth-wrap { max-width: 500px; margin: 0 auto; }
+    .auth-panel h2 { margin-bottom: 6px; font-size: 1.8rem; }
+    .auth-panel > p { color: var(--muted); margin-bottom: 20px; }
+    .auth-panel button { width: 100%; margin-top: 8px; }
+    .text-link { color: var(--teal); font-weight: 800; cursor: pointer; background: none; border: 0; padding: 0; }
+    .auth-panel .text-link { width: auto; margin-top: 0; }
+    .auth-switch { color: var(--muted); text-align: center; margin-top: 18px; }
+    #message { margin-top: 15px; min-height: 24px; text-align: center; color: var(--teal); }
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+    .profile-number { font-size: 2rem; color: var(--teal); font-weight: 850; }
+    .history-item, .rank-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 15px;
+      padding: 13px 0; border-bottom: 1px solid var(--line);
+    }
+    .history-item:last-child, .rank-item:last-child { border-bottom: 0; }
+    .rank-left { display: flex; align-items: center; gap: 13px; }
+    .rank-number { width: 35px; height: 35px; border-radius: 11px; display: grid; place-items: center;
+      background: rgba(34,211,197,.12); color: var(--teal); font-weight: 900; }
+    .rank-item:nth-child(1) .rank-number { background: rgba(242,198,109,.18); color: var(--gold); }
+    .rank-points { color: var(--teal); font-weight: 850; white-space: nowrap; }
+    .premium-hero {
+      padding: 36px; border: 1px solid rgba(242,198,109,.35); border-radius: 24px;
+      background: radial-gradient(circle at 90% 0%, rgba(242,198,109,.17), transparent 36%), var(--panel);
+      margin-bottom: 22px;
+    }
+    .premium-hero h2 { font-size: clamp(2rem, 5vw, 3.2rem); margin: 12px 0; }
+    .premium-hero p { color: var(--muted); max-width: 680px; }
+    .premium-features { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+    .feature { padding: 19px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 15px; }
+    .feature strong { display: block; margin: 8px 0 4px; }
+    .feature p { color: var(--muted); font-size: .9rem; }
+    .premium-note { margin-top: 20px; color: var(--muted); font-size: .88rem; }
+    .compare-wrap { overflow-x: auto; margin-bottom: 22px; border: 1px solid var(--line); border-radius: 16px; }
+    .compare { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .compare th, .compare td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--line); font-size: .93rem; }
+    .compare thead th { background: rgba(255,255,255,.04); color: var(--muted); }
+    .compare thead th:last-child, .compare td:last-child { color: var(--gold); font-weight: 750; }
+    .compare tbody tr:last-child td { border-bottom: 0; }
+    .no { color: var(--muted); }
+    .pricing { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+    .price-card { padding: 24px; text-align: center; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 18px; }
+    .price-card.best { border-color: rgba(242,198,109,.55); background: rgba(242,198,109,.06); }
+    .price-card h3 { font-size: 1.05rem; }
+    .price { font-size: 2rem; font-weight: 850; color: var(--gold); margin: 10px 0 2px; }
+    .price-card p { color: var(--muted); font-size: .9rem; margin-bottom: 14px; }
+    .price-card .btn { width: 100%; opacity: .6; cursor: not-allowed; }
+    .pay-methods { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+    .pay-methods span { padding: 9px 15px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.04); font-weight: 700; }
+    /* Simulations cliniques : interface compacte sur mobile */
+    #casCliniqueZone { min-width: 0; }
+    #casCliniqueZone textarea { min-height: 112px; resize: vertical; font-size: 16px; line-height: 1.45; }
+    #casCliniqueZone button { max-width: 100%; white-space: normal; }
+    #casCliniqueZone .quiz-feedback { padding: 12px; overflow-wrap: anywhere; }
+    #casCliniqueZone details > summary { cursor: pointer; padding: 8px 2px; }
+    @media (max-width: 600px) {
+      #casCliniqueZone .history-item, #casCliniqueZone .notice, #casCliniqueZone .quiz-feedback { padding: 12px !important; margin: 9px 0 !important; }
+      #casCliniqueZone textarea { width: 100%; min-height: 120px; font-size: 16px; }
+      #casCliniqueZone button { width: 100%; min-height: 46px; margin-left: 0 !important; }
+      #casCliniqueZone ul { padding-left: 19px !important; }
+    }
+    @media (max-width: 600px) { .pricing { grid-template-columns: 1fr; } }
+    .chrono { height: 7px; background: rgba(255,255,255,.1); border-radius: 99px; overflow: hidden; margin-bottom: 14px; }
+    .chrono i { display: block; height: 100%; background: var(--teal); transition: width 1s linear; }
+    .chrono-text { color: var(--teal); font-weight: 800; margin-bottom: 6px; }
+    .chrono-text.urgent { color: var(--danger); }
+    .daily { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; border-color: rgba(242,198,109,.4); }
+    .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 14px; }
+    .badge { text-align: center; padding: 14px 8px; border: 1px solid rgba(242,198,109,.4); border-radius: 14px; background: rgba(242,198,109,.07); font-size: .85rem; }
+    .badge span { display: block; font-size: 1.8rem; }
+    .badge.locked { opacity: .35; filter: grayscale(1); border-color: var(--line); background: none; }
+    input[type="radio"], input[type="checkbox"] { width: auto; min-height: 0; accent-color: var(--teal); flex: none; }
+    .qbloc { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 14px 0; background: rgba(255,255,255,.03); }
+    .qhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .qhead div { display: flex; gap: 8px; align-items: center; }
+    select.q-type { width: auto; min-height: 36px; padding: 4px 10px; }
+    .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+    .btn-small { min-height: 36px; padding: 6px 12px; font-size: .85rem; }
+    .code-partie { font-size: 2.6rem; font-weight: 900; letter-spacing: .25em; color: var(--gold); margin: 8px 0; }
+    .son-btn { background: none; border: 1px solid var(--line); color: inherit; border-radius: 999px; width: 40px; height: 40px; font-size: 1.1rem; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tabs .btn.actif { background: var(--teal); color: #05202a; border-color: var(--teal); }
+    body.mode-jeu .site-header, body.mode-jeu footer { display: none; }
+    .salle-barre { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    .salle-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; }
+    .salle-question { font-size: clamp(1.3rem, 4vw, 2rem); margin: 18px 0 22px; line-height: 1.3; }
+    .rank-item.moi { border-color: var(--teal); }
+    .gros-chiffre { font-size: 4rem; font-weight: 900; color: var(--gold); text-align: center; }
+    .chat { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .chat-liste { max-height: 260px; overflow-y: auto; padding: 8px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+    .chat-liste:empty::before { content: "Aucun message pour le moment. Dis bonjour ! 👋"; color: var(--muted); font-size: .9rem; }
+    .chat-msg { padding: 5px 4px; word-break: break-word; }
+    .chat-msg.moi strong { color: var(--teal); }
+    .chat-saisie { display: flex; gap: 8px; }
+    .chat-emojis { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .emoji-btn { background: none; border: 1px solid var(--line); border-radius: 8px; font-size: 1.2rem; padding: 2px 6px; }
+    textarea { width: 100%; padding: 11px 13px; color: var(--white); background: #091b30; border: 1px solid var(--line); border-radius: 10px; outline: none; font: inherit; resize: vertical; }
+    textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(34,211,197,.1); }
+    .import-panel { padding: 16px; border: 1px solid var(--line); border-radius: 14px; margin: 12px 0; background: rgba(255,255,255,.03); }
+    .dropzone { display: block; padding: 26px 16px; text-align: center; border: 2px dashed rgba(34,211,197,.5); border-radius: 14px; cursor: pointer; background: rgba(34,211,197,.05); margin: 12px 0; }
+    .dropzone.survol { background: rgba(34,211,197,.16); }
+    .q-attendue { min-height: 64px; margin-bottom: 8px; }
+    footer { border-top: 1px solid var(--line); text-align: center; padding: 25px 5%; color: var(--muted); }
+    .hidden { display: none !important; }
+    @media (max-width: 850px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-visual { min-height: 270px; }
+      .cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .quiz-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .site-header { padding: 13px 5%; flex-direction: column; gap: 8px; }
+      .nav { justify-content: center; gap: 2px; }
+      .nav a { padding: 8px 9px; font-size: .84rem; }
+      .page { width: 90%; padding: 38px 0 55px; }
+      .hero { padding-top: 42px; gap: 25px; }
+      h1 { letter-spacing: -1.5px; }
+      .cards, .premium-features, .stats, .profile-grid { grid-template-columns: 1fr; }
+      .panel, .card, .premium-hero { padding: 20px; }
+      .history-item, .rank-item { align-items: flex-start; }
+    }
+  
+/* Immersive home experience */
+#accueil.page.active{display:block!important;width:min(1440px,94%);padding:22px 0 48px}
+.home-immersive{position:relative;isolation:isolate;overflow:hidden;padding:clamp(22px,4vw,52px);border:1px solid rgba(151,166,255,.18);border-radius:30px;background:radial-gradient(ellipse at 78% 24%,rgba(95,72,210,.25),transparent 34%),radial-gradient(ellipse at 12% 82%,rgba(35,190,191,.12),transparent 34%),linear-gradient(135deg,#080d22 0%,#111638 52%,#0b1830 100%);box-shadow:0 35px 90px rgba(0,0,0,.32);color:#f5f6ff}
+.home-immersive:before{content:"";position:absolute;inset:0;z-index:-1;opacity:.2;background-image:linear-gradient(rgba(164,177,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(164,177,255,.12) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,black,transparent 75%)}
+.home-topline{display:flex;align-items:center;gap:12px;font-size:.69rem;font-weight:900;letter-spacing:.2em;color:#aeb8e7}.live-dot{width:7px;height:7px;border-radius:50%;background:#8df4c4;box-shadow:0 0 14px #8df4c4}.topline-divider{color:#59648e}.topline-spacer{flex:1}.season-pill{padding:8px 12px;border:1px solid rgba(164,177,255,.2);border-radius:30px;color:#d2caff;font-size:.62rem;letter-spacing:.13em}
+.home-hero-grid{display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:4%;min-height:510px;padding:35px 0 24px}.home-kicker{display:inline-flex;align-items:center;gap:9px;color:#a99aff;font-size:.72rem;font-weight:900;letter-spacing:.19em}.home-kicker span{color:#b6ffdc}.home-intro h1{margin:22px 0 20px;font-size:clamp(3.7rem,7.8vw,7.1rem);line-height:.91;letter-spacing:-.075em;font-weight:900;color:#fff}.home-intro h1 em{font-style:normal;background:linear-gradient(95deg,#9a8bff 5%,#62dce7 85%);-webkit-background-clip:text;background-clip:text;color:transparent}.home-lead{max-width:490px;color:#aeb8d4;font-size:1.04rem;line-height:1.8;margin-bottom:27px}.home-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.home-primary,.home-secondary{display:inline-flex;align-items:center;justify-content:center;gap:24px;padding:15px 19px;border-radius:12px;font-size:.87rem;font-weight:850;transition:.2s}.home-primary{background:linear-gradient(110deg,#9381ff,#5bceec);color:#0a1026;box-shadow:0 12px 30px rgba(104,119,255,.25)}.home-primary:hover{transform:translateY(-3px);box-shadow:0 16px 38px rgba(104,119,255,.38)}.home-daily{display:inline-flex;align-items:center;padding:12px 8px;color:#c9c2ff;font-size:.78rem;font-weight:800}.home-daily:hover{color:#fff}.home-secondary{border:1px solid rgba(190,198,255,.2);background:rgba(255,255,255,.035);color:#e4e7ff}.home-secondary:hover{background:rgba(255,255,255,.09)}.home-proof{display:flex;align-items:center;gap:12px;margin-top:35px;color:#8f9aba;font-size:.77rem}.proof-avatars{display:flex}.proof-avatars i{display:grid;place-items:center;width:29px;height:29px;margin-right:-7px;border:2px solid #111638;border-radius:50%;background:#302c64;color:#c5c0ff;font-style:normal;font-size:.8rem}.proof-avatars i:nth-child(2){background:#174c5d;color:#9ff2e9}.proof-avatars i:nth-child(3){background:#604d35;color:#ffe2a6}
+.home-stage{position:relative;min-height:430px;display:grid;place-items:center;overflow:hidden}.stage-orbit{position:absolute;width:min(82%,390px);aspect-ratio:1;border:1px solid rgba(153,146,255,.23);border-radius:50%;transform:rotate(-28deg) scaleY(.72)}.orbit-two{width:min(66%,310px);border-color:rgba(92,218,225,.22);transform:rotate(45deg) scaleY(.72)}.stage-cross{position:absolute;top:12%;right:16%;font-size:2.5rem;color:rgba(143,255,219,.7);text-shadow:0 0 30px #62d9d4}.stage-core{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;width:190px;height:220px;clip-path:polygon(50% 0,91% 20%,91% 78%,50% 100%,9% 78%,9% 20%);background:linear-gradient(145deg,rgba(128,112,255,.35),rgba(26,202,210,.12));border:1px solid rgba(172,180,255,.3);filter:drop-shadow(0 0 45px rgba(108,103,255,.25));text-align:center}.stage-core:before{content:"";position:absolute;inset:10px;clip-path:inherit;border:1px solid rgba(180,190,255,.3);background:linear-gradient(145deg,rgba(20,24,62,.8),rgba(10,41,62,.7))}.stage-core strong,.stage-core small{position:relative}.stage-core strong{font-size:3.5rem;letter-spacing:-.1em;background:linear-gradient(135deg,#fff,#9c94ff 60%,#68e5df);-webkit-background-clip:text;background-clip:text;color:transparent}.stage-core small{font-size:.52rem;letter-spacing:.24em;line-height:1.7;color:#9eabd2}.core-ring{position:absolute;width:135px;height:135px;border:1px solid rgba(143,232,235,.35);border-radius:50%;box-shadow:0 0 35px rgba(96,212,225,.13),inset 0 0 25px rgba(119,108,255,.12)}.stage-float{position:absolute;display:flex;align-items:center;gap:11px;padding:13px 16px;border:1px solid rgba(174,184,255,.2);border-radius:13px;background:rgba(13,20,50,.83);box-shadow:0 15px 35px rgba(0,0,0,.25);backdrop-filter:blur(14px)}.stage-float small,.stage-float strong{display:block}.stage-float small{font-size:.53rem;letter-spacing:.14em;color:#8794bd;margin-bottom:3px}.stage-float strong{font-size:.78rem;color:#f1f2ff}.float-top{top:12%;left:1%}.float-bottom{right:0;bottom:12%}.float-icon,.float-pulse{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:rgba(137,120,255,.2);color:#c5baff}.float-pulse{background:rgba(99,228,194,.14);color:#8df4c4}.stage-coordinate{position:absolute;bottom:3%;left:5%;font-size:.55rem;line-height:1.7;letter-spacing:.2em;color:#67759f}
+.home-command{padding-top:16px}.command-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;color:#b8c1e6;font-size:.69rem;font-weight:900;letter-spacing:.17em}.command-heading small{font-size:.58rem;color:#7482aa;letter-spacing:.12em}.command-heading b{color:#8df4c4;padding:0 5px}.experience-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}.experience-card{position:relative;display:flex;flex-direction:column;min-height:160px;padding:17px;border:1px solid rgba(168,180,255,.15);border-radius:15px;background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.018));transition:.22s;overflow:hidden}.experience-card:before{content:"";position:absolute;width:120px;height:120px;right:-45px;top:-55px;border-radius:50%;background:var(--glow);filter:blur(30px);opacity:.38}.experience-card:hover{transform:translateY(-5px);border-color:rgba(174,183,255,.42);background:rgba(255,255,255,.09)}.exp-quiz{--glow:#8270ff}.exp-clinical{--glow:#35d9cb}.exp-arena{--glow:#ff9c69}.exp-rank{--glow:#e9cb69}.exp-number{position:absolute;top:15px;right:16px;color:#65729c;font-size:.62rem;letter-spacing:.1em}.exp-symbol{display:grid;place-items:center;width:39px;height:39px;border-radius:11px;background:color-mix(in srgb,var(--glow) 18%,transparent);color:var(--glow);font-size:1.35rem;margin-bottom:17px}.exp-copy strong,.exp-copy small{display:block}.exp-copy strong{font-size:.88rem;color:#f3f4ff;margin-bottom:4px}.exp-copy small{font-size:.68rem;line-height:1.5;color:#929fbe}.exp-arrow{position:absolute;right:16px;bottom:17px;color:#a8b1d4;font-size:1rem}.home-footerline{display:flex;justify-content:space-between;gap:12px;margin-top:27px;padding-top:15px;border-top:1px solid rgba(169,181,255,.13);color:#66749d;font-size:.55rem;font-weight:800;letter-spacing:.17em}.home-footerline b{color:#8e9bc0}
+@media(max-width:850px){#accueil.page.active{width:96%;padding:12px 0 28px}.home-immersive{padding:24px 20px;border-radius:22px}.home-hero-grid{grid-template-columns:1fr;gap:0;padding:35px 0 5px}.home-intro h1{font-size:clamp(3.7rem,13vw,6rem)}.home-stage{min-height:330px;margin-top:12px}.stage-core{transform:scale(.82)}.experience-grid{grid-template-columns:repeat(2,1fr)}.experience-card{min-height:145px}.home-footerline{font-size:.48rem}}
+@media(max-width:480px){.home-topline{font-size:.56rem;letter-spacing:.12em}.season-pill{font-size:.48rem;padding:6px 8px}.home-immersive{padding:19px 14px}.home-intro h1{font-size:3.65rem}.home-lead{font-size:.9rem}.home-actions{align-items:stretch;flex-direction:column}.home-primary,.home-secondary{width:100%;justify-content:space-between}.home-stage{min-height:275px}.stage-float{padding:9px 10px;gap:7px}.stage-float strong{font-size:.66rem}.stage-float small{font-size:.43rem}.float-top{left:0;top:8%}.float-bottom{right:0;bottom:8%}.stage-core{transform:scale(.7)}.stage-cross{right:8%;top:7%}.experience-grid{gap:8px}.experience-card{padding:12px;min-height:140px}.exp-copy strong{font-size:.78rem}.exp-copy small{font-size:.61rem}.command-heading{font-size:.59rem}.command-heading small{font-size:.48rem}.home-footerline{flex-direction:column;gap:7px}}
 
-// ====================== EXAMEN BLANC ======================
-const EXAMS = "mqx_exams_v1";
-function renderExamConfig() {
-  exBody.replaceChildren();
-  const bank = MQ.getQuestions();
-  const cats = [...new Set(bank.map((q) => q.categorie).filter(Boolean))].sort();
-  const field = (label, node) => { const f = el("label", "mqx-field", label); f.append(node); return f; };
-  const sel = (opts) => { const s = el("select"); opts.forEach(([v, t]) => { const o = el("option", "", t); o.value = v; s.append(o); }); return s; };
-  const nb = sel([["20", "20 questions"], ["40", "40 questions"], ["60", "60 questions"]]);
-  const cat = sel([["", "Toutes les catégories"], ...cats.map((c) => [c, c])]);
-  const niv = sel([["", "Tous niveaux"], ["facile", "Facile"], ["moyen", "Moyen"], ["difficile", "Difficile"]]);
-  const sec = sel([["60", "60 s / question"], ["45", "45 s / question"], ["90", "90 s / question"]]);
-  const grid = el("div", "mqx-grid"); grid.append(field("Nombre", nb), field("Catégorie", cat), field("Niveau", niv), field("Rythme", sec));
-  const info = el("p", "muted");
-  const go1 = el("button", "btn btn-primary", "Commencer l'examen"); go1.type = "button";
-  go1.addEventListener("click", () => {
-    let pool = bank.filter((q) => (!cat.value || q.categorie === cat.value) && (!niv.value || q.niveau === niv.value));
-    const n = Math.min(+nb.value, pool.length);
-    if (n < 5) { info.textContent = "Pas assez de questions avec ces filtres."; return; }
-    startExam(shuffle(pool).slice(0, n), n * +sec.value, `${cat.value || "Toutes catégories"} · ${niv.value || "tous niveaux"}`);
-  });
-  exBody.append(grid, go1, info);
-  const hist = lsGet(EXAMS, []);
-  if (hist.length) {
-    const h = el("div"); h.style.marginTop = "24px"; h.append(el("h3", "", "Mes derniers examens"));
-    hist.slice(-8).reverse().forEach((e) => {
-      const row = el("div"); row.style.margin = "10px 0";
-      row.append(el("div", "", `${new Date(e.date).toLocaleDateString("fr-FR")} — ${e.note}/20 (${e.bonnes}/${e.total}) · ${e.label}`));
-      const b = el("div", "mqx-bar"); const i = el("i"); i.style.width = `${e.note * 5}%`; b.append(i); row.append(b); h.append(row);
-    });
-    exBody.append(h);
-  }
+
+.mq-password-wrap{position:relative;display:flex;align-items:center;width:100%}
+.mq-password-wrap input{width:100%;padding-right:52px}
+.mq-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:inherit;cursor:pointer;padding:8px 10px;font-size:1.05rem;border-radius:8px}
+.mq-password-toggle:hover{background:rgba(128,128,128,.14)}
+</style>
+<style id="medquiz-creative-redesign">
+:root{--mq-bg:#f4f5fb;--mq-paper:#fff;--mq-ink:#17152c;--mq-muted:#77758c;--mq-line:#e8e7f1;--mq-violet:#6847f5;--mq-blue:#2878ff;--mq-lime:#c8f36a;--mq-shadow:0 18px 55px rgba(33,25,80,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0!important;background:var(--mq-bg)!important;color:var(--mq-ink)!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;min-height:100vh}body:before{content:"";position:fixed;inset:0 0 auto 260px;height:360px;pointer-events:none;background:radial-gradient(ellipse at 75% 0%,rgba(112,83,255,.12),transparent 58%);z-index:-1}
+.site-header.mq-sidebar{position:fixed!important;inset:0 auto 0 0!important;width:246px!important;height:100vh!important;padding:30px 18px 22px!important;background:#17152c!important;color:#fff!important;border:0!important;border-radius:0!important;box-shadow:12px 0 40px rgba(22,17,54,.08)!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;z-index:1000!important}
+.mq-sidebar .logo{display:flex!important;align-items:center;gap:8px;margin:0 0 3px 8px!important;color:#fff!important;font-size:25px!important;font-weight:950!important;letter-spacing:-1.5px!important;text-decoration:none!important}.mq-sidebar .logo span{color:#a997ff!important}.mq-brand-note{margin:0 0 42px 9px;color:#817d9f;font-size:9px;font-weight:900;letter-spacing:2.3px}
+.mq-sidebar .nav{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:7px!important;width:100%!important;margin:0!important;padding:0!important}.mq-sidebar .nav a{position:relative;display:flex!important;align-items:center!important;min-height:48px;padding:0 14px!important;border:1px solid transparent!important;border-radius:13px!important;color:#a7a3bd!important;font-size:13px!important;font-weight:700!important;text-decoration:none!important;transition:.2s!important;background:transparent!important}.mq-sidebar .nav a:before{content:attr(data-label);font-size:13px}.mq-sidebar .nav a{font-size:0!important}.mq-sidebar .nav a:before{font-size:13px}.mq-sidebar .nav a:hover{background:rgba(255,255,255,.07)!important;color:#fff!important;transform:translateX(3px)}.mq-sidebar .nav a.active{background:linear-gradient(105deg,#704cf5,#4b69f8)!important;color:white!important;box-shadow:0 9px 24px rgba(101,75,242,.32)!important}.mq-sidebar .nav a.active:after{content:"";position:absolute;right:12px;width:6px;height:6px;border-radius:50%;background:var(--mq-lime)}.mq-sidebar .nav a.nav-cta{margin-top:18px;background:rgba(255,255,255,.08)!important;color:#fff!important;border-color:rgba(255,255,255,.1)!important}.mq-sidebar .nav a.nav-cta:before{content:'Mon compte'}.mq-sidebar .nav a.nav-cta{font-size:0!important}.mq-sidebar .son-btn{display:none!important}.theme-toggle{margin-top:auto!important;width:100%;height:44px;border:1px solid rgba(255,255,255,.13);border-radius:12px;background:rgba(255,255,255,.07);color:white;font-size:19px;cursor:pointer}
+main{width:auto!important;max-width:none!important;margin:0 0 0 246px!important;padding:0 5.2vw 70px!important}.mq-topbar{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--mq-line);margin-bottom:36px;color:#9895aa;font-size:10px;font-weight:900;letter-spacing:1.7px}.mq-breadcrumb strong{color:#403b60}.mq-live{font-size:9px;letter-spacing:1px;color:#5b9b36;background:#eaf6dc;padding:9px 12px;border-radius:30px}
+.page{max-width:1320px!important;margin:0 auto!important;padding:8px 0 48px!important}.page:not(.active){display:none!important}.hero{min-height:480px;padding:50px 5.3%!important;border-radius:30px!important;background:linear-gradient(115deg,#211b48 0%,#382c83 54%,#4269df 100%)!important;color:#fff!important;display:grid!important;grid-template-columns:1.15fr .85fr!important;gap:28px!important;align-items:center!important;position:relative;overflow:hidden;box-shadow:0 24px 65px rgba(57,42,139,.22)!important}.hero:after{content:"";position:absolute;width:470px;height:470px;border:1px solid rgba(255,255,255,.14);border-radius:50%;right:-110px;top:-150px;box-shadow:0 0 0 42px rgba(255,255,255,.035),0 0 0 90px rgba(255,255,255,.025)}.hero .eyebrow{color:#c9bcff!important;font-size:10px!important;letter-spacing:2.2px!important;text-transform:uppercase;font-weight:900}.hero h1{font-size:clamp(38px,5vw,68px)!important;line-height:.99!important;letter-spacing:-3px!important;color:#fff!important;max-width:720px}.hero h1 span{color:#c7f36d!important}.hero-copy{max-width:560px;color:#d3d0eb!important;font-size:15px!important;line-height:1.8!important}.hero .actions{gap:10px!important;margin-top:28px}.hero .btn{border-radius:12px!important;padding:14px 18px!important;font-size:12px!important;font-weight:850!important}.hero .btn-primary{background:var(--mq-lime)!important;color:#25213e!important;box-shadow:0 9px 25px rgba(200,243,106,.2)!important}.hero .btn-gold{background:rgba(255,255,255,.13)!important;border:1px solid rgba(255,255,255,.22)!important;color:white!important}.hero .btn-secondary{background:transparent!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)!important}.hero .stats{display:flex!important;gap:28px!important;border-top:1px solid rgba(255,255,255,.18);margin-top:34px;padding-top:22px}.hero .stat{display:flex;flex-direction:column;gap:5px}.hero .stat strong{font-size:19px;color:#fff}.hero .stat span{font-size:10px;color:#b9b4d6}.hero-visual{position:relative!important;z-index:1!important;min-height:320px!important;display:grid;place-items:center!important}.hero-icon{width:220px!important;height:220px!important;border-radius:42px!important;display:grid!important;place-items:center!important;font-size:105px!important;background:linear-gradient(145deg,rgba(255,255,255,.2),rgba(255,255,255,.04))!important;border:1px solid rgba(255,255,255,.25)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 30px 70px rgba(10,8,42,.25)!important;transform:rotate(7deg)}.floating-score{position:absolute!important;right:0!important;bottom:28px!important;background:#fff!important;color:#292346!important;padding:15px 20px!important;border-radius:15px!important;box-shadow:0 18px 40px rgba(0,0,0,.18)!important;font-size:11px!important}.floating-score strong{display:block;color:#6548e8;font-size:17px;margin-top:4px}
+.section-heading{margin:12px 0 28px!important}.section-heading .eyebrow{color:var(--mq-violet)!important;font-size:10px!important;letter-spacing:2px!important;text-transform:uppercase;font-weight:900}.section-heading h2{font-size:clamp(29px,3.5vw,43px)!important;letter-spacing:-1.8px!important;color:var(--mq-ink)!important;margin:9px 0!important}.section-heading p{color:var(--mq-muted)!important;font-size:14px!important}.cards{gap:17px!important}.card,.panel,.price-card,.premium-hero{background:var(--mq-paper)!important;border:1px solid var(--mq-line)!important;border-radius:19px!important;box-shadow:var(--mq-shadow)!important;padding:25px!important}.card{transition:transform .22s,box-shadow .22s!important}.card:hover{transform:translateY(-5px)!important;box-shadow:0 24px 50px rgba(47,35,104,.13)!important}.card-icon{width:52px!important;height:52px!important;border-radius:15px!important;background:#f0edff!important;display:grid;place-items:center;font-size:25px!important}.card h3,.panel h3{color:var(--mq-ink)!important;font-size:17px!important;letter-spacing:-.3px}.card p,.panel p{color:var(--mq-muted)}.panel{margin-bottom:18px!important}.btn{border-radius:11px!important;font-weight:800!important;transition:.18s!important}.btn-primary{background:linear-gradient(110deg,#6e4cf4,#3978f6)!important;box-shadow:0 8px 18px rgba(95,76,235,.2)!important}.btn-gold{background:#c8f36a!important;color:#24213c!important}.btn-secondary{background:#f2f1fa!important;border:1px solid #e5e2f2!important;color:#514b70!important}.field input,.field select,.field textarea{border:1px solid #e5e3ef!important;border-radius:11px!important;background:#fafaff!important;padding:13px 14px!important;min-height:46px}.field label{color:#5d5876!important;font-size:11px!important;font-weight:850!important;letter-spacing:.3px}.daily{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(105deg,#f0edff,#edf3ff)!important;border:1px solid #e2ddff!important}.quiz-layout{gap:18px!important}.tabs{gap:8px}.tabs .btn{font-size:11px!important}.compare-wrap{border-radius:18px;overflow:auto;box-shadow:var(--mq-shadow)}.compare{background:white!important;border:1px solid var(--mq-line)!important}.compare th{background:#211b48!important;color:#fff!important}.compare td,.compare th{padding:16px!important;border-color:var(--mq-line)!important}.premium-hero{background:linear-gradient(115deg,#211b48,#4d3ca2 65%,#3978e8)!important;color:#fff!important;padding:48px!important}.premium-hero h2,.premium-hero p{color:white!important}.premium-hero p{opacity:.78}.price-card{border-radius:18px!important}.price{font-size:34px!important;color:#6548e8!important;font-weight:950}.auth-wrap{max-width:640px!important;margin:35px auto!important}.auth-panel{padding:38px!important}.profile-grid{gap:18px!important}.profile-number{font-size:42px!important;color:var(--mq-violet)!important;font-weight:950}.salle-barre{background:#211b48!important;color:white!important;border-radius:16px;padding:17px 20px;margin-bottom:18px}
+/* Dark mode */
+body[data-theme="dark"]{--mq-bg:#11101c;--mq-paper:#1c1a2b;--mq-ink:#f3f1ff;--mq-muted:#aaa6c2;--mq-line:#302d45;--mq-shadow:0 18px 55px rgba(0,0,0,.2);background:var(--mq-bg)!important;color:var(--mq-ink)!important}body[data-theme="dark"] .mq-topbar{border-color:var(--mq-line)}body[data-theme="dark"] .mq-breadcrumb strong,body[data-theme="dark"] .section-heading h2,body[data-theme="dark"] .card h3,body[data-theme="dark"] .panel h3{color:var(--mq-ink)!important}body[data-theme="dark"] .card,body[data-theme="dark"] .panel,body[data-theme="dark"] .price-card,body[data-theme="dark"] .auth-panel{background:var(--mq-paper)!important;border-color:var(--mq-line)!important}body[data-theme="dark"] .field input,body[data-theme="dark"] .field select,body[data-theme="dark"] .field textarea{background:#141322!important;color:#fff!important;border-color:#39354f!important}body[data-theme="dark"] .btn-secondary{background:#29263d!important;color:#e4e0ff!important;border-color:#39354f!important}body[data-theme="dark"] .daily{background:#24213a!important;border-color:#39354f!important}body[data-theme="dark"] .compare{background:#1c1a2b!important;color:#eee!important}body[data-theme="dark"] .compare td{color:#eee!important}body[data-theme="dark"] .card-icon{background:#30294d!important}
+@media(max-width:900px){.site-header.mq-sidebar{width:205px!important;padding:24px 13px!important}main{margin-left:205px!important;padding:0 26px 50px!important}.hero{padding:38px 5%!important;grid-template-columns:1fr!important}.hero-visual{min-height:200px!important}.hero-icon{width:145px!important;height:145px!important;font-size:70px!important}.floating-score{right:12%;bottom:0}.hero h1{font-size:48px!important}}
+@media(max-width:640px){body:before{display:none}.site-header.mq-sidebar{position:sticky!important;top:0!important;width:100%!important;height:auto!important;padding:12px 14px!important;display:block!important;background:#17152c!important}.mq-sidebar .logo{font-size:20px!important;margin:0 0 10px 3px!important}.mq-brand-note{display:none}.mq-sidebar .nav{display:flex!important;flex-direction:row!important;overflow-x:auto!important;gap:6px!important;padding-bottom:2px!important}.mq-sidebar .nav a{flex:0 0 auto;min-height:39px!important;padding:0 12px!important;border-radius:10px!important}.mq-sidebar .nav a:before{font-size:11px!important}.mq-sidebar .nav a.nav-cta{margin:0!important}.mq-sidebar .nav a.active:after{display:none}.theme-toggle{position:absolute;right:14px;top:10px;width:38px;height:34px;margin:0!important}.mq-sidebar .nav{padding-right:44px!important}.mq-sidebar .nav a:nth-child(3){display:none!important}main{margin:0!important;padding:0 15px 45px!important}.mq-topbar{height:53px;margin-bottom:20px;font-size:8px}.mq-live{font-size:7px;padding:7px 9px}.page{padding:0 0 32px!important}.hero{border-radius:22px!important;padding:30px 23px!important;min-height:0!important;gap:12px!important}.hero h1{font-size:43px!important;letter-spacing:-2px!important}.hero-copy{font-size:13px!important}.hero .actions{display:flex;flex-wrap:wrap}.hero .btn{font-size:10px!important;padding:12px 13px!important}.hero .stats{gap:13px!important;justify-content:space-between}.hero .stat strong{font-size:15px}.hero .stat span{font-size:8px}.hero-visual{min-height:155px!important}.hero-icon{width:118px!important;height:118px!important;font-size:58px!important;border-radius:25px!important}.floating-score{right:2%;bottom:0;padding:10px 13px!important;font-size:9px!important}.floating-score strong{font-size:13px}.section-heading{margin:6px 0 20px!important}.section-heading h2{font-size:31px!important}.card,.panel,.price-card{padding:19px!important;border-radius:16px!important}.daily{align-items:flex-start;flex-direction:column;gap:15px}.daily .btn{width:100%}.auth-panel{padding:23px!important}.premium-hero{padding:27px!important}.profile-grid{grid-template-columns:1fr!important}}
+</style>
+<style id="medquiz-home-screen-fit">
+/* Ajustement écran : le campus reste dans la largeur réellement disponible */
+html, body { max-width:100%; overflow-x:hidden; }
+body { min-width:320px; }
+main { min-width:0; width:auto; }
+#accueil.page.active {
+  width:100% !important;
+  max-width:1500px !important;
+  padding:clamp(10px,1.7vw,24px) 0 42px !important;
+}
+.home-immersive {
+  width:100%; max-width:100%; min-width:0;
+  padding:clamp(20px,3.1vw,46px);
+  border-radius:clamp(18px,2.2vw,30px);
+}
+.home-topline { min-width:0; flex-wrap:wrap; row-gap:8px; }
+.home-hero-grid {
+  grid-template-columns:minmax(0,1.08fr) minmax(280px,.92fr);
+  gap:clamp(12px,2.5vw,38px);
+  min-height:clamp(390px,48vw,570px);
+  padding:clamp(20px,3vw,40px) 0 20px;
+}
+.home-intro, .home-stage { min-width:0; }
+.home-intro h1 {
+  font-size:clamp(2.7rem,5.4vw,6rem);
+  overflow-wrap:normal;
+}
+.home-lead { max-width:52ch; }
+.home-actions { gap:9px; }
+.home-primary, .home-secondary { gap:12px; }
+.home-stage { min-height:clamp(300px,34vw,440px); }
+.stage-float { max-width:min(240px,48%); }
+.stage-float strong { overflow-wrap:anywhere; }
+.experience-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.experience-card { min-width:0; }
+.exp-copy { min-width:0; padding-right:8px; }
+.exp-copy small { overflow-wrap:anywhere; }
+.home-footerline { flex-wrap:wrap; }
+
+/* Petits ordinateurs et tablettes : empilement sans écraser l'illustration */
+@media (max-width:1100px) {
+  main { padding-left:clamp(20px,3vw,34px) !important; padding-right:clamp(20px,3vw,34px) !important; }
+  #accueil.page.active { width:100% !important; }
+  .home-hero-grid { grid-template-columns:minmax(0,1fr) minmax(250px,.8fr); gap:12px; }
+  .home-intro h1 { font-size:clamp(2.8rem,5.2vw,4.6rem); }
+  .experience-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:760px) {
+  main { padding:0 16px 38px !important; }
+  .mq-topbar { margin-bottom:14px !important; }
+  #accueil.page.active { padding:0 0 28px !important; }
+  .home-immersive { padding:22px 19px; }
+  .home-topline { font-size:.58rem; letter-spacing:.11em; }
+  .season-pill { margin-left:auto; }
+  .home-hero-grid { grid-template-columns:minmax(0,1fr); min-height:0; padding:28px 0 12px; }
+  .home-intro h1 { font-size:clamp(3.1rem,12vw,5.2rem); line-height:.94; }
+  .home-lead { max-width:58ch; font-size:.94rem; }
+  .home-stage { min-height:clamp(270px,72vw,360px); margin:4px 0 0; }
+  .stage-orbit { width:min(76vw,310px); }
+  .orbit-two { width:min(61vw,245px); }
+  .stage-core { transform:scale(.82); }
+  .float-top { left:0; top:8%; }
+  .float-bottom { right:0; bottom:8%; }
+  .experience-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .experience-card { min-height:138px; }
+  .home-footerline { font-size:.55rem; }
+}
+@media (max-width:420px) {
+  main { padding-left:11px !important; padding-right:11px !important; }
+  .home-immersive { padding:18px 13px; border-radius:17px; }
+  .home-topline { font-size:.49rem; letter-spacing:.075em; }
+  .season-pill { font-size:.43rem; padding:6px 7px; }
+  .home-intro h1 { font-size:clamp(2.75rem,13vw,3.55rem); letter-spacing:-.065em; }
+  .home-lead { font-size:.86rem; line-height:1.65; }
+  .home-actions { align-items:stretch; }
+  .home-primary, .home-secondary { width:100%; padding:13px 14px; font-size:.78rem; }
+  .home-daily { justify-content:center; }
+  .home-stage { min-height:250px; }
+  .stage-core { transform:scale(.68); }
+  .stage-float { padding:8px 9px; gap:6px; max-width:47%; }
+  .stage-float strong { font-size:.58rem; }
+  .stage-float small { font-size:.39rem; }
+  .float-icon, .float-pulse { width:26px; height:26px; }
+  .stage-coordinate { font-size:.44rem; }
+  .experience-grid { gap:7px; }
+  .experience-card { min-height:132px; padding:11px; }
+  .exp-symbol { width:33px; height:33px; margin-bottom:12px; }
+  .exp-copy strong { font-size:.72rem; }
+  .exp-copy small { font-size:.57rem; }
+  .exp-number { top:11px; right:11px; font-size:.53rem; }
+  .exp-arrow { right:11px; bottom:11px; }
+  .home-footerline { font-size:.47rem; }
+}
+/* Très grands écrans : garder une composition équilibrée, sans étirement */
+@media (min-width:1600px) {
+  #accueil.page.active { max-width:1560px !important; }
+  .home-hero-grid { min-height:560px; }
+}
+</style>
+
+
+<style id="medquiz-room-art-direction">
+/* MEDQUIZ / rooms: one coherent visual language, with a distinct identity per space */
+:root{
+ --room-violet:#7357ff;--room-blue:#4385ff;--room-lime:#c8f36a;
+ --room-ink:#17152c;--room-muted:#77758c;--room-line:#e8e6f2;
+ --room-paper:#fff;--room-glow:0 22px 60px rgba(40,28,100,.09);
+}
+.page:not(#accueil){position:relative;isolation:isolate}
+.page:not(#accueil) .section-heading{position:relative;padding:clamp(22px,3vw,36px);margin:0 0 22px!important;border:1px solid var(--room-line);border-radius:23px;background:linear-gradient(115deg,#fff 0%,#f8f7ff 62%,#eef3ff 100%);overflow:hidden;box-shadow:var(--room-glow)}
+.page:not(#accueil) .section-heading:after{content:"";position:absolute;width:210px;height:210px;right:-52px;top:-90px;border-radius:50%;border:1px solid rgba(115,87,255,.15);box-shadow:0 0 0 25px rgba(115,87,255,.035),0 0 0 52px rgba(67,133,255,.025);pointer-events:none}
+.page:not(#accueil) .section-heading .eyebrow{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:30px;background:#efedff;color:#674af0!important;font-size:9px!important;letter-spacing:1.7px!important}
+.page:not(#accueil) .section-heading h2{position:relative;z-index:1;font-size:clamp(27px,3.4vw,42px)!important;line-height:1.08!important;letter-spacing:-1.6px!important;margin:13px 0 8px!important}
+.page:not(#accueil) .section-heading p{position:relative;z-index:1;max-width:680px;line-height:1.7}
+.page:not(#accueil) .panel{border-radius:20px!important;box-shadow:0 13px 38px rgba(34,25,85,.055)!important}
+.page:not(#accueil) .panel h3{letter-spacing:-.45px}
+.page:not(#accueil) .btn{min-height:42px}
+.page:not(#accueil) .field{margin:17px 0}
+.page:not(#accueil) .field input:focus,.page:not(#accueil) .field select:focus,.page:not(#accueil) .field textarea:focus{border-color:var(--room-violet)!important;box-shadow:0 0 0 4px rgba(115,87,255,.1)!important}
+
+/* QUIZ — a challenge cockpit */
+#quiz .section-heading{background:radial-gradient(circle at 92% 18%,rgba(115,87,255,.16),transparent 28%),linear-gradient(115deg,#211b48,#382c83 65%,#4269df);border:0;min-height:190px;display:flex;flex-direction:column;justify-content:center}
+#quiz .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#d5ceff!important}
+#quiz .section-heading h2{color:#fff!important}
+#quiz .section-heading p{color:#d5d1ef!important}
+#quiz .section-heading:after{border-color:rgba(255,255,255,.2);box-shadow:0 0 0 30px rgba(255,255,255,.035),0 0 0 65px rgba(255,255,255,.025)}
+#quiz>.cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px!important}
+#quiz>.cards .card{position:relative;min-height:174px;padding:22px!important;overflow:hidden}
+#quiz>.cards .card:after{content:"↗";position:absolute;right:20px;top:20px;color:#9a8be8;font-size:20px;font-weight:800}
+#quiz>.cards .card:nth-child(1){background:linear-gradient(145deg,#fff,#f1efff)!important}
+#quiz>.cards .card:nth-child(2){background:linear-gradient(145deg,#fff,#eef5ff)!important}
+#quiz>.cards .card:nth-child(3){background:linear-gradient(145deg,#fff,#f5f1ff)!important}
+#quiz .daily{padding:22px 25px!important;border-radius:18px!important}
+#quiz .quiz-layout{grid-template-columns:minmax(270px,.78fr) minmax(0,1.22fr);gap:16px!important;margin-top:18px}
+#quiz .quiz-layout>.panel:first-child{background:linear-gradient(160deg,#fff,#f7f6ff)!important}
+#quiz #zoneQuiz{min-height:410px!important;position:relative;overflow:hidden}
+#quiz #zoneQuiz:before{content:"ZONE DE JEU";display:block;color:#9b96b7;font-size:9px;font-weight:950;letter-spacing:2px;margin-bottom:25px}
+#quiz #zoneQuiz .card-icon{width:62px;height:62px;border-radius:19px;background:#eeebff!important}
+
+/* LEADERBOARD — stage / podium */
+#classement .section-heading{background:radial-gradient(circle at 90% 15%,rgba(255,214,110,.24),transparent 26%),linear-gradient(115deg,#211b48,#43318a 65%,#6251ba);border:0}
+#classement .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#ffe4a2!important}
+#classement .section-heading h2{color:#fff!important}
+#classement .section-heading p{color:#d9d3f3!important}
+#classement .panel{padding:clamp(16px,2.4vw,28px)!important}
+#classement .tabs{display:flex;flex-wrap:wrap;gap:8px}
+#classement .tabs .btn{border-radius:30px!important;padding:10px 15px!important}
+#classement .tabs .btn.actif{background:linear-gradient(110deg,#704cf5,#4b69f8)!important;color:#fff!important;border:0!important}
+#classement #listeClassement{margin-top:16px}
+#classement .rank-item{padding:16px 12px;border-bottom:1px solid var(--room-line);border-radius:13px;transition:.18s}
+#classement .rank-item:hover{background:#f7f5ff;transform:translateX(3px)}
+#classement .rank-number{width:42px;height:42px;border-radius:14px;background:#efedff;color:#6847f5}
+#classement .rank-item:nth-child(1){background:linear-gradient(90deg,#fff9e9,transparent);border:1px solid #f4e5bc;padding:17px 14px}
+#classement .rank-item:nth-child(1) .rank-number{background:#ffe7a8;color:#93620b}
+#classement .rank-points{color:#6847f5}
+
+/* FRIEND ROOMS — multiplayer lobby */
+#parties .section-heading{background:radial-gradient(circle at 90% 15%,rgba(200,243,106,.22),transparent 25%),linear-gradient(115deg,#17152c,#25204f 65%,#315caa);border:0}
+#parties .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#d5f69a!important}
+#parties .section-heading h2{color:#fff!important}
+#parties .section-heading p{color:#d0cde5!important}
+#parties .quiz-layout{grid-template-columns:minmax(250px,.72fr) minmax(0,1.28fr);gap:15px!important}
+#parties .quiz-layout>.panel:first-child{background:linear-gradient(145deg,#f3f0ff,#fff)!important;border-color:#e3ddff!important}
+#parties #zonePartie{min-height:230px;display:flex;flex-direction:column;justify-content:center}
+#parties #zonePartie .card-icon{background:#e9e5ff!important}
+#parties #partiesContenu> .panel:last-child{position:relative;overflow:hidden}
+#parties #partiesContenu> .panel:last-child:before{content:"ÉDITEUR DE PARTIE";display:inline-block;margin-bottom:15px;padding:7px 10px;border-radius:30px;background:#efedff;color:#674af0;font-size:9px;font-weight:950;letter-spacing:1.5px}
+#parties .dropzone{border:1.5px dashed #b9aff4!important;border-radius:16px!important;background:#f8f6ff!important;padding:25px!important}
+#parties .actions{display:flex;gap:9px;flex-wrap:wrap}
+
+/* LIVE ROOM — keep attention on the match */
+#salle .salle-barre{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:20px 24px!important;border-radius:20px!important;background:linear-gradient(110deg,#211b48,#4938a1 65%,#3978e8)!important;box-shadow:0 16px 38px rgba(57,42,139,.2)}
+#salle #salleTitre{font-size:clamp(18px,2vw,25px);font-weight:950;letter-spacing:-.6px}
+#salle #salleCodeBarre{color:#d3ceff!important;font-weight:800;letter-spacing:1px}
+#salle #salleContenu{min-height:360px;padding:clamp(18px,3vw,34px)!important;border-radius:22px!important;background:radial-gradient(circle at 100% 0%,rgba(115,87,255,.09),transparent 28%),var(--room-paper)!important}
+
+/* CLINICAL SIMULATOR — hospital command center */
+#cas-cliniques .section-heading{background:radial-gradient(circle at 90% 10%,rgba(71,210,183,.2),transparent 26%),linear-gradient(115deg,#142b3c,#174d5c 62%,#257d83);border:0}
+#cas-cliniques .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#9af2dc!important}
+#cas-cliniques .section-heading h2{color:#fff!important}
+#cas-cliniques .section-heading p{color:#d1e8e7!important}
+#cas-cliniques #casCliniqueZone{position:relative;overflow:hidden;padding:clamp(20px,3vw,34px)!important}
+#cas-cliniques #casCliniqueZone:before{content:"SIMULATION CLINIQUE  /  CENTRE DE FORMATION";display:inline-flex;padding:8px 12px;border-radius:30px;background:#e7f8f4;color:#147b70;font-size:9px;font-weight:950;letter-spacing:1.5px;margin-bottom:20px}
+#cas-cliniques #casCliniqueZone>.card{background:linear-gradient(120deg,#f0fbf8,#f7f6ff)!important;border:1px solid #dcefe9!important;padding:24px!important;border-radius:18px!important}
+#cas-cliniques #casCliniqueZone>.card strong{font-size:1.1rem;line-height:1.5;color:#183c48}
+#cas-cliniques #casCliniqueZone>.card .btn{margin-top:12px}
+
+/* PREMIUM — exclusive dark/violet showcase */
+#premium .premium-hero{position:relative;overflow:hidden;min-height:310px;padding:clamp(25px,4vw,52px)!important;background:radial-gradient(circle at 85% 15%,rgba(200,243,106,.18),transparent 24%),linear-gradient(115deg,#17152c,#302064 58%,#315fc4)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:26px!important}
+#premium .premium-hero:after{content:"✦";position:absolute;right:7%;top:12%;font-size:clamp(90px,15vw,180px);font-weight:200;color:rgba(255,255,255,.07);line-height:1;pointer-events:none}
+#premium .premium-hero .eyebrow{color:#d9ceff!important;letter-spacing:2px}
+#premium .premium-hero h2{position:relative;z-index:1;max-width:680px;font-size:clamp(32px,5vw,58px)!important;line-height:1.02!important;letter-spacing:-2px!important}
+#premium .premium-hero p{position:relative;z-index:1;max-width:590px;line-height:1.8!important;color:#d4d0eb!important}
+#premium .pricing{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+#premium .price-card{position:relative;overflow:hidden;padding:25px!important}
+#premium .price-card.best{border:1.5px solid #8b75ff!important;background:linear-gradient(150deg,#f5f2ff,#fff)!important;transform:translateY(-7px)}
+#premium .price-card.best:before{content:"LE PLUS POPULAIRE";display:inline-block;margin-bottom:15px;padding:6px 9px;border-radius:30px;background:#6e4cf4;color:#fff;font-size:8px;font-weight:950;letter-spacing:1px}
+#premium .price-card .btn{width:100%;margin-top:14px}
+#premium .compare-wrap{box-shadow:var(--room-glow)}
+
+/* ACCOUNT / BILLING / ADMIN — focused workspace */
+#compte .auth-wrap{max-width:700px!important;margin:clamp(15px,4vw,48px) auto!important;padding:0 5px}
+#compte .auth-panel{position:relative;overflow:hidden;padding:clamp(24px,4vw,42px)!important;background:radial-gradient(circle at 100% 0%,rgba(115,87,255,.12),transparent 32%),var(--room-paper)!important}
+#compte .auth-panel:before{content:"MEDQUIZ ID  /  PLAYER ACCESS";display:inline-block;margin-bottom:16px;padding:7px 10px;border-radius:30px;background:#efedff;color:#674af0;font-size:9px;font-weight:950;letter-spacing:1.4px}
+#compte .auth-panel h2{font-size:clamp(28px,4vw,38px)!important;letter-spacing:-1.2px}
+#compte .auth-panel form{margin-top:22px}
+#abonnement .section-heading,#admin .section-heading{background:linear-gradient(115deg,#211b48,#44358f 65%,#4269df);border:0}
+#abonnement .section-heading .eyebrow,#admin .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#d7ceff!important}
+#abonnement .section-heading h2,#admin .section-heading h2{color:#fff!important}
+#abonnement .panel,#admin .panel{padding:clamp(20px,3vw,30px)!important}
+#abonnement #aboStatut{display:inline-flex;margin:10px 0;padding:12px 16px;border-radius:13px;background:#efedff;color:#674af0!important}
+#admin #adminListe{overflow-x:auto}
+
+/* PLAYER PROFILE — personal progress dashboard */
+#member .section-heading{background:radial-gradient(circle at 90% 15%,rgba(200,243,106,.22),transparent 24%),linear-gradient(115deg,#211b48,#3d3287 62%,#4269df);border:0}
+#member .section-heading .eyebrow{background:rgba(255,255,255,.12);color:#d7f59e!important}
+#member .section-heading h2{color:#fff!important}
+#member .section-heading p{color:#d6d2ed!important}
+#member .profile-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:15px!important}
+#member .profile-grid>.panel{position:relative;overflow:hidden;min-height:130px;background:linear-gradient(145deg,#fff,#f5f2ff)!important}
+#member .profile-grid>.panel:nth-child(2){background:linear-gradient(145deg,#f0efff,#edf4ff)!important}
+#member .profile-number{font-size:clamp(34px,4vw,48px)!important}
+#member>.panel{padding:clamp(18px,2.5vw,28px)!important}
+#member .badges{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+#member .badges>*{border-radius:30px}
+#member #statsZone{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+#member .history-item{padding:15px 10px;border-radius:12px}
+#member .history-item:hover{background:#f7f5ff}
+
+/* Dark theme counterparts */
+body[data-theme="dark"] .page:not(#accueil) .section-heading{background:linear-gradient(115deg,#211d36,#282344 65%,#202d4b);border-color:#37324f}
+body[data-theme="dark"] .page:not(#accueil) .section-heading h2{color:#f5f2ff!important}
+body[data-theme="dark"] .page:not(#accueil) .section-heading p{color:#b9b4ce!important}
+body[data-theme="dark"] #quiz .section-heading,body[data-theme="dark"] #classement .section-heading,body[data-theme="dark"] #parties .section-heading,body[data-theme="dark"] #cas-cliniques .section-heading,body[data-theme="dark"] #abonnement .section-heading,body[data-theme="dark"] #admin .section-heading,body[data-theme="dark"] #member .section-heading{background:linear-gradient(115deg,#17152c,#292052 65%,#243c70)!important}
+body[data-theme="dark"] #quiz>.cards .card,body[data-theme="dark"] #quiz .quiz-layout>.panel:first-child,body[data-theme="dark"] #parties .quiz-layout>.panel:first-child,body[data-theme="dark"] #parties #partiesContenu>.panel:last-child,body[data-theme="dark"] #cas-cliniques #casCliniqueZone>.card,body[data-theme="dark"] #member .profile-grid>.panel{background:#211e34!important;border-color:#39344f!important}
+body[data-theme="dark"] #classement .rank-item:hover,body[data-theme="dark"] #member .history-item:hover{background:#28243e}
+body[data-theme="dark"] #classement .rank-item:nth-child(1){background:linear-gradient(90deg,rgba(185,137,43,.12),transparent);border-color:#57482b}
+body[data-theme="dark"] #cas-cliniques #casCliniqueZone:before,body[data-theme="dark"] #compte .auth-panel:before,body[data-theme="dark"] #parties #partiesContenu>.panel:last-child:before{background:#292544;color:#b9aaff}
+body[data-theme="dark"] #cas-cliniques #casCliniqueZone>.card strong{color:#e8f4f1}
+body[data-theme="dark"] #premium .price-card.best{background:linear-gradient(150deg,#292344,#201d31)!important}
+body[data-theme="dark"] #abonnement #aboStatut{background:#30284f;color:#d2c5ff!important}
+
+/* Responsive room layouts */
+@media(max-width:1050px){
+ #quiz .quiz-layout,#parties .quiz-layout{grid-template-columns:minmax(0,1fr)!important}
+ #premium .pricing{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #premium .price-card.best{transform:none}
+}
+@media(max-width:720px){
+ .page:not(#accueil) .section-heading{padding:21px 18px!important;border-radius:18px!important;margin-bottom:16px!important}
+ .page:not(#accueil) .section-heading h2{font-size:clamp(25px,7vw,34px)!important}
+ #quiz>.cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ #quiz>.cards .card{min-height:150px;padding:17px!important}
+ #quiz>.cards .card:last-child{grid-column:1/-1}
+ #quiz .daily{align-items:flex-start;flex-direction:column;gap:14px}
+ #quiz .daily .btn{width:100%}
+ #quiz #zoneQuiz{min-height:280px!important}
+ #classement .panel{padding:14px!important}
+ #classement .tabs{width:100%}
+ #classement .tabs .btn{flex:1;min-width:130px;font-size:10px!important;padding:9px 10px!important}
+ #parties #partiesContenu>.panel:last-child{padding:18px!important}
+ #premium .pricing{grid-template-columns:minmax(0,1fr)}
+ #premium .premium-hero{min-height:0}
+ #premium .compare{min-width:500px}
+ #member .profile-grid{grid-template-columns:minmax(0,1fr)}
+ #member .profile-grid>.panel{min-height:105px}
+ #salle .salle-barre{padding:16px!important}
+ #salle #salleContenu{padding:18px!important}
+ #compte .auth-wrap{margin:10px auto!important}
+ #compte .auth-panel{padding:23px 18px!important}
+}
+@media(max-width:420px){
+ #quiz>.cards{gap:8px!important}
+ #quiz>.cards .card{padding:13px!important;min-height:142px}
+ #quiz>.cards .card-icon{width:42px;height:42px;font-size:21px!important}
+ #quiz>.cards .card h3{font-size:14px!important}
+ #quiz>.cards .card p{font-size:12px!important}
+ #classement .tabs .btn{font-size:9px!important;min-width:0}
+ #parties .actions .btn{width:100%}
+ #premium .premium-hero{padding:23px 18px!important}
+ #premium .premium-hero h2{font-size:32px!important}
+}
+</style>
+
+
+<style id="medquiz-compact-nav-motion-avatar">
+/* Navigation discrète : icônes compactes, libellés au survol */
+@media(min-width:641px){
+ .site-header.mq-sidebar{
+   width:82px!important;padding:26px 12px 18px!important;
+   transition:width .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s!important;
+   overflow:hidden!important;
+ }
+ .site-header.mq-sidebar:hover,.site-header.mq-sidebar:focus-within{width:238px!important;box-shadow:18px 0 55px rgba(22,17,54,.18)!important}
+ .mq-sidebar .logo{justify-content:center!important;margin:0 0 4px!important;font-size:0!important;white-space:nowrap}
+ .mq-sidebar .logo:before{content:"M";display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:linear-gradient(140deg,#7657ff,#3986ff);color:#fff;font-size:22px;font-weight:950;box-shadow:0 8px 22px rgba(103,76,245,.3)}
+ .mq-sidebar:hover .logo,.mq-sidebar:focus-within .logo{justify-content:flex-start!important;margin-left:8px!important;font-size:25px!important}
+ .mq-sidebar:hover .logo:before,.mq-sidebar:focus-within .logo:before{display:none}
+ .mq-brand-note{opacity:0;white-space:nowrap;margin:0 0 35px 9px!important;transition:opacity .18s}
+ .mq-sidebar:hover .mq-brand-note,.mq-sidebar:focus-within .mq-brand-note{opacity:1}
+ .mq-sidebar .nav{gap:9px!important}
+ .mq-sidebar .nav a{justify-content:center!important;width:56px!important;min-width:56px!important;height:49px!important;padding:0!important;margin-left:1px!important;border-radius:15px!important;font-size:0!important;white-space:nowrap}
+ .mq-sidebar .nav a:before{content:"";display:grid;place-items:center;width:100%;height:100%;font-size:20px!important}
+ .mq-sidebar .nav a:nth-child(1):before{content:"⌂"}
+ .mq-sidebar .nav a:nth-child(2):before{content:"✦"}
+ .mq-sidebar .nav a:nth-child(3):before{content:"⚕"}
+ .mq-sidebar .nav a:nth-child(4):before{content:"♟"}
+ .mq-sidebar .nav a:nth-child(5):before{content:"♛"}
+ .mq-sidebar .nav a:nth-child(6):before{content:"♧"}
+ .mq-sidebar .nav a:nth-child(7):before{content:"✧"}
+ .mq-sidebar .nav a:nth-child(8):before{content:"◉"}
+ .mq-sidebar:hover .nav a,.mq-sidebar:focus-within .nav a{justify-content:flex-start!important;width:100%!important;padding:0 14px!important;font-size:0!important}
+ .mq-sidebar:hover .nav a:before,.mq-sidebar:focus-within .nav a:before{content:attr(data-label)!important;display:block;width:auto;height:auto;font-size:12px!important}
+ .mq-sidebar:hover .nav a:nth-child(1):before,.mq-sidebar:focus-within .nav a:nth-child(1):before{content:"⌂  Accueil"!important}
+ .mq-sidebar:hover .nav a:nth-child(2):before,.mq-sidebar:focus-within .nav a:nth-child(2):before{content:"✦  Quiz"!important}
+ .mq-sidebar:hover .nav a:nth-child(3):before,.mq-sidebar:focus-within .nav a:nth-child(3):before{content:"⚕  Cas cliniques"!important}
+ .mq-sidebar:hover .nav a:nth-child(4):before,.mq-sidebar:focus-within .nav a:nth-child(4):before{content:"♟  Parties"!important}
+ .mq-sidebar:hover .nav a:nth-child(5):before,.mq-sidebar:focus-within .nav a:nth-child(5):before{content:"♛  Classement"!important}
+ .mq-sidebar:hover .nav a:nth-child(6):before,.mq-sidebar:focus-within .nav a:nth-child(6):before{content:"♧  Amis"!important}
+ .mq-sidebar:hover .nav a:nth-child(7):before,.mq-sidebar:focus-within .nav a:nth-child(7):before{content:"✧  Premium"!important}
+ .mq-sidebar:hover .nav a:nth-child(8):before,.mq-sidebar:focus-within .nav a:nth-child(8):before{content:"◉  Espace personnel"!important}
+ .mq-sidebar .nav a.active:after{right:5px!important}
+ .mq-sidebar .theme-toggle{width:56px!important;margin: auto auto 0!important}
+ .mq-sidebar:hover .theme-toggle,.mq-sidebar:focus-within .theme-toggle{width:100%!important}
+ main{margin-left:82px!important;transition:margin-left .28s cubic-bezier(.2,.8,.2,1)!important}
 }
 
-function startExam(qs, totalSec, label) {
-  const items = qs.map((q) => ({ q, choix: shuffle(q.choix), rep: null, flag: false }));
-  let cur = 0, reste = totalSec, fini = false;
-  const timer = setInterval(() => { if (fini) return; reste--; majTimer(); if (reste <= 0) terminer(true); }, 1000);
-  const timerEl = el("span", "mqx-timer");
-  const majTimer = () => { timerEl.textContent = `⏱ ${fmt(Math.max(0, reste))}`; timerEl.classList.toggle("urgent", reste <= 60); };
+/* Reduce the repeated top strip on inner tabs */
+.mq-topbar{height:58px!important;margin-bottom:clamp(16px,2vw,27px)!important;font-size:9px!important}
+.mq-live{padding:7px 10px!important;font-size:8px!important}
+.page:not(#accueil){padding-top:0!important}
 
-  function draw() {
-    exBody.replaceChildren();
-    const top = el("div", "mqx-top");
-    top.append(el("span", "", `Question ${cur + 1} / ${items.length}`), timerEl);
-    const it = items[cur];
-    exBody.append(top, el("p", "", it.q.question));
-    it.choix.forEach((c) => {
-      const b = el("button", "mqx-opt" + (it.rep === c ? " sel" : ""), c); b.type = "button";
-      b.addEventListener("click", () => { it.rep = it.rep === c ? null : c; draw(); });
-      exBody.append(b);
-    });
-    const nav = el("div", "actions"); nav.style.margin = "12px 0";
-    const mk = (t, cls, fn, dis) => { const b = el("button", "btn " + cls, t); b.type = "button"; b.disabled = !!dis; b.addEventListener("click", fn); nav.append(b); };
-    mk("← Précédente", "btn-secondary", () => { cur--; draw(); }, cur === 0);
-    mk(it.flag ? "🚩 Retirer le repère" : "🚩 Marquer", "btn-secondary", () => { it.flag = !it.flag; draw(); });
-    mk("Suivante →", "btn-secondary", () => { cur++; draw(); }, cur === items.length - 1);
-    exBody.append(nav);
-    const dots = el("div", "mqx-dots");
-    items.forEach((x, i) => { const d = el("button", (x.rep ? "done " : "") + (x.flag ? "flag " : "") + (i === cur ? "cur" : ""), String(i + 1)); d.type = "button"; d.addEventListener("click", () => { cur = i; draw(); }); dots.append(d); });
-    const fin = el("button", "btn btn-primary", "Rendre ma copie"); fin.type = "button";
-    fin.addEventListener("click", () => {
-      const vides = items.filter((x) => !x.rep).length;
-      if (!vides || confirm(`${vides} question(s) sans réponse. Rendre quand même ?`)) terminer(false);
-    });
-    exBody.append(dots, fin);
-  }
+/* Page transitions and subtle entrance choreography */
+@keyframes mqPageEnter{from{opacity:0;transform:translate3d(0,13px,0) scale(.995);filter:blur(2px)}to{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@keyframes mqCardEnter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.page.active{animation:mqPageEnter .42s cubic-bezier(.2,.75,.25,1) both}
+.page.active .section-heading,.page.active .panel,.page.active .card,.page.active .price-card{animation:mqCardEnter .46s cubic-bezier(.2,.75,.25,1) both}
+.page.active .cards .card:nth-child(2){animation-delay:.045s}
+.page.active .cards .card:nth-child(3){animation-delay:.09s}
+.page.active .cards .card:nth-child(4){animation-delay:.135s}
+.page:not(#accueil) .btn,.page:not(#accueil) .card,.page:not(#accueil) .panel{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.page:not(#accueil) .btn:hover{transform:translateY(-2px)}
+.page:not(#accueil) .panel:hover{border-color:rgba(115,87,255,.2)!important}
+@keyframes mqGlowPulse{0%,100%{box-shadow:0 0 0 0 rgba(115,87,255,0)}50%{box-shadow:0 0 0 7px rgba(115,87,255,.055)}}
+#member .profile-avatar{animation:mqGlowPulse 3.5s ease-in-out infinite}
 
-  function terminer(tempsEcoule) {
-    fini = true; clearInterval(timer);
-    const bonnes = items.filter((x) => x.rep === x.q.reponse).length;
-    const note = Math.round((bonnes / items.length) * 200) / 10;
-    const hist = lsGet(EXAMS, []); hist.push({ date: Date.now(), note, bonnes, total: items.length, label }); lsSet(EXAMS, hist.slice(-30));
-    exBody.replaceChildren(el("h3", "", tempsEcoule ? "⏰ Temps écoulé" : "Copie rendue"));
-    const big = el("p", "", `${note} / 20 — ${bonnes} bonne(s) réponse(s) sur ${items.length}`); big.style.cssText = "font-size:1.3rem;font-weight:700;margin:8px 0";
-    exBody.append(big, el("p", "muted", `Temps utilisé : ${fmt(totalSec - Math.max(0, reste))}. Les examens blancs ne comptent pas dans le classement.`));
-    const themes = {};
-    items.forEach((x) => { const t = x.q.theme || x.q.categorie || "Autre"; (themes[t] ||= [0, 0]); themes[t][1]++; if (x.rep === x.q.reponse) themes[t][0]++; });
-    const faibles = Object.entries(themes).sort((a, b) => a[1][0] / a[1][1] - b[1][0] / b[1][1]).slice(0, 5);
-    exBody.append(el("h3", "", "Par thème (du plus faible au plus fort)"));
-    faibles.forEach(([t, [ok, n]]) => { const r = el("div"); r.style.margin = "8px 0"; r.append(el("div", "", `${t} : ${ok}/${n}`)); const b = el("div", "mqx-bar"), i = el("i"); i.style.width = `${ok / n * 100}%`; b.append(i); r.append(b); exBody.append(r); });
-    exBody.append(el("h3", "", "Correction"));
-    items.forEach((x, i) => {
-      const ok = x.rep === x.q.reponse;
-      const d = el("div", ok ? "mqx-ok" : "mqx-ko");
-      d.append(el("strong", "", `${i + 1}. ${x.q.question}`), el("div", "", `Ta réponse : ${x.rep ?? "— (aucune)"}`));
-      if (!ok) d.append(el("div", "", `Bonne réponse : ${x.q.reponse}`));
-      d.append(el("div", "muted", fullExplanation(x.q)));
-      exBody.append(d);
+/* Profile photo block */
+#member .profile-identity{
+ display:flex;align-items:center;gap:19px;margin:0 0 18px!important;
+ padding:20px 24px!important;border-radius:22px!important;
+ background:linear-gradient(110deg,#f5f2ff,#fff 55%,#eef4ff)!important;
+}
+.profile-avatar-wrap{position:relative;flex:0 0 auto}
+.profile-avatar{width:88px;height:88px;border-radius:28px;display:grid;place-items:center;overflow:hidden;
+ background:linear-gradient(145deg,#7657ff,#3688ff);color:#fff;font-size:36px;font-weight:900;
+ border:4px solid #fff;box-shadow:0 10px 26px rgba(75,58,170,.2)}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-online{position:absolute;right:2px;bottom:3px;width:17px;height:17px;border:3px solid #fff;border-radius:50%;background:#71d69a}
+.profile-identity-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.profile-kicker{font-size:9px;letter-spacing:1.7px;font-weight:950;color:#795bf1}
+.profile-identity-copy strong{font-size:clamp(17px,2vw,22px);letter-spacing:-.5px;color:#211d3c}
+.profile-identity-copy small{font-size:12px;color:#77758c}
+.profile-avatar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.avatar-upload-label{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+#member .profile-avatar-actions .btn{font-size:11px!important;padding:10px 13px!important;min-height:39px}
+body[data-theme="dark"] #member .profile-identity{background:linear-gradient(110deg,#292344,#211f34 55%,#202b43)!important;border-color:#3b3554!important}
+body[data-theme="dark"] .profile-identity-copy strong{color:#f5f2ff}
+body[data-theme="dark"] .profile-identity-copy small{color:#aaa6c2}
+body[data-theme="dark"] .profile-avatar{border-color:#2b2742}
+body[data-theme="dark"] .avatar-online{border-color:#2b2742}
+
+@media(max-width:640px){
+ .mq-topbar{height:44px!important;margin-bottom:15px!important}
+ .profile-identity{padding:15px!important;gap:12px!important;flex-wrap:wrap}
+ .profile-avatar{width:68px;height:68px;border-radius:22px;font-size:29px}
+ .profile-identity-copy{min-width:calc(100% - 90px)}
+ .profile-avatar-actions{width:100%;padding-left:80px}
+ .profile-avatar-actions .btn{flex:1}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
+}
+</style>
+
+
+<style id="medquiz-focus-quiz-css">
+#mqQuizFocus{position:fixed;inset:0;z-index:99999;display:none;flex-direction:column;background:var(--bg,#07111f);color:var(--text,#f5f7fb);overflow:auto;overscroll-behavior:contain}
+#mqQuizFocus.is-open{display:flex;animation:mqFocusIn .24s ease-out}
+@keyframes mqFocusIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+#mqQuizFocus .mq-focus-top{height:68px;min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 clamp(16px,4vw,52px);border-bottom:1px solid rgba(148,163,184,.18);background:rgba(7,17,31,.92)}
+#mqQuizFocus .mq-focus-brand{font-weight:900;letter-spacing:.12em;font-size:.82rem;color:var(--text,#f5f7fb)}
+#mqQuizFocus .mq-focus-brand span{color:#31d6c2}
+#mqQuizFocus .mq-focus-exit{border:1px solid rgba(148,163,184,.3);background:rgba(148,163,184,.09);color:inherit;border-radius:12px;padding:10px 15px;font:inherit;font-weight:700;cursor:pointer}
+#mqQuizFocus .mq-focus-exit:hover{background:rgba(148,163,184,.18)}
+#mqQuizFocus .mq-focus-main{width:min(860px,100%);margin:0 auto;padding:clamp(22px,5vh,54px) clamp(16px,4vw,30px) 42px;flex:1;display:flex;flex-direction:column}
+#mqQuizFocus .mq-focus-kicker{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:#31d6c2;font-weight:800;margin:0 0 14px}
+#mqQuizFocus .mq-focus-progress{height:6px;border-radius:99px;background:rgba(148,163,184,.2);overflow:hidden;margin:0 0 32px}
+#mqQuizFocus .mq-focus-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#31d6c2,#d8b45a);border-radius:99px;transition:width .3s ease}
+#mqQuizFocus .quiz-area{width:100%;min-height:260px;padding:clamp(20px,4vw,38px);border-radius:24px}
+#mqQuizFocus .quiz-area h3{font-size:clamp(1.2rem,3vw,1.7rem);line-height:1.3;margin:0 0 24px}
+#mqQuizFocus .quiz-area>p:not(.chrono-text):not(.quiz-feedback){font-size:clamp(1.08rem,2.5vw,1.35rem);line-height:1.65}
+#mqQuizFocus .quiz-area .quiz-answer{width:100%;text-align:left;min-height:58px;margin:8px 0;padding:15px 18px;border-radius:15px;font-size:1rem;white-space:normal}
+#mqQuizFocus .quiz-area .quiz-feedback{line-height:1.65;padding:14px 16px;border-radius:14px;background:rgba(49,214,194,.08);margin-top:16px}
+#mqQuizFocus .quiz-area .actions{display:flex;flex-wrap:wrap;gap:10px}
+#mqQuizFocus .chrono{height:7px;border-radius:99px;overflow:hidden}
+#mqQuizFocus .chrono i{display:block;height:100%;background:linear-gradient(90deg,#31d6c2,#e6b84f);transition:width .2s linear}
+@media(max-width:640px){
+ #mqQuizFocus .mq-focus-top{height:58px;min-height:58px;padding:0 14px}
+ #mqQuizFocus .mq-focus-exit{padding:8px 11px;font-size:.85rem}
+ #mqQuizFocus .mq-focus-main{padding:22px 12px 28px}
+ #mqQuizFocus .mq-focus-progress{margin-bottom:20px}
+ #mqQuizFocus .quiz-area{padding:19px 15px;border-radius:18px;min-height:220px}
+ #mqQuizFocus .quiz-area .quiz-answer{min-height:56px;padding:14px;font-size:.96rem}
+ #mqQuizFocus .quiz-area .btn{min-height:46px}
+}
+@media(prefers-reduced-motion:reduce){#mqQuizFocus.is-open{animation:none}#mqQuizFocus .mq-focus-progress i{transition:none}}
+</style>
+
+
+<style id="medquiz-quiz-focus-fix">
+#mqQuizFocus{--fq-bg:#f4f5fb;--fq-top:#ffffff;--fq-ink:#17152c;--fq-muted:#5f5b7a;--fq-line:#dcd9ec;--fq-card:#ffffff;--fq-ans:#f6f5ff;--fq-ans-hover:#ebe7ff;--fq-accent:#6847f5;
+ background:var(--fq-bg)!important;color:var(--fq-ink)!important;z-index:2147483000!important}
+body[data-theme="dark"] #mqQuizFocus{--fq-bg:#11101c;--fq-top:#17152c;--fq-ink:#f3f1ff;--fq-muted:#b3aed0;--fq-line:#39354f;--fq-card:#1c1a2b;--fq-ans:#26233a;--fq-ans-hover:#322e4d;--fq-accent:#31d6c2}
+#mqQuizFocus .mq-focus-top{background:var(--fq-top)!important;border-bottom:1px solid var(--fq-line)!important;position:sticky;top:0;z-index:5}
+#mqQuizFocus .mq-focus-brand{color:var(--fq-ink)!important}
+#mqQuizFocus .mq-focus-exit{display:inline-flex!important;align-items:center;gap:6px;color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1px solid var(--fq-line)!important;min-height:42px;position:relative;z-index:6;touch-action:manipulation}
+#mqQuizFocus .mq-focus-exit:hover{background:var(--fq-ans-hover)!important}
+#mqQuizFocus main.mq-focus-main{margin:0 auto!important;width:min(860px,100%)!important;max-width:860px!important;padding:clamp(22px,5vh,54px) clamp(16px,4vw,30px) 42px!important;box-sizing:border-box}
+#mqQuizFocus .mq-focus-kicker{color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-area,#mqQuizFocus .panel{background:var(--fq-card)!important;color:var(--fq-ink)!important;border:1px solid var(--fq-line)!important}
+#mqQuizFocus .quiz-area h3,#mqQuizFocus .quiz-area p{color:var(--fq-ink)!important}
+#mqQuizFocus .quiz-area .muted{color:var(--fq-muted)!important}
+#mqQuizFocus .quiz-area .chrono-text{color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-area .chrono-text.urgent{color:#d93a3a!important}
+#mqQuizFocus .quiz-area .chrono{background:var(--fq-line)!important}
+#mqQuizFocus .quiz-answer{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1.5px solid var(--fq-line)!important;opacity:1!important}
+#mqQuizFocus .quiz-answer:hover:not(:disabled){background:var(--fq-ans-hover)!important;border-color:var(--fq-accent)!important}
+#mqQuizFocus .quiz-answer:disabled{opacity:1!important;color:var(--fq-ink)!important}
+#mqQuizFocus .quiz-answer.correct{background:#d9f5e5!important;border-color:#1f9d5c!important;color:#0d4a2a!important}
+#mqQuizFocus .quiz-answer.wrong{background:#fde0e0!important;border-color:#d93a3a!important;color:#7a1414!important}
+body[data-theme="dark"] #mqQuizFocus .quiz-answer.correct{background:rgba(124,226,180,.16)!important;color:#d9f8e8!important}
+body[data-theme="dark"] #mqQuizFocus .quiz-answer.wrong{background:rgba(255,139,139,.14)!important;color:#ffdede!important}
+#mqQuizFocus .quiz-feedback{background:var(--fq-ans)!important;color:var(--fq-ink)!important;border:1px solid var(--fq-line)}
+#mqQuizFocus input.reponse-libre{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1.5px solid var(--fq-line)!important}
+#mqQuizFocus .btn-secondary{color:var(--fq-ink)!important;background:var(--fq-ans)!important;border:1px solid var(--fq-line)!important}
+body:not([data-theme="dark"]) .quiz-answer{color:#17152c!important;background:#f6f5ff!important;border:1.5px solid #dcd9ec!important;opacity:1!important}
+body:not([data-theme="dark"]) .quiz-answer:disabled{opacity:1!important;color:#17152c!important}
+body:not([data-theme="dark"]) .quiz-answer.correct{background:#d9f5e5!important;border-color:#1f9d5c!important;color:#0d4a2a!important}
+body:not([data-theme="dark"]) .quiz-answer.wrong{background:#fde0e0!important;border-color:#d93a3a!important;color:#7a1414!important}
+body:not([data-theme="dark"]) .quiz-feedback{color:#3b3757!important;background:#f1efff!important}
+body:not([data-theme="dark"]) .reponse-libre{color:#17152c!important}
+#mqQuitDialog{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(10,8,30,.55)}
+#mqQuitDialog.is-open{display:flex}
+#mqQuitDialog .mq-quit-box{width:min(420px,100%);padding:24px;border-radius:18px;background:#fff;color:#17152c;box-shadow:0 24px 70px rgba(0,0,0,.35);font-family:inherit}
+body[data-theme="dark"] #mqQuitDialog .mq-quit-box{background:#1c1a2b;color:#f3f1ff}
+#mqQuitDialog h3{margin:0 0 8px;font-size:1.15rem}
+#mqQuitDialog p{margin:0 0 18px;opacity:.8;line-height:1.5}
+#mqQuitDialog .mq-quit-actions{display:flex;gap:10px;flex-wrap:wrap}
+#mqQuitDialog .mq-quit-actions button{flex:1 1 140px;min-height:46px;border-radius:12px;font-weight:800;cursor:pointer;border:1px solid transparent;touch-action:manipulation}
+#mqQuitContinue{background:linear-gradient(110deg,#6e4cf4,#3978f6);color:#fff}
+#mqQuitConfirm{background:#fde0e0;color:#7a1414;border-color:#f3b4b4!important}
+</style>
+
+<style id="medquiz-myrank-css">
+#classement #mqMyRank{position:relative;overflow:hidden;margin:0 0 22px;padding:clamp(18px,3vw,28px);border-radius:26px;color:#fff;isolation:isolate;
+ background:radial-gradient(120% 140% at 0% 0%,#3b2686 0%,transparent 55%),radial-gradient(90% 120% at 100% 100%,#2f3fa8 0%,transparent 60%),linear-gradient(150deg,#2a1b5e,#1b1142 60%,#25165a);
+ border:1px solid rgba(255,255,255,.12);box-shadow:0 26px 60px -18px rgba(42,27,94,.55),inset 0 1px 0 rgba(255,255,255,.12);
+ animation:mqMrIn .7s cubic-bezier(.2,.8,.2,1) both}
+#classement #mqMyRank[hidden]{display:none!important}
+body[data-theme="dark"] #classement #mqMyRank{border-color:rgba(167,139,250,.28);box-shadow:0 26px 70px -20px rgba(104,71,245,.55),inset 0 1px 0 rgba(255,255,255,.1)}
+#mqMyRank .mq-mr-glow{position:absolute;z-index:-1;width:340px;height:340px;right:-90px;top:-130px;border-radius:50%;background:radial-gradient(circle,rgba(200,243,106,.22),transparent 65%);filter:blur(6px);animation:mqMrGlow 6s ease-in-out infinite}
+#mqMyRank .mq-mr-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#mqMyRank .mq-mr-avatar{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;overflow:hidden;flex:0 0 auto;font-size:24px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)}
+#mqMyRank .mq-mr-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+#mqMyRank .mq-mr-who{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+#mqMyRank .mq-mr-kicker{font-size:10px;letter-spacing:2px;font-weight:900;color:#c8f36a!important}
+#mqMyRank .mq-mr-who strong{font-size:clamp(17px,2.4vw,22px);color:#fff!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mqMyRank .mq-mr-level{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#fff!important;font-size:13px;font-weight:800}
+#mqMyRank .mq-mr-level svg{width:16px;height:16px;color:#f2c66d}
+#mqMyRank .mq-mr-level b{color:#fff!important}
+#mqMyRank .mq-mr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0 16px}
+#mqMyRank .mq-mr-stat{position:relative;padding:15px 16px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:4px;min-width:0}
+#mqMyRank .mq-mr-label{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.6px;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,.72)!important}
+#mqMyRank .mq-mr-label svg{width:14px;height:14px;flex:0 0 auto}
+#mqMyRank .mq-mr-stat strong{font-size:clamp(28px,4vw,38px);line-height:1.05;font-weight:900;letter-spacing:-.5px;color:#fff!important}
+#mqMyRank .mq-mr-stat small{font-size:12px;color:rgba(255,255,255,.65)!important;min-height:1.2em}
+#mqMyRank .mq-mr-evo.is-up strong{color:#c8f36a!important}
+#mqMyRank .mq-mr-evo.is-down strong{color:#ff9d9d!important}
+#mqMyRank .mq-mr-progress{padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+#mqMyRank .mq-mr-progress-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:800;color:rgba(255,255,255,.85)!important;margin-bottom:9px}
+#mqMyRank .mq-mr-progress-top span{color:inherit!important}
+#mqMyRank .mq-mr-bar{height:12px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden}
+#mqMyRank .mq-mr-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#8b6cff,#5eead4 70%,#c8f36a);box-shadow:0 0 14px rgba(94,234,212,.55);transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+#mqMyRank .mq-mr-progress small{display:block;margin-top:8px;font-size:12px;color:rgba(255,255,255,.7)!important}
+#mqMyRank .mq-mr-goal{display:flex;align-items:center;gap:14px;margin-top:12px;padding:14px 16px;border-radius:18px;background:linear-gradient(110deg,rgba(200,243,106,.16),rgba(255,255,255,.06));border:1px solid rgba(200,243,106,.3)}
+#mqMyRank .mq-mr-goal-icon{flex:0 0 auto;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:rgba(200,243,106,.2);color:#c8f36a}
+#mqMyRank .mq-mr-goal-icon svg{width:22px;height:22px}
+#mqMyRank .mq-mr-goal>div{display:flex;flex-direction:column;gap:3px;min-width:0}
+#mqMyRank .mq-mr-goal strong{font-size:clamp(14px,2vw,16px);color:#fff!important;line-height:1.35}
+#mqMyRank .mq-mr-msg{margin:14px 2px 0;font-size:14px;line-height:1.5;font-weight:600;color:rgba(255,255,255,.9)!important}
+#mqMyRank .mq-mr-rank.is-gain::after{content:"";position:absolute;inset:-2px;border-radius:19px;pointer-events:none;border:2px solid #c8f36a;animation:mqMrGain 1.6s ease-out 2}
+#mqMyRank .mq-mr-rank.is-gain strong{animation:mqMrBump .8s cubic-bezier(.3,1.6,.5,1) 1}
+@keyframes mqMrIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes mqMrGlow{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
+@keyframes mqMrGain{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
+@keyframes mqMrBump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+@media(max-width:560px){#mqMyRank .mq-mr-level{order:3}#mqMyRank .mq-mr-stats{grid-template-columns:1fr 1fr}#mqMyRank .mq-mr-evo{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){#classement #mqMyRank,#mqMyRank .mq-mr-glow,#mqMyRank .mq-mr-rank.is-gain::after,#mqMyRank .mq-mr-rank.is-gain strong{animation:none!important}#mqMyRank .mq-mr-bar i{transition:none}}
+</style>
+
+<style id="medquiz-compact-stats">
+#statsZone{margin-top:16px}
+.mq-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mq-stat-card{position:relative;overflow:hidden;min-width:0;padding:17px 16px 15px;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.025));box-shadow:0 8px 22px rgba(15,23,42,.055);display:flex;flex-direction:column;gap:5px}
+.mq-stat-card:after{content:"";position:absolute;width:84px;height:84px;border-radius:50%;right:-30px;bottom:-43px;background:var(--mq-glow);opacity:.13;pointer-events:none}
+.mq-stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.mq-stat-icon{display:grid;place-items:center;width:31px;height:31px;border-radius:10px;background:var(--mq-glow);color:var(--mq-accent);font-size:19px;font-weight:800}
+.mq-stat-dot{color:var(--mq-accent);font-size:22px;line-height:1}
+.mq-stat-value{font-size:clamp(1.45rem,3vw,1.9rem);line-height:1.1;letter-spacing:-.04em;font-weight:850;color:var(--text,inherit);font-variant-numeric:tabular-nums}
+.mq-stat-label{font-size:.88rem;font-weight:750;color:var(--text,inherit)}
+.mq-stat-detail{font-size:.73rem;color:var(--muted,#8993a5);line-height:1.35}
+.mq-stat-blue{--mq-accent:#3985f6;--mq-glow:rgba(57,133,246,.17)}
+.mq-stat-violet{--mq-accent:#9871ee;--mq-glow:rgba(152,113,238,.17)}
+.mq-stat-gold{--mq-accent:#d99b27;--mq-glow:rgba(217,155,39,.18)}
+@media(max-width:520px){.mq-stats-grid{gap:8px}.mq-stat-card{padding:13px 10px;border-radius:14px}.mq-stat-icon{width:27px;height:27px;border-radius:8px}.mq-stat-label{font-size:.78rem}.mq-stat-detail{font-size:.66rem}}
+</style>
+
+
+<style id="medquiz-premium-themes">
+/* Sélecteur des thèmes Premium */
+.mq-theme-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.mq-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.mq-theme-choice{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:10px;border:1px solid var(--mq-line,#e8e7f1);border-radius:14px;background:var(--mq-paper,#fff);color:var(--mq-ink,#17152c);text-align:left;cursor:pointer;transition:.18s}
+.mq-theme-choice:hover{transform:translateY(-2px);border-color:var(--mq-violet,#6847f5);box-shadow:0 10px 24px rgba(40,30,90,.1)}
+.mq-theme-choice.is-active{outline:2px solid var(--mq-violet,#6847f5);border-color:transparent}
+.mq-theme-choice.is-locked{opacity:.72}
+.mq-theme-choice strong{font-size:13px}.mq-theme-choice small{font-size:11px;color:var(--mq-muted,#77758c)}
+.mq-theme-preview{display:block;width:100%;height:54px;border-radius:9px;border:1px solid rgba(0,0,0,.08);background:linear-gradient(120deg,#211b48,#704cf5,#62dce7)}
+.mq-theme-preview.cyber{background:linear-gradient(120deg,#081323,#14d8c5,#a4ff5c)}
+.mq-theme-preview.ocean{background:linear-gradient(120deg,#062c48,#087eaa,#50e0d0)}
+.mq-theme-preview.emerald{background:linear-gradient(120deg,#082b25,#147c59,#a7df91)}
+.mq-theme-preview.sakura{background:linear-gradient(120deg,#44243c,#d86d9c,#ffd5df)}
+.mq-theme-preview.sunset{background:linear-gradient(120deg,#492536,#d85d43,#ffc36d)}
+.mq-theme-preview.graphite{background:linear-gradient(120deg,#20242d,#596273,#c0c6d1)}
+.mq-theme-preview.arctic{background:linear-gradient(120deg,#17324d,#58a9d8,#c8f3ff)}
+.mq-theme-status{font-size:12px;margin-top:14px}
+@media(max-width:700px){.mq-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mq-theme-heading{align-items:flex-start}}
+/* Variables de chaque palette : le thème agit sur toutes les pages, pas uniquement le profil. */
+body[data-skin="royal"],body[data-skin="cyber"],body[data-skin="ocean"],body[data-skin="emerald"],body[data-skin="sakura"],body[data-skin="sunset"],body[data-skin="graphite"],body[data-skin="arctic"]{
+ --mq-bg:var(--skin-bg);--mq-paper:var(--skin-paper);--mq-ink:var(--skin-ink);--mq-muted:var(--skin-muted);--mq-line:var(--skin-line);--mq-violet:var(--skin-accent);--mq-blue:var(--skin-accent2);--mq-shadow:0 18px 48px rgba(0,0,0,.12);
+ background:var(--skin-bg)!important;color:var(--skin-ink)!important
+}
+body[data-skin="royal"]{--skin-bg:#f1effb;--skin-paper:#fff;--skin-ink:#211b48;--skin-muted:#77718f;--skin-line:#ded9f2;--skin-accent:#704cf5;--skin-accent2:#4269df;--skin-sidebar:#211b48;--skin-hero:linear-gradient(115deg,#211b48,#382c83 58%,#4269df)}
+body[data-skin="cyber"]{--skin-bg:#071522;--skin-paper:#10283a;--skin-ink:#efffff;--skin-muted:#9bb8c7;--skin-line:#21475a;--skin-accent:#14d8c5;--skin-accent2:#a4ff5c;--skin-sidebar:#06121f;--skin-hero:linear-gradient(115deg,#071b2b,#075b65 60%,#173c48)}
+body[data-skin="ocean"]{--skin-bg:#eaf5fa;--skin-paper:#fff;--skin-ink:#12334a;--skin-muted:#648093;--skin-line:#d3e6ef;--skin-accent:#087eaa;--skin-accent2:#20b9b0;--skin-sidebar:#10344b;--skin-hero:linear-gradient(115deg,#07344f,#087eaa 62%,#20b9b0)}
+body[data-skin="emerald"]{--skin-bg:#edf5ef;--skin-paper:#fff;--skin-ink:#173b2d;--skin-muted:#6c8879;--skin-line:#d7e8dc;--skin-accent:#16835d;--skin-accent2:#83bd65;--skin-sidebar:#103b2c;--skin-hero:linear-gradient(115deg,#103b2c,#167452 60%,#70a95e)}
+body[data-skin="sakura"]{--skin-bg:#fff1f5;--skin-paper:#fff;--skin-ink:#49283d;--skin-muted:#987587;--skin-line:#f2d8e2;--skin-accent:#cf6394;--skin-accent2:#ed9ab2;--skin-sidebar:#49283d;--skin-hero:linear-gradient(115deg,#49283d,#a94e7b 60%,#e69bb2)}
+body[data-skin="sunset"]{--skin-bg:#fff4ed;--skin-paper:#fff;--skin-ink:#4a2b2b;--skin-muted:#98766c;--skin-line:#f1ddd2;--skin-accent:#d65e43;--skin-accent2:#f0a34d;--skin-sidebar:#4a2b35;--skin-hero:linear-gradient(115deg,#492536,#b94d3e 60%,#ed9a50)}
+body[data-skin="graphite"]{--skin-bg:#eceef2;--skin-paper:#fff;--skin-ink:#272d38;--skin-muted:#747e8e;--skin-line:#d9dee6;--skin-accent:#59677d;--skin-accent2:#8795a9;--skin-sidebar:#252b35;--skin-hero:linear-gradient(115deg,#252b35,#4a5668 60%,#77869a)}
+body[data-skin="arctic"]{--skin-bg:#eef7fc;--skin-paper:#fff;--skin-ink:#18364c;--skin-muted:#6c8799;--skin-line:#d8eaf4;--skin-accent:#398fc4;--skin-accent2:#69c8dc;--skin-sidebar:#18364c;--skin-hero:linear-gradient(115deg,#18364c,#398fc4 60%,#69c8dc)}
+/* Habillage global partagé par l'accueil, les salles, les formulaires, le quiz et le classement. */
+body[data-skin] .mq-sidebar{background:var(--skin-sidebar)!important}
+body[data-skin] .mq-sidebar .logo span{color:var(--skin-accent2)!important}
+body[data-skin] .mq-sidebar .nav a.active{background:linear-gradient(105deg,var(--skin-accent),var(--skin-accent2))!important}
+body[data-skin] .mq-topbar{border-color:var(--skin-line)!important;color:var(--skin-muted)!important}
+body[data-skin] .mq-breadcrumb strong,body[data-skin] .section-heading h2,body[data-skin] .card h3,body[data-skin] .panel h3{color:var(--skin-ink)!important}
+body[data-skin] .section-heading:not(#quiz .section-heading){background:linear-gradient(115deg,var(--skin-paper),var(--skin-bg))!important;border-color:var(--skin-line)!important}
+body[data-skin] .section-heading .eyebrow{color:var(--skin-accent)!important}
+body[data-skin] .card,body[data-skin] .panel,body[data-skin] .price-card,body[data-skin] .feature,body[data-skin] .qbloc,body[data-skin] .import-panel{background:var(--skin-paper)!important;border-color:var(--skin-line)!important;color:var(--skin-ink)!important}
+body[data-skin] .card p,body[data-skin] .panel p,body[data-skin] .muted,body[data-skin] .section-heading p{color:var(--skin-muted)!important}
+body[data-skin] .hero,body[data-skin] #quiz .section-heading,body[data-skin] .premium-hero,body[data-skin] .salle-barre{background:var(--skin-hero)!important;color:#fff!important}
+body[data-skin] .hero h1,body[data-skin] .premium-hero h2,body[data-skin] .premium-hero p,body[data-skin] .salle-barre h2{color:#fff!important}
+body[data-skin] .hero h1 span{color:var(--skin-accent2)!important}
+body[data-skin] .btn-primary,body[data-skin] .tabs .btn.actif{background:linear-gradient(110deg,var(--skin-accent),var(--skin-accent2))!important;color:#fff!important;border-color:transparent!important}
+body[data-skin] .btn-secondary{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .btn-gold{background:var(--skin-accent2)!important;color:#fff!important}
+body[data-skin] input:not([type=radio]):not([type=checkbox]),body[data-skin] select,body[data-skin] textarea{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] input::placeholder,body[data-skin] textarea::placeholder{color:var(--skin-muted)!important}
+body[data-skin] .quiz-answer,body[data-skin] .chat-liste{background:var(--skin-bg)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .quiz-answer.correct{border-color:#32a879!important;background:rgba(50,168,121,.12)!important}
+body[data-skin] .quiz-answer.wrong{border-color:#d65c62!important;background:rgba(214,92,98,.1)!important}
+body[data-skin] .daily{background:var(--skin-bg)!important;border-color:var(--skin-line)!important}
+body[data-skin] .compare{background:var(--skin-paper)!important;color:var(--skin-ink)!important}
+body[data-skin] .compare th{background:var(--skin-sidebar)!important;color:#fff!important}
+body[data-skin] .compare td{color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin] .history-item,body[data-skin] .rank-item{border-color:var(--skin-line)!important}
+body[data-skin] .profile-number,body[data-skin] .rank-points,body[data-skin] .rank-number{color:var(--skin-accent)!important}
+body[data-skin] footer{border-color:var(--skin-line)!important;color:var(--skin-muted)!important}
+body[data-skin] .home-immersive{background:var(--skin-hero)!important;border-color:var(--skin-line)!important}
+body[data-skin] .home-intro h1 em{background:linear-gradient(95deg,var(--skin-accent2),#fff 85%);-webkit-background-clip:text;background-clip:text;color:transparent}
+body[data-skin] .home-primary{background:var(--skin-accent2)!important;color:#fff!important}
+body[data-skin] .home-secondary{border-color:rgba(255,255,255,.3)!important}
+body[data-skin] .mq-theme-choice{background:var(--skin-paper)!important;color:var(--skin-ink)!important;border-color:var(--skin-line)!important}
+body[data-skin="cyber"] .card,body[data-skin="cyber"] .panel,body[data-skin="cyber"] .price-card,body[data-skin="cyber"] .feature,body[data-skin="cyber"] .qbloc{box-shadow:0 12px 35px rgba(0,0,0,.22)!important}
+body[data-skin="cyber"] .section-heading:not(#quiz .section-heading){background:linear-gradient(115deg,#10283a,#0b3545)!important}
+</style>
+
+
+<style id="medquiz-survival-mode-style">
+.survival-card{border:1px solid rgba(239,68,68,.28)!important;background:linear-gradient(145deg,var(--mq-paper, var(--paper)),rgba(239,68,68,.06))!important}
+.survival-card .card-icon{background:rgba(239,68,68,.12)!important}
+</style>
+<style id="medquiz-social-style">
+#social .social-tabs{display:flex;flex-wrap:wrap;gap:9px;margin:0 0 17px}#social .social-layout{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:17px;align-items:start}#social .social-main{min-height:330px}#social .social-side{position:sticky;top:20px}.social-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--mq-line,#e8e5f2)}.social-row:last-child{border:0}.social-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(135deg,#e8e2ff,#dceaff);color:#6045c8;font-weight:900;overflow:hidden}.social-avatar img{width:100%;height:100%;object-fit:cover}.social-person{min-width:0;flex:1}.social-person strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.social-person small{color:var(--mq-muted,#777)}.social-online{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16c784;margin-right:5px}.social-actions{display:flex;gap:7px;flex-wrap:wrap}.social-actions .btn{padding:9px 12px!important;font-size:11px!important}.social-search{display:flex;gap:8px;margin:14px 0}.social-search input,.social-chat-input{min-width:0;flex:1;border:1px solid var(--mq-line,#ddd);border-radius:11px;padding:12px;background:var(--mq-paper,#fff);color:var(--mq-ink,#222)}.social-chat{display:flex;flex-direction:column;gap:10px}.social-chat-list{height:280px;overflow:auto;border:1px solid var(--mq-line,#ddd);border-radius:12px;padding:12px}.social-bubble{max-width:82%;padding:9px 12px;border-radius:13px;margin:7px 0;background:var(--mq-bg,#f2f1fa);overflow-wrap:anywhere}.social-bubble.mine{margin-left:auto;background:#e8e4ff}.social-bubble small{display:block;font-size:10px;opacity:.65;margin-top:4px}.social-stat{display:flex;align-items:baseline;gap:9px;margin:16px 0}.social-stat strong{font-size:38px;color:var(--mq-violet,#7050d8)}.social-empty{padding:25px 10px;text-align:center;color:var(--mq-muted,#777)}.social-empty b{display:block;color:var(--mq-ink,#222);font-size:16px;margin-bottom:6px}
+body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#fff}body[data-skin] #social .social-bubble.mine{background:var(--skin-sidebar);color:#fff}
+@media(max-width:720px){#social .social-layout{grid-template-columns:1fr}#social .social-side{position:static}#social .social-tabs{display:grid;grid-template-columns:1fr 1fr}#social .social-tabs button{font-size:11px!important;padding:10px 7px!important}.social-row{align-items:flex-start;flex-wrap:wrap}.social-actions{width:100%;padding-left:56px}}
+</style>
+
+<style id="medquiz-password-mobile-fix">
+/* Bouton afficher/masquer : zone tactile visible sans masquer la saisie */
+.mq-password-wrap{position:relative!important;width:100%!important;display:flex!important;align-items:center!important}
+.mq-password-wrap input,.field .mq-password-wrap input{width:100%!important;min-width:0!important;padding-right:60px!important}
+.mq-password-wrap .mq-password-toggle{z-index:3!important;display:flex!important;align-items:center!important;justify-content:center!important;right:4px!important;top:50%!important;transform:translateY(-50%)!important;width:44px!important;height:44px!important;min-width:44px!important;padding:0!important;border:0!important;border-radius:10px!important;background:transparent!important;font-size:21px!important;line-height:1!important;touch-action:manipulation}
+.mq-password-wrap .mq-password-toggle:focus-visible{outline:2px solid #6847f5!important;outline-offset:2px!important}
+@media(max-width:640px){
+  .field .mq-password-wrap input{min-height:52px!important;padding:12px 62px 12px 14px!important;font-size:16px!important}
+  .mq-password-wrap .mq-password-toggle{right:3px!important;width:46px!important;height:46px!important;min-width:46px!important;font-size:22px!important;background:rgba(104,71,245,.07)!important}
+}
+</style>
+
+</head>
+<body>
+<header class="site-header mq-sidebar">
+<a aria-label="MedQuiz accueil" class="logo" href="#accueil">MED<span>QUIZ</span></a><div class="mq-brand-note">LEARNING ARENA</div>
+<nav aria-label="Navigation principale" class="nav">
+<a class="active" data-label="Vue générale" href="#accueil">Accueil</a>
+<a data-label="Entraînement" href="#quiz">Quiz</a>
+<a data-label="Simulation clinique" href="#cas-cliniques">Cas cliniques 👑</a>
+<a data-label="Multijoueur" href="#parties">Parties</a>
+<a data-label="Hall of fame" href="#classement">Classement</a>
+<a data-label="Amis & messages" href="#social">Amis</a>
+<a data-label="MedQuiz plus" href="#premium">Premium</a>
+<a class="nav-cta" data-label="Espace personnel" href="#compte" id="accountNav">Mon compte</a>
+<button aria-label="Activer ou couper le son" class="son-btn" id="btnSon" title="Son" type="button">🔊</button>
+<button aria-label="Changer le thème" class="theme-toggle" id="themeToggle" type="button">☾</button></nav>
+</header>
+<main><div class="mq-topbar"><div class="mq-breadcrumb">MEDQUIZ<strong> / ESPACE D’APPRENTISSAGE</strong></div><div class="mq-top-actions"></div></div>
+<section class="page active" id="accueil" aria-label="Accueil MedQuiz">
+  <div class="home-immersive">
+    <div class="home-topline"><span class="live-dot"></span> MEDQUIZ <span class="topline-divider">/</span> CAMPUS MÉDICAL INTERACTIF <span class="topline-spacer"></span><span class="season-pill">✦ SAISON APPRENTISSAGE</span></div>
+    <div class="home-hero-grid">
+      <div class="home-intro">
+        <div class="home-kicker"><span>✦</span> TON TERRAIN D’ENTRAÎNEMENT</div>
+        <h1>La médecine<br/>se <em>maîtrise</em><br/>en jouant.</h1>
+        <p class="home-lead">Entraîne ton raisonnement, relève des défis et transforme chaque bonne réponse en progression.</p>
+        <p id="refInvite" class="notice" hidden style="margin:0 0 14px">🎁 Tu as été invité ! <a href="#compte" style="font-weight:700">Crée ton compte</a>, fais 3 quiz et gagne 7 jours Premium.</p>
+        <div class="home-actions">
+          <a class="home-primary" href="#quiz">Lancer une session <span>↗</span></a>
+          <a class="home-secondary" href="#cas-cliniques">Explorer les cas cliniques <span>→</span></a>
+          <a class="home-secondary" href="#essai" id="essaiGratuit">⚡ Essai gratuit en 1 min <span>→</span></a>
+        </div>
+        <div class="home-proof"><span class="proof-avatars"><i>✚</i><i>⚕</i><i>+</i></span><span>Apprends à ton rythme, progresse à chaque session.</span></div>
+      </div>
+      <div class="home-stage" aria-label="Illustration abstraite du campus médical">
+        <div class="stage-orbit orbit-one"></div><div class="stage-orbit orbit-two"></div>
+        <div class="stage-cross">✚</div><div class="stage-core"><span class="core-ring"></span><strong>MQ</strong></div>
+        <div class="stage-coordinate">01 — LE CAMPUS<br/>EST À TOI</div>
+      </div>
+    </div>
+    <div class="home-command">
+      <div class="command-heading"><span>CHOISIS TON EXPÉRIENCE</span><small>UNIVERS MEDQUIZ <b>•</b> 01 / 04</small></div>
+      <div class="experience-grid">
+        <a class="experience-card exp-quiz" href="#quiz"><span class="exp-number">01</span><span class="exp-symbol">⌁</span><span class="exp-copy"><strong>Quiz & entraînement</strong><small>Teste tes connaissances, à ton niveau.</small></span><span class="exp-arrow">↗</span></a>
+        <a class="experience-card exp-clinical" href="#cas-cliniques"><span class="exp-number">02</span><span class="exp-symbol">✚</span><span class="exp-copy"><strong>Cas cliniques</strong><small>Raisonne comme en situation réelle.</small></span><span class="exp-arrow">↗</span></a>
+        <a class="experience-card exp-arena" href="#parties"><span class="exp-number">03</span><span class="exp-symbol">◎</span><span class="exp-copy"><strong>Arène multijoueur</strong><small>Défie tes amis et compare tes scores.</small></span><span class="exp-arrow">↗</span></a>
+      </div>
+    </div>
+    <div class="home-footerline"><span>APPRENDRE · COMPRENDRE · PROGRESSER</span><span>MEDQUIZ <b>©</b> — TON SAVOIR, TON AVENIR</span></div>
+  </div>
+</section>
+<section class="page" id="quiz">
+<div class="section-heading">
+<span class="eyebrow">✦ Entraîne-toi</span>
+<h2>Choisis ton prochain défi</h2>
+<p>Personnalise ton quiz et teste tes connaissances à ton rythme.</p>
+</div>
+<div class="cards" style="margin-bottom:22px">
+<article class="card card-click" data-preset="medecine">
+<div class="card-icon">🩺</div><h3>Médecine</h3><p>Anatomie, santé et connaissances médicales générales.</p>
+</article>
+<article class="card card-click" data-preset="culture">
+<div class="card-icon">🌍</div><h3>Culture générale</h3><p>Sciences, histoire, géographie et connaissances du monde.</p>
+</article>
+<article class="card survival-card" id="survivalCard">
+<div class="card-icon">☠️</div><h3>Mode Survie</h3><p>Une erreur et la partie s'arrête. Jusqu'où peux-tu aller ?</p>
+<button class="btn btn-primary" id="demarrerSurvie" type="button">Entrer dans l'arène →</button>
+</article>
+</div>
+<div class="quiz-layout">
+<div class="panel">
+<h3>Paramètres du quiz</h3>
+<div class="field">
+<label for="categorieQuiz">Catégorie</label>
+<select id="categorieQuiz">
+<option value="medecine">Médecine</option>
+<option value="culture">Culture générale</option>
+</select>
+</div>
+<div class="field">
+<label for="niveauQuiz">Niveau</label>
+<select id="niveauQuiz">
+<option value="facile">Facile</option>
+<option value="moyen">Moyen</option>
+<option value="difficile">Difficile</option>
+</select>
+</div>
+<div class="field">
+<label for="themeQuiz">Thème</label>
+<select id="themeQuiz"><option value="">Tous les thèmes</option></select>
+</div>
+<div class="field">
+<label for="nombreQuiz">Nombre de questions</label>
+<select id="nombreQuiz">
+<option value="5">5 questions</option>
+<option value="10">10 questions</option>
+<option value="20">20 questions</option>
+<option value="30">30 questions</option>
+</select>
+</div>
+<div class="field">
+<label for="chronoQuiz">Chronomètre par question</label>
+<select id="chronoQuiz">
+<option value="0">Désactivé</option>
+<option value="15">15 secondes</option>
+<option value="20">20 secondes</option>
+<option value="30">30 secondes</option>
+</select>
+</div>
+<p class="muted" style="font-size:.85rem;margin-bottom:12px">Barème par bonne réponse : facile = 1 point, moyen = 5 points, difficile = 10 points.</p>
+<p class="muted" id="quotaInfo" style="font-size:.85rem;margin-bottom:12px"></p>
+<button class="btn btn-primary" id="demarrerQuiz" style="width:100%">Commencer le quiz →</button>
+</div>
+<div aria-live="polite" class="panel quiz-area" id="zoneQuiz">
+<div class="card-icon">🎯</div>
+<h3>Prêt à jouer ?</h3>
+<p class="muted">Choisis une catégorie, un niveau et le nombre de questions, puis clique sur « Commencer le quiz ».</p>
+</div>
+</div>
+</section>
+<section class="page" id="classement">
+<div class="section-heading">
+<span class="eyebrow">✦ Les meilleurs joueurs</span>
+<h2>🏆 Classement MedQuiz</h2>
+<p>Les joueurs sont classés selon le total de leurs points enregistrés.</p>
+</div>
+<section id="mqMyRank" aria-label="Ma progression dans le classement" hidden>
+  <div class="mq-mr-glow" aria-hidden="true"></div>
+  <header class="mq-mr-head">
+    <span class="mq-mr-avatar" id="mqMrAvatar" aria-hidden="true">👤</span>
+    <div class="mq-mr-who"><span class="mq-mr-kicker">MA PROGRESSION</span><strong id="mqMrName">—</strong></div>
+    <span class="mq-mr-level"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg><b id="mqMrLevel">Étudiant</b></span>
+  </header>
+  <div class="mq-mr-stats">
+    <div class="mq-mr-stat mq-mr-rank" id="mqMrRankBox">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Mon classement</span>
+      <strong id="mqMrRank">—</strong><small id="mqMrRankSub"></small>
+    </div>
+    <div class="mq-mr-stat">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Mes points</span>
+      <strong id="mqMrPoints">—</strong><small id="mqMrPointsSub"></small>
+    </div>
+    <div class="mq-mr-stat mq-mr-evo" id="mqMrEvoBox">
+      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Mon évolution</span>
+      <strong id="mqMrEvo">—</strong><small id="mqMrEvoSub"></small>
+    </div>
+  </div>
+  <div class="mq-mr-progress">
+    <div class="mq-mr-progress-top"><span id="mqMrFrom">Étudiant</span><span id="mqMrTo"></span></div>
+    <div class="mq-mr-bar" id="mqMrBar" role="progressbar" aria-label="Progression vers le niveau suivant" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="mqMrFill"></i></div>
+    <small id="mqMrProgressNote"></small>
+  </div>
+  <div class="mq-mr-goal">
+    <span class="mq-mr-goal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span>
+    <div><span class="mq-mr-label">Mon prochain objectif</span><strong id="mqMrGoal">—</strong></div>
+  </div>
+  <p class="mq-mr-msg" id="mqMrMsg" aria-live="polite"></p>
+</section>
+<div class="panel">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:12px">
+<div class="tabs" role="tablist">
+<button class="btn btn-secondary actif" id="ongletSemaine" type="button">📅 Classement hebdomadaire</button>
+<button class="btn btn-secondary" id="ongletTotal" type="button">🏆 Classement général</button>
+</div>
+<button class="btn btn-secondary" id="refreshLeaderboard">Actualiser</button>
+</div>
+<p class="muted" id="noteClassement" style="font-size:.88rem;margin-bottom:10px">Points gagnés depuis lundi. Le classement repart à zéro chaque lundi.</p>
+<div aria-live="polite" id="listeClassement"><p class="muted">Connecte-toi pour consulter le classement.</p></div>
+</div>
+</section>
+<section class="page" id="parties">
+<div class="section-heading">
+<span class="eyebrow">✦ Entre amis</span>
+<h2>🎮 Parties entre amis</h2>
+<p>Crée ta partie avec tes propres questions, partage le code, et compare les scores de tes amis.</p>
+</div>
+<div class="panel hidden" id="partiesAuth">
+<p class="muted">Connecte-toi pour créer ou rejoindre une partie.</p>
+<a class="btn btn-primary" href="#compte" style="margin-top:14px">Me connecter</a>
+</div>
+<div id="partiesContenu">
+<div class="quiz-layout">
+<div class="panel">
+<h3>Rejoindre une partie</h3>
+<div class="field"><label for="codePartie">Code de la partie</label><input autocomplete="off" id="codePartie" maxlength="10" placeholder="Exemple : K7M2QX" style="text-transform:uppercase"/></div>
+<button class="btn btn-primary" id="rejoindrePartie" style="width:100%" type="button">Rejoindre →</button>
+</div>
+<div aria-live="polite" class="panel quiz-area" id="zonePartie">
+<div class="card-icon">🎮</div><h3>Prêt à jouer entre amis ?</h3>
+<p class="muted">Entre un code pour rejoindre une partie, ou crée la tienne ci-dessous.</p>
+</div>
+</div>
+<div class="panel" style="margin-top:20px">
+<h3>Créer ma partie</h3>
+<div class="field"><label for="partieTitre">Nom de la partie</label><input id="partieTitre" maxlength="60" placeholder="Exemple : Quiz de la promo"/></div>
+<div class="field"><label for="partieChrono">Temps par question</label>
+<select id="partieChrono"><option value="10">10 secondes</option><option value="15">15 secondes</option><option selected="" value="20">20 secondes</option><option value="30">30 secondes</option><option value="45">45 secondes</option></select>
+</div>
+<p class="muted" style="font-size:.88rem">Choisis pour chaque question : choix multiples (coche la bonne réponse) ou question ouverte (le joueur tape sa réponse). Maximum 50 questions.</p>
+<div class="actions" style="margin-bottom:10px">
+<button class="btn btn-primary" id="ouvrirImport" type="button">📄 Importer mes questions</button>
+</div>
+<div class="import-panel hidden" id="importPanel">
+<p class="muted" style="font-size:.9rem">Ton document est lu <strong>sur ton appareil</strong> : il n'est envoyé nulle part. Seules les questions que tu valides sont enregistrées, et elles restent privées à ta partie.</p>
+<label class="dropzone" for="importFichier" id="importZone">
+<strong>Dépose ton document ici</strong> ou touche pour le choisir<br/>
+<span class="muted" style="font-size:.85rem">Word (.docx), PDF, photos JPG ou PNG · 10 Mo et 100 pages maximum · plusieurs photos possibles</span>
+</label>
+<input accept=".docx,.pdf,.jpg,.jpeg,.png,image/jpeg,image/png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" id="importFichier" multiple="" type="file"/>
+<div class="hidden" id="importProgres">
+<p class="muted" id="importEtat"></p>
+<div class="chrono"><i id="importBarre" style="width:0%"></i></div>
+<button class="btn btn-secondary btn-small" id="importAnnuler" type="button">Annuler</button>
+</div>
+<p aria-live="polite" class="muted" id="importMsg" style="margin-top:10px"></p>
+</div>
+<div id="blocsQuestions"></div>
+<div class="actions">
+<button class="btn btn-secondary" id="ajouterQuestion" type="button">+ Ajouter une question</button>
+<button class="btn btn-primary" id="creerPartie" type="button">Créer la partie</button>
+</div>
+<div class="import-panel hidden" id="recapPartie"></div>
+<p aria-live="polite" class="muted" id="msgPartie" style="margin-top:12px"></p>
+</div>
+</div>
+</section>
+<section class="page" id="salle">
+<div class="salle-barre">
+<div><strong id="salleTitre">Partie</strong> <span class="muted" id="salleCodeBarre"></span></div>
+<button class="btn btn-secondary btn-small" id="quitterSalle" type="button">Quitter</button>
+</div>
+<div aria-live="polite" class="panel" id="salleContenu"></div>
+</section>
+<section class="page" id="cas-cliniques">
+<div class="section-heading">
+<span class="eyebrow gold-text">✦ Réservé à MedQuiz Premium</span>
+<h2>🩺 Cas cliniques interactifs</h2>
+<p class="muted">Entre dans le service : interroge le patient, choisis les examens, pose ton diagnostic et prends les décisions de soins.</p>
+</div>
+<div aria-live="polite" class="panel" id="casCliniqueZone">
+<h3>Centre de simulation hospitalière</h3>
+<p class="muted">Choisis un cas, analyse les informations du patient et avance étape par étape. Chaque réponse est suivie d'une explication pédagogique.</p>
+<div class="field"><label for="casSpecialite">Spécialité</label>
+<select id="casSpecialite"><option value="obstetrique">Gynécologie-obstétrique</option></select>
+</div>
+<div class="card" style="margin:16px 0">
+<strong>Cas 1 — Céphalées et hypertension chez une femme enceinte</strong>
+<p class="muted">Niveau intermédiaire · Urgences obstétricales · 4 étapes</p>
+<button class="btn btn-gold" id="demarrerCas" type="button">Commencer le cas clinique →</button>
+</div>
+<p class="muted" style="font-size:.85rem">Contenu pédagogique : les cas ne remplacent pas les protocoles locaux, l'avis d'un encadrant ni la prise en charge médicale réelle.</p>
+</div>
+</section>
+<section class="page" id="premium">
+<div class="premium-hero">
+<span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
+<h2>Va plus loin dans ton apprentissage.</h2>
+<p>Quiz illimités, explications complètes de chaque réponse et statistiques détaillées.</p>
+<div style="margin-top:22px"><a class="btn btn-gold" href="#tarifs" id="voirTarifs">Voir les tarifs — dès 1 000 FCFA/mois</a></div>
+</div>
+<div class="section-heading"><h2>Gratuit ou Premium</h2></div>
+<div class="compare-wrap"><table class="compare"><thead><tr><th>Fonctionnalité</th><th>Gratuit</th><th>Premium</th></tr></thead><tbody>
+<tr><td>Quiz par jour</td><td>5 quiz</td><td>✓ Illimités</td></tr>
+<tr><td>Quiz difficiles</td><td>10 questions max</td><td>✓ Illimités</td></tr>
+<tr><td>Explications des réponses</td><td>Résumé</td><td>✓ Complètes</td></tr>
+<tr><td>Statistiques personnelles</td><td>Basiques</td><td>✓ Détaillées</td></tr>
+<tr><td>Médecine, culture générale, défi du jour</td><td>✓ Oui</td><td>✓ Oui</td></tr>
+</tbody></table></div>
+<div class="section-heading" id="tarifs"><h2>Nos tarifs</h2></div>
+<div class="pricing">
+<div class="price-card"><h3>Abonnement mensuel</h3><div class="price">1 000 FCFA</div><p>Pour un mois</p><button class="btn btn-gold" data-plan="mensuel" type="button">Choisir</button></div>
+<div class="price-card"><h3>Abonnement trimestriel</h3><div class="price">2 500 FCFA</div><p>Pour trois mois</p><button class="btn btn-gold" data-plan="trimestriel" type="button">Choisir</button></div>
+<div class="price-card best"><h3>Abonnement annuel</h3><div class="price">10 000 FCFA</div><p>Pour douze mois</p><button class="btn btn-gold" data-plan="annuel" type="button">Choisir</button></div>
+</div>
+<div class="panel hidden" id="payPanel" style="margin-bottom:22px">
+<h3 id="payTitre"></h3>
+<div class="field"><label for="payMethode">Moyen de paiement</label><select id="payMethode"><option value="wave">Wave</option><option value="orange_money">Orange Money</option></select></div>
+<p class="muted" id="payConsigne"></p>
+<div class="field"><label for="payTel">Ton numéro (celui qui a payé)</label><input id="payTel" maxlength="20" placeholder="Exemple : 77 000 00 00" type="tel"/></div>
+<div class="field"><label for="payTxn">Identifiant de la transaction</label><input id="payTxn" maxlength="40" placeholder="Indiqué dans le SMS de confirmation"/></div>
+<button class="btn btn-primary" id="payEnvoyer" type="button">J'ai payé, envoyer ma demande</button>
+</div>
+<p aria-live="polite" id="payMessage"></p>
+<div class="panel">
+<h3>Moyens de paiement</h3>
+<div class="pay-methods"><span>Wave</span><span>Orange Money</span></div>
+<p class="muted">Tu envoies le montant par Wave ou Orange Money, puis tu déclares ta transaction ici. Ton Premium est activé dès que le paiement est vérifié.</p>
+<p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Mon abonnement</a></p>
+</div>
+</section>
+<section class="page" id="abonnement">
+<div class="section-heading">
+<span class="eyebrow gold-text">✦ Espace abonnement</span>
+<h2>Mon abonnement</h2>
+</div>
+<div class="panel" style="margin-bottom:22px">
+<p class="muted">Statut</p>
+<div id="aboStatut" style="font-size:1.3rem;font-weight:800">Chargement...</div>
+<p class="muted" id="aboDetail"></p>
+<p style="margin-top:14px"><a class="btn btn-gold" href="#premium" id="aboAction">Voir les offres</a></p>
+</div>
+<div class="panel">
+<h3>Mes paiements</h3>
+<div id="aboPaiements"><p class="muted">Connecte-toi pour voir tes paiements.</p></div>
+</div>
+</section>
+<section class="page" id="admin">
+<div class="section-heading"><span class="eyebrow gold-text">✦ Administration</span><h2>Paiements à valider</h2></div>
+<div class="panel"><div id="adminListe"><p class="muted">Chargement...</p></div></div>
+</section>
+<section class="page" id="compte">
+<div class="auth-wrap">
+<div class="panel auth-panel">
+<span class="eyebrow">✦ Ton espace personnel</span>
+<h2 id="formTitle" style="margin-top:14px">Créer un compte</h2>
+<p>Rejoins MedQuiz pour enregistrer tes scores et suivre ta progression.</p>
+<form id="signupForm">
+<div class="field"><label for="signupPseudo">Ton pseudonyme</label><input id="signupPseudo" maxlength="30" placeholder="Exemple : Docteur123" required="" type="text"/></div>
+<div class="field"><label for="signupEmail">Adresse e-mail</label><input id="signupEmail" placeholder="Ton e-mail" required="" type="email"/></div>
+<div class="field"><label for="signupPassword">Mot de passe</label><div class="mq-password-wrap"><input id="signupPassword" minlength="6" placeholder="Minimum 6 caractères" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="signupPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
+<button class="btn btn-primary" type="submit">Créer mon compte</button>
+<p class="auth-switch">Déjà inscrit ? <button class="text-link" id="showLogin" type="button">Se connecter</button></p>
+</form>
+<form class="hidden" id="loginForm">
+<div class="field"><label for="loginEmail">Adresse e-mail</label><input id="loginEmail" placeholder="Ton e-mail" required="" type="email"/></div>
+<div class="field"><label for="loginPassword">Mot de passe</label><div class="mq-password-wrap"><input id="loginPassword" placeholder="Ton mot de passe" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
+<button class="btn btn-primary" type="submit">Se connecter</button>
+<p class="auth-switch">Pas encore de compte ? <button class="text-link" id="showSignup" type="button">Créer un compte</button></p>
+</form>
+<div aria-live="polite" id="message"></div>
+</div>
+</div>
+</section>
+<section class="page" id="member">
+<div class="section-heading">
+<span class="eyebrow">✦ Espace joueur</span>
+<h2>Bienvenue sur MedQuiz !</h2>
+<p id="welcome">Ton espace personnel.</p>
+</div>
+<div class="profile-identity panel" id="profileIdentity">
+  <div class="profile-avatar-wrap">
+    <div class="profile-avatar" id="profileAvatar" aria-label="Photo de profil">👤</div>
+    <span class="avatar-online" aria-hidden="true"></span>
+  </div>
+  <div class="profile-identity-copy">
+    <span class="profile-kicker">IDENTITÉ DU JOUEUR</span>
+    <strong id="profileAvatarName">Ton profil MedQuiz</strong>
+    <small>Personnalise ton espace avec ta photo.</small>
+  </div>
+  <div class="profile-avatar-actions">
+    <label class="btn btn-primary avatar-upload-label" for="profileAvatarInput">📷 Changer la photo</label>
+    <button class="btn btn-secondary" id="removeProfileAvatar" type="button">Retirer</button>
+    <input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+    <p id="profileAvatarStatus" class="muted" style="font-size:.82rem;margin-top:8px">Ta photo sera partagée avec les autres joueurs après publication.</p>
+  </div>
+</div>
+<div class="profile-grid">
+<div class="panel"><p class="muted">Mon pseudonyme</p><div id="profilePseudo" style="font-size:1.35rem;font-weight:800;display:inline-block">Chargement...</div><span class="badge-pseudo hidden" id="profileBadge">👑 PREMIUM</span><div style="margin-top:14px"><button class="btn btn-secondary" id="editPseudoBtn" type="button">✏️ Modifier mon pseudonyme</button></div><form id="editPseudoForm" class="hidden" style="margin-top:14px"><div class="field"><label for="newPseudo">Nouveau pseudonyme</label><input id="newPseudo" type="text" maxlength="30" minlength="3" required placeholder="Ton nouveau pseudonyme"/></div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" type="submit">Enregistrer</button><button class="btn btn-secondary" id="cancelPseudoEdit" type="button">Annuler</button></div><p id="pseudoEditMessage" aria-live="polite" class="muted" style="margin-top:10px"></p></form></div>
+<div class="panel"><p class="muted">Mes points cumulés</p><div class="profile-number" id="profilePoints">0</div></div>
+</div>
+<div class="panel" style="margin-bottom:22px">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap">
+<h3>Mon abonnement</h3><span class="muted" id="badgeAbo">Gratuit</span>
+</div>
+<p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Gérer mon abonnement</a> <a class="btn btn-secondary hidden" href="#admin" id="lienAdmin">Administration</a></p>
+</div>
+<div class="panel" id="referralPanel" style="margin-bottom:22px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div><span class="eyebrow">✦ INVITE TES AMIS</span><h3 style="margin-top:8px">Parrainage</h3></div>
+    <span class="badge-premium">🎁 7 jours Premium</span>
+  </div>
+  <p class="muted" style="margin:10px 0 16px">Partage ton code. Ton ami et toi recevez chacun 7 jours Premium lorsqu’il a effectué 3 quiz.</p>
+  <div class="profile-grid" style="margin-bottom:14px">
+    <div class="panel" style="box-shadow:none!important;margin:0!important;padding:16px!important">
+      <p class="muted">Personnes invitées</p><div class="profile-number" id="referralInvited">—</div>
+    </div>
+    <div class="panel" style="box-shadow:none!important;margin:0!important;padding:16px!important">
+      <p class="muted">Invitations récompensées</p><div class="profile-number" id="referralRewarded">—</div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="myReferralCode">Mon code personnel</label>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <input id="myReferralCode" readonly value="Chargement..." style="font-weight:900;letter-spacing:2px;max-width:260px"/>
+      <button class="btn btn-primary" id="copyReferralCode" type="button">📋 Copier mon code</button>
+      <button class="btn btn-gold" id="waReferral" type="button">💬 Inviter sur WhatsApp</button>
+      <button class="btn btn-secondary" id="copyReferralLink" type="button">🔗 Copier mon lien</button>
+    </div>
+  </div>
+  <p class="muted" id="referralBonusUntil" style="margin:8px 0 16px">Bonus Premium : aucun bonus actif.</p>
+  <div style="border-top:1px solid var(--mq-line);padding-top:16px;margin-top:12px">
+    <h3>Tu as un code d’invitation ?</h3>
+    <p class="muted" style="margin:6px 0 12px">Saisis le code reçu d’un ami. Tu dois le faire dans les 7 jours suivant la création de ton compte.</p>
+    <div class="field">
+      <label for="claimReferralCode">Code de ton ami</label>
+      <input id="claimReferralCode" maxlength="8" placeholder="Ex. A1B2C3D4" autocomplete="off" style="max-width:260px;text-transform:uppercase;letter-spacing:2px"/>
+    </div>
+    <button class="btn btn-secondary" id="claimReferralBtn" type="button">Valider le code</button>
+  </div>
+  <p id="referralMessage" class="muted" role="status" aria-live="polite" style="margin-top:12px"></p>
+</div>
+<div class="panel mq-theme-panel" id="themeChooserPanel" style="margin-bottom:22px">
+  <div class="mq-theme-heading">
+    <div><span class="eyebrow">✦ PERSONNALISATION</span><h3 style="margin-top:8px">Thèmes d’affichage</h3>
+    <p class="muted" style="margin-top:5px">Choisis l’ambiance de ton espace MedQuiz. Les 8 thèmes sont réservés à Premium.</p></div>
+    <span class="badge-premium">👑 PREMIUM</span>
+  </div>
+  <div class="mq-theme-grid" id="mqThemeGrid">
+    <button class="mq-theme-choice" type="button" data-skin-choice="royal"><span class="mq-theme-preview royal"></span><strong>Royal</strong><small>Violet & bleu</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="cyber"><span class="mq-theme-preview cyber"></span><strong>Cyber</strong><small>Nuit néon</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="ocean"><span class="mq-theme-preview ocean"></span><strong>Ocean</strong><small>Bleu & turquoise</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="emerald"><span class="mq-theme-preview emerald"></span><strong>Emerald</strong><small>Vert profond</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="sakura"><span class="mq-theme-preview sakura"></span><strong>Sakura</strong><small>Rose doux</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="sunset"><span class="mq-theme-preview sunset"></span><strong>Sunset</strong><small>Ambre & corail</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="graphite"><span class="mq-theme-preview graphite"></span><strong>Graphite</strong><small>Gris élégant</small></button>
+    <button class="mq-theme-choice" type="button" data-skin-choice="arctic"><span class="mq-theme-preview arctic"></span><strong>Arctic</strong><small>Glacier & azur</small></button>
+  </div>
+  <p class="mq-theme-status muted" id="mqThemeStatus" aria-live="polite">Connecte-toi avec un compte Premium pour appliquer un thème.</p>
+</div>
+<div class="panel" style="margin-bottom:22px">
+<h3>Mes statistiques</h3>
+<div id="statsZone"><p class="muted">Joue un quiz pour voir tes statistiques.</p></div>
+</div>
+<div class="panel">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:10px">
+<h3>Mon historique de quiz</h3>
+<button class="btn btn-secondary" id="refreshHistory">Actualiser</button>
+</div>
+<div id="historiqueListe"><p class="muted">Chargement de ton historique...</p></div>
+</div>
+<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+<a class="btn btn-primary" href="#quiz">Jouer un quiz</a>
+<button class="btn btn-secondary" id="logout">Se déconnecter</button>
+</div>
+</section>
+<section class="page" id="social" aria-label="MedQuiz Social">
+ <div class="section-heading"><span class="eyebrow">✦ CAMPUS CONNECTÉ</span><h2>MedQuiz Social</h2><p>Retrouve tes amis, discute et lance des défis sans quitter MedQuiz.</p></div>
+ <div class="social-tabs"><button class="btn btn-primary" data-social-tab="friends">👥 Mes amis</button><button class="btn btn-secondary" data-social-tab="requests">📨 Invitations <span id="socialRequestCount"></span></button><button class="btn btn-secondary" data-social-tab="search">🔎 Trouver des étudiants</button><button class="btn btn-secondary" data-social-tab="chat">💬 Messages</button><button class="btn btn-secondary" data-social-tab="tournaments">🏆 Tournois</button></div>
+ <div id="socialNotice" class="notice" role="status" style="display:none"></div>
+ <div class="social-layout">
+  <div class="panel social-main" id="socialMain"><h3>Mes amis</h3><p class="muted">Connecte-toi pour retrouver tes amis sur MedQuiz.</p></div>
+  <aside class="panel social-side"><h3>Ton campus</h3><div class="social-stat"><strong id="socialFriendTotal">—</strong><span>Amis</span></div><p class="muted">Les messages privés sont réservés aux personnes qui sont déjà tes amis.</p><button class="btn btn-primary" id="socialQuickFind" type="button">Trouver des amis</button></aside>
+ </div>
+</section>
+</main>
+<footer>© 2026 MedQuiz — Apprendre chaque jour.</footer>
+<script type="module" src="medquiz-extras.js"></script>
+<script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    const SUPABASE_URL = "https://ncmxinonmrcpnlfbcmdy.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_Ds9ozIkGrjNjJVXpnMeDtw_uO9nSRte";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    const message = $("message");
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+    let compteurQuiz = 0;
+    let utilisateurActuel = null;
+    let pseudoActuel = "Un ami";
+
+    function afficherPage(id) {
+      const destination = id === "compte" && utilisateurActuel ? "member" : (id === "member" && !utilisateurActuel ? "compte" : id);
+      document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === destination));
+      document.querySelectorAll(".nav a").forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${id}`));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (destination === "cas-cliniques") ouvrirCasCliniques();
+      if (destination === "classement") chargerClassement();
+      if (destination === "parties") majPageParties();
+      if (destination === "member" && utilisateurActuel) chargerProfil(utilisateurActuel);
+      if (destination === "admin") chargerAdmin();
+      if (destination === "abonnement") { if (!utilisateurActuel) { afficherPage("compte"); return; } chargerAbonnement(); }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener("click", (event) => {
+        const id = link.getAttribute("href").slice(1);
+        if (!$(id) && id !== "compte") return;
+        event.preventDefault();
+        afficherPage(id);
+        try { history.replaceState(null, "", `#${id}`); } catch (e) { /* aperçu dans un iframe : on ignore */ }
+      });
     });
-    const again = el("button", "btn btn-primary", "Nouvel examen"); again.type = "button"; again.addEventListener("click", renderExamConfig);
-    exBody.append(again); window.scrollTo({ top: 0 });
+
+    document.querySelectorAll("[data-preset]").forEach(card => {
+      card.addEventListener("click", () => {
+        $("categorieQuiz").value = card.dataset.preset;
+        majOptionsNombre();
+        if (card.dataset.theme) {
+          $("themeQuiz").value = card.dataset.theme;
+          majOptionsNombre();
+        }
+        afficherPage("quiz");
+        $("niveauQuiz").focus();
+      });
+    });
+    document.querySelectorAll("[data-go]").forEach(card => card.addEventListener("click", () => afficherPage(card.dataset.go)));
+
+    $("showLogin").addEventListener("click", () => {
+      $("signupForm").classList.add("hidden");
+      $("loginForm").classList.remove("hidden");
+      $("formTitle").textContent = "Connexion";
+      message.textContent = "";
+      message.classList.remove("error");
+    });
+    $("showSignup").addEventListener("click", () => {
+      $("loginForm").classList.add("hidden");
+      $("signupForm").classList.remove("hidden");
+      $("formTitle").textContent = "Créer un compte";
+      message.textContent = "";
+      message.classList.remove("error");
+    });
+
+    // Afficher ou masquer les mots de passe, sans modifier leur valeur.
+    document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = $(button.dataset.passwordToggle);
+        if (!input) return;
+        const visible = input.type === "password";
+        input.type = visible ? "text" : "password";
+        button.textContent = visible ? "🙈" : "👁";
+        button.setAttribute("aria-label", visible ? "Masquer le mot de passe" : "Afficher le mot de passe");
+        button.setAttribute("aria-pressed", String(visible));
+      });
+    });
+
+    $("editPseudoBtn").addEventListener("click", () => {
+      $("newPseudo").value = pseudoActuel === "Un ami" ? "" : pseudoActuel;
+      $("pseudoEditMessage").textContent = "";
+      $("editPseudoForm").classList.remove("hidden");
+      $("newPseudo").focus();
+    });
+    $("cancelPseudoEdit").addEventListener("click", () => {
+      $("editPseudoForm").classList.add("hidden");
+      $("pseudoEditMessage").textContent = "";
+    });
+    $("editPseudoForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!utilisateurActuel) return;
+      const nouveauPseudo = $("newPseudo").value.trim().replace(/\s+/g, " ");
+      const status = $("pseudoEditMessage");
+      if (nouveauPseudo.length < 3 || nouveauPseudo.length > 30) {
+        status.textContent = "Le pseudonyme doit contenir entre 3 et 30 caractères.";
+        status.classList.add("error");
+        return;
+      }
+      if (nouveauPseudo === pseudoActuel) {
+        status.textContent = "C'est déjà ton pseudonyme actuel.";
+        status.classList.remove("error");
+        return;
+      }
+      status.textContent = "Enregistrement...";
+      status.classList.remove("error");
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .update({ pseudonyme: nouveauPseudo })
+        .eq("id", utilisateurActuel.id)
+        .select("id")
+        .maybeSingle();
+      if (profileError || !profileData) {
+        status.textContent = "Impossible de modifier le pseudonyme : " + (profileError?.message || "profil introuvable ou autorisation Supabase manquante.");
+        status.classList.add("error");
+        return;
+      }
+      const { data: authData, error: authError } = await supabase.auth.updateUser({
+        data: { pseudonyme: nouveauPseudo }
+      });
+      if (!authError && authData?.user) utilisateurActuel = authData.user;
+      pseudoActuel = nouveauPseudo;
+      $("profilePseudo").textContent = nouveauPseudo;
+      $("welcome").textContent = `Bonjour ${nouveauPseudo} !`;
+      $("profileAvatarName").textContent = nouveauPseudo;
+      status.textContent = authError
+        ? "Pseudonyme modifié dans ton profil. La synchronisation du compte sera réessayée à la prochaine connexion."
+        : "Pseudonyme modifié avec succès !";
+      $("editPseudoForm").classList.add("hidden");
+    });
+
+    $("signupForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      message.textContent = "Création du compte en cours...";
+      const pseudonyme = $("signupPseudo").value.trim();
+      const email = $("signupEmail").value.trim();
+      const password = $("signupPassword").value;
+      const { data, error } = await supabase.auth.signUp({
+        email, password, options: { data: { pseudonyme } }
+      });
+      if (error) {
+        message.textContent = "Erreur : " + error.message;
+        message.classList.add("error");
+        return;
+      }
+      message.classList.remove("error");
+      if (data.session && data.user) {
+        message.textContent = "Compte créé avec succès !";
+        utilisateurActuel = data.user;
+        afficherPage("member");
+      } else {
+        message.textContent = "Compte créé. Vérifie ton e-mail si une confirmation est demandée.";
+      }
+      $("signupForm").reset();
+    });
+
+    $("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      message.textContent = "Connexion en cours...";
+      const email = $("loginEmail").value.trim();
+      const password = $("loginPassword").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        message.textContent = "Erreur : " + error.message;
+        message.classList.add("error");
+        return;
+      }
+      message.classList.remove("error");
+      message.textContent = "Connexion réussie !";
+      $("loginForm").reset();
+      if (data.user) {
+        utilisateurActuel = data.user;
+        afficherPage("member");
+      }
+    });
+
+    async function chargerProfil(user) {
+      if (!user) return;
+      utilisateurActuel = user;
+      const { data: profil, error } = await supabase
+        .from("profiles")
+        .select("pseudonyme, points, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) console.error("Erreur profil :", error.message);
+      const pseudo = profil?.pseudonyme || user.user_metadata?.pseudonyme || user.email || "Joueur";
+      pseudoActuel = pseudo;
+      $("welcome").textContent = `Bonjour ${pseudo} !`;
+      $("profilePseudo").textContent = pseudo;
+      $("profileAvatarName").textContent = pseudo;
+      $("profilePoints").textContent = profil?.points ?? 0;
+      window.dispatchEvent(new CustomEvent("medquiz:avatar-cloud", { detail: { url: profil?.avatar_url || null } }));
+      await chargerHistorique(user);
+      afficherCarnetErreurs();
+      await chargerParrainage();
+    }
+
+    async function chargerParrainage() {
+      const message = $("referralMessage");
+      const codeInput = $("myReferralCode");
+      if (!utilisateurActuel || !codeInput) return;
+      message.textContent = "Chargement de ton parrainage...";
+      const { data, error } = await supabase.rpc("my_referral");
+      if (error) {
+        console.error("Erreur parrainage :", error.message);
+        message.textContent = "Impossible de charger le parrainage. Vérifie que la fonction my_referral() existe dans Supabase.";
+        return;
+      }
+      const info = Array.isArray(data) ? data[0] : data;
+      if (!info) {
+        message.textContent = "Aucune information de parrainage disponible.";
+        return;
+      }
+      codeInput.value = info.code || "Indisponible";
+      $("referralInvited").textContent = Number(info.invited || 0);
+      $("referralRewarded").textContent = Number(info.rewarded || 0);
+      $("referralBonusUntil").textContent = info.bonus_until
+        ? "Ton bonus Premium est valable jusqu’au " + new Date(info.bonus_until).toLocaleString("fr-FR")
+        : "Bonus Premium : aucun bonus actif.";
+      message.textContent = "";
+    }
+
+    $("copyReferralCode")?.addEventListener("click", async () => {
+      const code = $("myReferralCode")?.value;
+      const message = $("referralMessage");
+      if (!code || code === "Chargement..." || code === "Indisponible") {
+        message.textContent = "Ton code n’est pas encore disponible.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(code);
+        message.textContent = "Code copié ! Tu peux l’envoyer à tes amis.";
+      } catch (error) {
+        const input = $("myReferralCode");
+        input.focus(); input.select();
+        const copied = document.execCommand("copy");
+        message.textContent = copied ? "Code copié ! Tu peux l’envoyer à tes amis." : "Sélectionne le code pour le copier.";
+      }
+    });
+
+    $("claimReferralBtn")?.addEventListener("click", async () => {
+      const bouton = $("claimReferralBtn");
+      const message = $("referralMessage");
+      const code = $("claimReferralCode").value.trim().toUpperCase();
+      if (!code) { message.textContent = "Saisis d’abord le code de ton ami."; return; }
+      bouton.disabled = true;
+      bouton.textContent = "Vérification...";
+      message.textContent = "";
+      try {
+        const { data, error } = await supabase.rpc("claim_referral", { p_code: code });
+        if (error) throw error;
+        const retours = {
+          ok: "Code accepté ! Fais 3 quiz pour débloquer tes 7 jours Premium.",
+          invalid_code: "Ce code est invalide. Vérifie-le avec ton ami.",
+          self: "Tu ne peux pas utiliser ton propre code.",
+          already_referred: "Tu as déjà utilisé un code de parrainage.",
+          too_late: "Le délai de 7 jours après ton inscription est dépassé.",
+          not_authenticated: "Connecte-toi pour utiliser un code."
+        };
+        message.textContent = retours[data] || ("Réponse du serveur : " + String(data));
+        if (data === "ok") {
+          $("claimReferralCode").value = "";
+          bouton.textContent = "Code déjà utilisé";
+          bouton.disabled = true;
+        }
+      } catch (error) {
+        console.error("Erreur validation parrainage :", error);
+        message.textContent = "Impossible de valider le code : " + (error.message || "erreur inconnue");
+      } finally {
+        if (!bouton.disabled || bouton.textContent !== "Code déjà utilisé") {
+          bouton.disabled = false;
+          bouton.textContent = "Valider le code";
+        }
+      }
+    });
+
+    async function chargerHistorique(user = utilisateurActuel) {
+      if (!user) return;
+      const liste = $("historiqueListe");
+      liste.textContent = "Chargement de ton historique...";
+      const { data, error } = await supabase
+        .from("quiz_history")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Erreur historique :", error.message);
+        liste.textContent = "Impossible de charger ton historique.";
+        return;
+      }
+      if (!data || data.length === 0) {
+        afficherBadges([], 0);
+        liste.textContent = "Tu n'as pas encore effectué de quiz.";
+        $("profilePoints").textContent = "0";
+        return;
+      }
+      const total = data.reduce((sum, item) => sum + (Number(item.score) || 0), 0);
+      $("profilePoints").textContent = total;
+      historiqueCache = data; rendreStats();
+      // Après un quiz terminé : actualise la carte si le classement est affiché (sinon il se rechargera à l'ouverture)
+      if (document.getElementById("classement")?.classList.contains("active")) chargerClassement();
+      afficherBadges(data, total);
+      liste.replaceChildren();
+      const elementsHistorique = data.map(resultat => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        const detail = document.createElement("span");
+        detail.textContent = `${resultat.score} points sur ${resultat.score_max ?? resultat.nombre_questions * 10}` + (resultat.niveau ? ` · ${resultat.niveau}` : "");
+        const date = document.createElement("span");
+        date.className = "muted";
+        date.textContent = new Date(resultat.created_at).toLocaleString("fr-FR");
+        item.append(detail, date);
+        return item;
+      });
+      elementsHistorique.slice(0, 5).forEach(item => liste.append(item));
+      if (elementsHistorique.length > 5) {
+        const reste = document.createElement("div");
+        reste.className = "hidden";
+        elementsHistorique.slice(5).forEach(item => reste.append(item));
+        liste.append(reste);
+        const voirPlus = el("button", "btn btn-secondary", "Voir plus");
+        voirPlus.type = "button";
+        voirPlus.style.marginTop = "12px";
+        voirPlus.setAttribute("aria-expanded", "false");
+        voirPlus.addEventListener("click", () => {
+          const ouvert = reste.classList.toggle("hidden") === false;
+          voirPlus.textContent = ouvert ? "Voir moins" : "Voir plus";
+          voirPlus.setAttribute("aria-expanded", String(ouvert));
+        });
+        liste.append(voirPlus);
+      }
+    }
+
+    let modeClassement = "semaine";
+
+    // ---------- Carte personnelle du classement ----------
+    // Lecture seule : aucun point n'est recalculé ni écrit ici. Tout vient des
+    // fonctions Supabase existantes (get_leaderboard / get_weekly_leaderboard).
+    const nbPts = v => Number(v) || 0;
+    const libelleRang = n => n === 1 ? "1er" : `${n}e`;
+    const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
+    // Rang « compétition » : 1, 2, 2, 4… Les égalités partagent le même rang.
+    function rangsCompetition(lignes) {
+      const pts = lignes.map(l => nbPts(l.points));
+      const tri = [...pts].sort((a, b) => b - a);
+      return pts.map(p => tri.indexOf(p) + 1);
+    }
+    function calculerCarteClassement(lignesTotal, lignesSemaine, pseudo) {
+      const r = { rang: null, points: null, exaequo: false, evolution: null, rangSemaine: null, pointsSemaine: null, ecart: null, cible: null, enTete: false, avance: null, nouveau: false };
+      if (!Array.isArray(lignesTotal)) return r;
+      const idx = lignesTotal.findIndex(l => l.pseudonyme === pseudo);
+      if (idx < 0) return r;
+      const pts = nbPts(lignesTotal[idx].points);
+      r.points = pts;
+      r.rang = rangsCompetition(lignesTotal)[idx];
+      r.exaequo = lignesTotal.some((l, i) => i !== idx && nbPts(l.points) === pts);
+      const sup = lignesTotal.filter(l => nbPts(l.points) > pts);
+      if (sup.length) {
+        const min = Math.min(...sup.map(l => nbPts(l.points)));
+        const cibles = lignesTotal.filter(l => nbPts(l.points) === min);
+        r.ecart = min - pts + 1; // +1 : il faut strictement dépasser
+        r.cible = { nom: cibles[0].pseudonyme, nombre: cibles.length };
+      } else {
+        r.enTete = true;
+        const inf = lignesTotal.filter(l => nbPts(l.points) < pts).map(l => nbPts(l.points));
+        if (inf.length) r.avance = pts - Math.max(...inf);
+      }
+      if (Array.isArray(lignesSemaine)) {
+        const sem = new Map(lignesSemaine.map(l => [l.pseudonyme, nbPts(l.points)]));
+        r.pointsSemaine = sem.get(pseudo) ?? 0;
+        if (r.pointsSemaine > 0) r.rangSemaine = rangsCompetition(lignesSemaine)[lignesSemaine.findIndex(l => l.pseudonyme === pseudo)];
+        // Classement général au début de la semaine = total moins points de la semaine
+        const avant = lignesTotal.map(l => Math.max(0, nbPts(l.points) - (sem.get(l.pseudonyme) || 0)));
+        if (avant[idx] > 0) r.evolution = (1 + avant.filter(v => v > avant[idx]).length) - r.rang;
+        else if (pts > 0) r.nouveau = true;
+      }
+      return r;
+    }
+    function infoNiveau(total) {
+      let i = NIVEAUX.length - 1;
+      while (i > 0 && total < NIVEAUX[i][1]) i--;
+      const [nom, seuil] = NIVEAUX[i], suivant = NIVEAUX[i + 1];
+      return {
+        nom, suivant: suivant ? suivant[0] : null,
+        restant: suivant ? suivant[1] - total : 0,
+        pct: suivant ? Math.max(0, Math.min(100, (total - seuil) / (suivant[1] - seuil) * 100)) : 100
+      };
+    }
+    function messageCarte(c, total) {
+      if (!total) return "🚀 Termine ton premier quiz pour entrer dans le classement.";
+      if (c.rang === null) return "💡 Continue à marquer des points pour faire apparaître ton rang.";
+      if (c.enTete) return c.exaequo ? "👑 Tu es en tête à égalité : un quiz de plus pour t'envoler !" : "👑 Tu domines le classement ! Garde ton avance.";
+      if (c.evolution >= 3) return `🔥 Belle remontée : +${c.evolution} places cette semaine !`;
+      if (c.evolution > 0) return `📈 Tu progresses : +${pluriel(c.evolution, "place")} cette semaine. Continue !`;
+      if (c.evolution < 0) return `💪 Tu as reculé de ${pluriel(-c.evolution, "place")} : un quiz suffit pour les reprendre.`;
+      if (c.ecart !== null && c.ecart <= 10) return `🎯 Plus que ${c.ecart} pts pour passer devant ! Un quiz et c'est joué.`;
+      return "✨ La régularité paie : un quiz de plus aujourd'hui ?";
+    }
+
+    const carteEtat = { pseudo: null, rang: null, points: null, premier: true };
+    let avatarCarte = null;
+    const reduireMouvement = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function majTexte(id, texte) {
+      const n = $(id); if (!n || n.textContent === texte) return;
+      n.textContent = texte;
+      if (!carteEtat.premier && !reduireMouvement() && n.animate) n.animate([{ opacity: .25, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: 380, easing: "ease-out" });
+    }
+    function compterJusqua(id, depuis, vers) {
+      const n = $(id);
+      if (reduireMouvement() || depuis === null || depuis === vers) { majTexte(id, vers.toLocaleString("fr-FR")); return; }
+      const debut = performance.now(), duree = 900;
+      const pas = t => {
+        const k = Math.min(1, (t - debut) / duree), e = 1 - Math.pow(1 - k, 3);
+        n.textContent = Math.round(depuis + (vers - depuis) * e).toLocaleString("fr-FR");
+        if (k < 1) requestAnimationFrame(pas);
+      };
+      requestAnimationFrame(pas);
+    }
+    function majAvatarCarte() {
+      const zone = $("mqMrAvatar"); if (!zone) return;
+      const url = avatarCarte || document.querySelector("#profileAvatar img")?.src || null;
+      zone.replaceChildren();
+      if (url) { const img = document.createElement("img"); img.src = url; img.alt = ""; zone.append(img); } else zone.textContent = "👤";
+    }
+    window.addEventListener("medquiz:avatar-cloud", e => { avatarCarte = e.detail?.url || null; majAvatarCarte(); });
+
+    // Le pseudo n'est connu de chargerProfil() qu'après l'ouverture du profil : on le lit nous-mêmes si besoin
+    const profilCarte = { id: null, pseudo: null };
+    async function pseudoPourCarte() {
+      if (!utilisateurActuel) return null;
+      if (profilCarte.id === utilisateurActuel.id && profilCarte.pseudo) return profilCarte.pseudo;
+      const { data: profil } = await supabase.from("profiles").select("pseudonyme, avatar_url").eq("id", utilisateurActuel.id).maybeSingle();
+      profilCarte.id = utilisateurActuel.id;
+      profilCarte.pseudo = profil?.pseudonyme || utilisateurActuel.user_metadata?.pseudonyme || utilisateurActuel.email || null;
+      if (profil?.avatar_url && !avatarCarte) { avatarCarte = profil.avatar_url; }
+      return profilCarte.pseudo;
+    }
+    function afficherCarteClassement(resTotal, resSemaine, monPseudo) {
+      const carte = $("mqMyRank"); if (!carte) return;
+      if (!utilisateurActuel) { carte.hidden = true; return; }
+      if (carteEtat.pseudo !== monPseudo) Object.assign(carteEtat, { pseudo: monPseudo, rang: null, points: null, premier: true });
+      const lignesTotal = resTotal && !resTotal.error ? resTotal.data : null;
+      const lignesSemaine = resSemaine && !resSemaine.error ? resSemaine.data : null;
+      const c = calculerCarteClassement(lignesTotal, lignesSemaine, monPseudo);
+      // Points : classement général, sinon historique réel du joueur, sinon indisponible
+      const histo = historiqueCache.length ? historiqueCache.reduce((t, x) => t + nbPts(x.score), 0) : null;
+      const total = c.points ?? (lignesTotal ? 0 : histo);
+      const dispo = total !== null;
+      const niv = infoNiveau(total || 0);
+      const apparition = carte.hidden;
+      carte.hidden = false;
+
+      majAvatarCarte();
+      majTexte("mqMrName", monPseudo || "Joueur");
+      majTexte("mqMrLevel", dispo ? niv.nom : "—");
+
+      // Classement
+      if (c.rang !== null) {
+        majTexte("mqMrRank", libelleRang(c.rang));
+        majTexte("mqMrRankSub", c.exaequo ? "ex æquo · classement général" : `sur ${pluriel(lignesTotal.length, "joueur")}`);
+      } else {
+        majTexte("mqMrRank", "—");
+        majTexte("mqMrRankSub", !lignesTotal ? "Classement indisponible" : (total > 0 ? "Hors du classement affiché" : "Pas encore classé"));
+      }
+      // Points
+      if (dispo) compterJusqua("mqMrPoints", carteEtat.points, total); else majTexte("mqMrPoints", "—");
+      majTexte("mqMrPointsSub", c.pointsSemaine !== null ? `dont ${c.pointsSemaine.toLocaleString("fr-FR")} cette semaine` : (dispo ? "points cumulés" : "Données indisponibles"));
+      // Évolution
+      const boiteEvo = $("mqMrEvoBox");
+      boiteEvo.classList.toggle("is-up", c.evolution > 0);
+      boiteEvo.classList.toggle("is-down", c.evolution < 0);
+      if (c.evolution === null) {
+        majTexte("mqMrEvo", "—");
+        majTexte("mqMrEvoSub", c.nouveau ? "Nouveau au classement cette semaine" : (c.rang === null ? "Pas encore de données" : "Évolution indisponible"));
+      } else {
+        majTexte("mqMrEvo", c.evolution > 0 ? `▲ +${c.evolution}` : c.evolution < 0 ? `▼ ${c.evolution}` : "＝ 0");
+        majTexte("mqMrEvoSub", c.evolution === 0 ? "stable cette semaine" : `${Math.abs(c.evolution) > 1 ? "places" : "place"} cette semaine`);
+      }
+      // Progression de niveau
+      majTexte("mqMrFrom", dispo ? niv.nom : "—");
+      majTexte("mqMrTo", niv.suivant || "Niveau maximal");
+      majTexte("mqMrProgressNote", !dispo ? "Progression indisponible" : niv.suivant ? `Encore ${niv.restant.toLocaleString("fr-FR")} pts pour devenir ${niv.suivant}` : "Tu as atteint le plus haut grade. Bravo !");
+      const bar = $("mqMrBar"), pct = dispo ? Math.round(niv.pct) : 0;
+      bar.setAttribute("aria-valuenow", String(pct));
+      const remplir = () => { $("mqMrFill").style.width = pct + "%"; };
+      if (apparition && !reduireMouvement()) { $("mqMrFill").style.width = "0%"; requestAnimationFrame(() => requestAnimationFrame(remplir)); } else remplir();
+      // Objectif
+      let objectif;
+      if (!lignesTotal || !dispo) objectif = "Objectif indisponible pour le moment";
+      else if (c.rang === null) objectif = total > 0 ? "Continue pour apparaître dans le classement" : "Gagne tes premiers points avec un quiz";
+      else if (c.enTete) objectif = c.avance ? `Défends ta 1re place : tu as ${c.avance.toLocaleString("fr-FR")} pts d'avance` : "Tu es seul en tête : continue sur ta lancée !";
+      else objectif = `+${c.ecart.toLocaleString("fr-FR")} pts pour dépasser ${c.cible.nombre > 1 ? `les ${c.cible.nombre} joueurs à égalité devant toi` : c.cible.nom}`;
+      majTexte("mqMrGoal", objectif);
+      majTexte("mqMrMsg", messageCarte(c, total));
+
+      // Effet « places gagnées » (cette semaine, ou depuis le dernier affichage)
+      const gagne = c.rang !== null && ((c.evolution > 0 && carteEtat.premier) || (carteEtat.rang !== null && c.rang < carteEtat.rang));
+      const boiteRang = $("mqMrRankBox");
+      boiteRang.classList.remove("is-gain");
+      if (gagne && !reduireMouvement()) { void boiteRang.offsetWidth; boiteRang.classList.add("is-gain"); setTimeout(() => boiteRang.classList.remove("is-gain"), 3600); }
+      carteEtat.rang = c.rang; carteEtat.points = dispo ? total : carteEtat.points; carteEtat.premier = false;
+    }
+    let jetonClassement = 0;
+
+    async function chargerClassement() {
+      const liste = $("listeClassement");
+      liste.textContent = "Chargement du classement...";
+      const jeton = ++jetonClassement;
+      if (!utilisateurActuel) {
+        liste.textContent = "Connecte-toi pour consulter le classement.";
+        if ($("mqMyRank")) $("mqMyRank").hidden = true;
+        return;
+      }
+      // Les deux classements sont lus en parallèle : la carte personnelle a besoin des deux
+      const [resSemaine, resTotal] = await Promise.all([supabase.rpc("get_weekly_leaderboard"), supabase.rpc("get_leaderboard")]);
+      if (jeton !== jetonClassement) return;
+      try { afficherCarteClassement(resTotal, resSemaine, await pseudoPourCarte()); } catch (e) { console.warn("Carte personnelle indisponible :", e); }
+      if (jeton !== jetonClassement) return;
+      const { data, error } = modeClassement === "semaine" ? resSemaine : resTotal;
+      if (error) {
+        console.error("Erreur classement :", error.message);
+        liste.textContent = modeClassement === "semaine" ? "Impossible de charger le classement de la semaine. Vérifie que le script classement.sql a été exécuté dans Supabase." : "Impossible de charger le classement. Vérifie la fonction get_leaderboard dans Supabase.";
+        return;
+      }
+      if (!data || data.length === 0) {
+        liste.textContent = modeClassement === "semaine" ? "Personne n'a encore marqué de points cette semaine. Sois le premier du classement hebdomadaire !" : "Aucun joueur classé pour le moment.";
+        return;
+      }
+      await chargerBadges(data.map(j => j.pseudonyme));
+      // Les photos sont lues depuis les profils partagés Supabase, pas depuis le stockage local.
+      const pseudos = [...new Set(data.map(j => j.pseudonyme).filter(Boolean))];
+      let avatarsParPseudo = {};
+      if (pseudos.length) {
+        const { data: profilsPhotos, error: photosError } = await supabase
+          .from("profiles").select("pseudonyme, avatar_url").in("pseudonyme", pseudos);
+        if (photosError) console.warn("Photos de classement indisponibles :", photosError.message);
+        (profilsPhotos || []).forEach(p => { if (p.avatar_url) avatarsParPseudo[p.pseudonyme] = p.avatar_url; });
+      }
+      if (jeton !== jetonClassement) return;
+      liste.replaceChildren();
+      const rangsListe = rangsCompetition(data); // égalités = même rang
+      data.forEach((joueur, index) => {
+        const row = document.createElement("div");
+        row.className = "rank-item";
+        const left = document.createElement("div");
+        left.className = "rank-left";
+        const number = document.createElement("span");
+        number.className = "rank-number";
+        number.textContent = String(rangsListe[index]);
+        const name = nomJoueur(joueur.pseudonyme);
+        const avatar = document.createElement("span");
+        avatar.className = "rank-avatar";
+        const avatarUrl = avatarsParPseudo[joueur.pseudonyme];
+        if (avatarUrl) { const img = document.createElement("img"); img.src = avatarUrl; img.alt = `Photo de ${joueur.pseudonyme}`; img.loading = "lazy"; avatar.append(img); }
+        else avatar.textContent = "👤";
+        const points = document.createElement("span");
+        points.className = "rank-points";
+        points.textContent = `${joueur.points} pts`;
+        left.append(number, avatar, name);
+        row.append(left, points);
+        liste.append(row);
+      });
+    }
+
+    $("refreshLeaderboard").addEventListener("click", chargerClassement);
+    function choisirOnglet(mode) {
+      modeClassement = mode;
+      $("ongletSemaine").classList.toggle("actif", mode === "semaine");
+      $("ongletTotal").classList.toggle("actif", mode === "total");
+      $("noteClassement").textContent = mode === "semaine" ? "Points gagnés depuis lundi. Le classement repart à zéro chaque lundi." : "Total des points de chaque joueur depuis son inscription.";
+      chargerClassement();
+    }
+    $("ongletSemaine").addEventListener("click", () => choisirOnglet("semaine"));
+    $("ongletTotal").addEventListener("click", () => choisirOnglet("total"));
+    $("refreshHistory").addEventListener("click", () => chargerHistorique());
+    $("logout").addEventListener("click", async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        message.textContent = "Erreur de déconnexion : " + error.message;
+        return;
+      }
+      utilisateurActuel = null;
+      $("profilePseudo").textContent = "—";
+      $("profilePoints").textContent = "0";
+      afficherPage("accueil");
+    });
+
+    const questionsMedQuiz = [
+      // MÉDECINE — FACILE
+      {categorie:"medecine",niveau:"facile",question:"Quel organe pompe le sang dans le corps ?",choix:["Le cerveau","Le cœur","Le foie","Le rein"],reponse:"Le cœur",explication:"Le cœur propulse le sang dans tout l'organisme."},
+      {categorie:"medecine",niveau:"facile",question:"Combien de poumons possède normalement un être humain ?",choix:["Un","Deux","Trois","Quatre"],reponse:"Deux",explication:"Un être humain possède normalement deux poumons."},
+      {categorie:"medecine",niveau:"facile",question:"Quel organe permet principalement de voir ?",choix:["L'oreille","Le nez","L'œil","La langue"],reponse:"L'œil",explication:"Les yeux captent la lumière et permettent la vision."},
+      {categorie:"medecine",niveau:"facile",question:"Quel organe permet principalement de respirer ?",choix:["Les poumons","L'estomac","La vessie","La rate"],reponse:"Les poumons",explication:"Les poumons assurent les échanges gazeux avec l'air."},
+      {categorie:"medecine",niveau:"facile",question:"Quel liquide circule dans les vaisseaux sanguins ?",choix:["La bile","Le sang","La salive","L'urine"],reponse:"Le sang",explication:"Le sang circule dans les artères, les veines et les capillaires."},
+      // MÉDECINE — MOYEN
+      {categorie:"medecine",niveau:"moyen",question:"Quel est le rôle principal des globules rouges ?",choix:["Combattre les infections","Transporter l'oxygène","Digérer les aliments","Produire les hormones"],reponse:"Transporter l'oxygène",explication:"L'hémoglobine des globules rouges transporte principalement l'oxygène."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel organe produit l'insuline ?",choix:["Le pancréas","Le cœur","L'estomac","La rate"],reponse:"Le pancréas",explication:"Les cellules bêta du pancréas produisent l'insuline."},
+      {categorie:"medecine",niveau:"moyen",question:"Quelle vitamine est produite par la peau grâce au soleil ?",choix:["Vitamine A","Vitamine B12","Vitamine C","Vitamine D"],reponse:"Vitamine D",explication:"La peau peut produire de la vitamine D sous l'effet des rayons UVB."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel organe filtre le sang et produit l'urine ?",choix:["Le rein","Le poumon","Le pancréas","La rate"],reponse:"Le rein",explication:"Les reins filtrent le sang et participent à la production de l'urine."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel est le principal rôle des globules blancs ?",choix:["Transporter l'oxygène","Participer à la défense immunitaire","Former les os","Digérer les graisses"],reponse:"Participer à la défense immunitaire",explication:"Les globules blancs participent à la défense de l'organisme contre les agents infectieux."},
+      // MÉDECINE — DIFFICILE
+      {categorie:"medecine",niveau:"difficile",question:"Quelle partie du neurone reçoit principalement les signaux ?",choix:["Les dendrites","L'axone","La myéline","La synapse"],reponse:"Les dendrites",explication:"Les dendrites reçoivent de nombreux signaux provenant d'autres cellules."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle hormone contribue à diminuer la glycémie ?",choix:["L'adrénaline","L'insuline","Le cortisol","La thyroxine"],reponse:"L'insuline",explication:"L'insuline favorise l'utilisation et le stockage du glucose."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle structure assure principalement les échanges gazeux dans les poumons ?",choix:["Les bronches","La trachée","Les alvéoles","Le larynx"],reponse:"Les alvéoles",explication:"Les alvéoles permettent les échanges d'oxygène et de dioxyde de carbone."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle partie du cœur envoie le sang vers l'ensemble du corps ?",choix:["L'oreillette droite","Le ventricule gauche","L'oreillette gauche","Le ventricule droit"],reponse:"Le ventricule gauche",explication:"Le ventricule gauche éjecte le sang oxygéné dans l'aorte."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle structure relie un muscle à un os ?",choix:["Un ligament","Un tendon","Un cartilage","Un nerf"],reponse:"Un tendon",explication:"Les tendons relient les muscles aux os."},
+      // CULTURE — FACILE
+      {categorie:"culture",niveau:"facile",question:"Quelle est la capitale du Sénégal ?",choix:["Thiès","Saint-Louis","Dakar","Touba"],reponse:"Dakar",explication:"Dakar est la capitale du Sénégal."},
+      {categorie:"culture",niveau:"facile",question:"Combien de jours compte une semaine ?",choix:["5","6","7","8"],reponse:"7",explication:"Une semaine compte sept jours."},
+      {categorie:"culture",niveau:"facile",question:"Quelle planète est surnommée la planète rouge ?",choix:["Vénus","Mars","Jupiter","Mercure"],reponse:"Mars",explication:"La surface de Mars contient des oxydes de fer qui lui donnent sa couleur rougeâtre."},
+      {categorie:"culture",niveau:"facile",question:"Combien de côtés possède un triangle ?",choix:["Deux","Trois","Quatre","Cinq"],reponse:"Trois",explication:"Un triangle est un polygone qui possède trois côtés."},
+      {categorie:"culture",niveau:"facile",question:"Quel océan borde la côte ouest du Sénégal ?",choix:["Océan Indien","Océan Pacifique","Océan Atlantique","Océan Arctique"],reponse:"Océan Atlantique",explication:"Le Sénégal possède une façade maritime sur l'océan Atlantique."},
+      // CULTURE — MOYEN
+      {categorie:"culture",niveau:"moyen",question:"En quelle année le Sénégal a-t-il obtenu son indépendance ?",choix:["1958","1960","1963","1970"],reponse:"1960",explication:"Le Sénégal a accédé à l'indépendance en 1960."},
+      {categorie:"culture",niveau:"moyen",question:"Quel est le plus grand océan du monde ?",choix:["Atlantique","Indien","Arctique","Pacifique"],reponse:"Pacifique",explication:"L'océan Pacifique est le plus vaste océan de la planète."},
+      {categorie:"culture",niveau:"moyen",question:"Qui a écrit Les Misérables ?",choix:["Molière","Victor Hugo","Émile Zola","Voltaire"],reponse:"Victor Hugo",explication:"Victor Hugo a publié Les Misérables en 1862."},
+      {categorie:"culture",niveau:"moyen",question:"Quel continent compte le plus grand nombre de pays ?",choix:["Europe","Afrique","Amérique du Sud","Océanie"],reponse:"Afrique",explication:"L'Afrique compte le plus grand nombre d'États souverains parmi les continents."},
+      {categorie:"culture",niveau:"moyen",question:"Quel gaz les plantes absorbent-elles principalement lors de la photosynthèse ?",choix:["Oxygène","Azote","Dioxyde de carbone","Hydrogène"],reponse:"Dioxyde de carbone",explication:"Les plantes utilisent le dioxyde de carbone, l'eau et la lumière pour réaliser la photosynthèse."},
+      // CULTURE — DIFFICILE
+      {categorie:"culture",niveau:"difficile",question:"Quel scientifique a formulé les lois du mouvement et de la gravitation universelle ?",choix:["Albert Einstein","Isaac Newton","Galilée","Nicolas Copernic"],reponse:"Isaac Newton",explication:"Isaac Newton a formulé les lois classiques du mouvement et la loi de la gravitation universelle."},
+      {categorie:"culture",niveau:"difficile",question:"Quel est le plus grand désert chaud du monde ?",choix:["Le Gobi","Le Kalahari","Le Sahara","Le désert d'Atacama"],reponse:"Le Sahara",explication:"Le Sahara est le plus grand désert chaud du monde."},
+      {categorie:"culture",niveau:"difficile",question:"Quelle est la monnaie officielle du Japon ?",choix:["Le yuan","Le won","Le yen","Le baht"],reponse:"Le yen",explication:"Le yen est la monnaie officielle du Japon."},
+      {categorie:"culture",niveau:"difficile",question:"Quel élément chimique a pour symbole Fe ?",choix:["Le fluor","Le fer","Le francium","Le phosphore"],reponse:"Le fer",explication:"Fe est le symbole chimique du fer."},
+      {categorie:"culture",niveau:"difficile",question:"Quel traité est généralement associé à la fin de la Première Guerre mondiale ?",choix:["Traité de Rome","Traité de Versailles","Traité de Maastricht","Traité de Tordesillas"],reponse:"Traité de Versailles",explication:"Le traité de Versailles, signé en 1919, règle notamment la paix entre l'Allemagne et les Alliés."},
+
+      // CHIRURGIE — nouvelles questions (QCM)
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel organe est retiré lors d'une appendicectomie ?",choix:["L'appendice", "La vésicule biliaire", "La rate", "Le côlon"],reponse:"L'appendice",explication:"L'appendicectomie consiste à retirer l'appendice vermiforme."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel examen est généralement réalisé en première intention devant une suspicion de fracture d'un membre ?",choix:["Une radiographie", "Une coloscopie", "Un électroencéphalogramme", "Une fibroscopie gastrique"],reponse:"Une radiographie",explication:"La radiographie standard permet de rechercher une rupture de la continuité osseuse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel instrument permet de saisir un tissu pendant une intervention ?",choix:["Une pince chirurgicale", "Un stéthoscope", "Un otoscope", "Un spéculum nasal"],reponse:"Une pince chirurgicale",explication:"Les pinces chirurgicales servent à saisir ou maintenir les tissus."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Comment appelle-t-on l'ablation de la vésicule biliaire ?",choix:["Cholécystectomie", "Colectomie", "Néphrectomie", "Splénectomie"],reponse:"Cholécystectomie",explication:"La cholécystectomie est l'ablation chirurgicale de la vésicule biliaire."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel est l'objectif principal de l'asepsie au bloc opératoire ?",choix:["Prévenir la contamination microbienne", "Accélérer la cicatrisation osseuse", "Diminuer la douleur", "Arrêter le saignement"],reponse:"Prévenir la contamination microbienne",explication:"L'asepsie vise à empêcher l'introduction de micro-organismes dans le champ opératoire."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel os se trouve dans la cuisse ?",choix:["Le fémur", "Le tibia", "Le radius", "La fibula"],reponse:"Le fémur",explication:"Le fémur est l'os long de la cuisse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Comment appelle-t-on la réparation d'une hernie ?",choix:["Herniorraphie", "Gastrectomie", "Thoracotomie", "Arthroscopie"],reponse:"Herniorraphie",explication:"La cure de hernie peut comporter une réparation pariétale, parfois avec prothèse."},
+      {categorie:"medecine",niveau:"facile",theme:"Chirurgie",question:"Quel est le rôle d'un drain chirurgical ?",choix:["Évacuer un liquide ou de l'air", "Remplacer une suture", "Mesurer la tension artérielle", "Immobiliser une fracture"],reponse:"Évacuer un liquide ou de l'air",explication:"Un drain permet l'évacuation de sang, de sérosités ou d'air selon l'intervention."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe clinique évoque classiquement une péritonite avec irritation péritonéale diffuse ?",choix:["Une contracture abdominale", "Une douleur uniquement à l'épaule", "Une toux sèche isolée", "Une hématurie isolée"],reponse:"Une contracture abdominale",explication:"La contracture abdominale est un signe majeur d'irritation péritonéale."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle est la complication précoce la plus redoutée après une chirurgie en cas d'hémostase insuffisante ?",choix:["L'hémorragie", "La cataracte", "L'arthrose", "La myopie"],reponse:"L'hémorragie",explication:"Un saignement postopératoire peut entraîner une instabilité hémodynamique et nécessite une évaluation rapide."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel examen est souvent utilisé pour confirmer une lithiase vésiculaire ?",choix:["L'échographie abdominale", "L'EEG", "La radiographie du crâne", "L'ECG"],reponse:"L'échographie abdominale",explication:"L'échographie visualise habituellement les calculs de la vésicule biliaire."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle structure est principalement lésée dans une rupture du ligament croisé antérieur ?",choix:["Le ligament croisé antérieur du genou", "Le tendon d'Achille", "Le ligament annulaire du radius", "Le ménisque externe uniquement"],reponse:"Le ligament croisé antérieur du genou",explication:"Le LCA participe à la stabilité antérieure et rotatoire du genou."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel est le traitement de référence d'une appendicite aiguë compliquée nécessitant une intervention ?",choix:["Appendicectomie avec prise en charge adaptée de l'infection", "Cholécystectomie", "Néphrectomie", "Splénectomie"],reponse:"Appendicectomie avec prise en charge adaptée de l'infection",explication:"L'appendicectomie est le traitement chirurgical usuel, associé aux antibiotiques selon le contexte."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel type d'anesthésie entraîne une perte de conscience réversible et contrôlée ?",choix:["Anesthésie générale", "Anesthésie locale seule", "Anesthésie topique", "Anesthésie de contact"],reponse:"Anesthésie générale",explication:"L'anesthésie générale associe une perte de conscience et une analgésie adaptées à l'intervention."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe doit faire suspecter un syndrome des loges aigu ?",choix:["Douleur intense disproportionnée, majorée à l'étirement passif", "Prurit isolé", "Fièvre modérée isolée", "Douleur calmée par l'étirement passif"],reponse:"Douleur intense disproportionnée, majorée à l'étirement passif",explication:"La douleur disproportionnée et à l'étirement passif est un signe d'alerte précoce."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quelle complication peut survenir après une immobilisation prolongée d'un membre inférieur ?",choix:["Thrombose veineuse profonde", "Otite moyenne", "Glaucome aigu", "Appendicite"],reponse:"Thrombose veineuse profonde",explication:"L'immobilisation favorise la stase veineuse et augmente le risque thromboembolique."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Dans une fracture ouverte, quelle mesure doit être réalisée rapidement en plus de la stabilisation et de l'évaluation neurovasculaire ?",choix:["Antibiothérapie précoce selon protocole", "Massage profond de la plaie", "Fermeture cutanée immédiate sans exploration", "Retrait systématique de tout matériel osseux"],reponse:"Antibiothérapie précoce selon protocole",explication:"L'antibiothérapie précoce diminue le risque infectieux ; la prise en charge dépend du degré d'ouverture."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le principe d'une anastomose digestive ?",choix:["Rétablir la continuité entre deux segments du tube digestif", "Retirer systématiquement le péritoine", "Fixer un os à un tendon", "Fermer une artère sans réparation"],reponse:"Rétablir la continuité entre deux segments du tube digestif",explication:"Une anastomose met en communication deux segments digestifs après résection ou dérivation."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel élément est essentiel dans la surveillance immédiate en salle de réveil ?",choix:["Voies aériennes, respiration, circulation et conscience", "Couleur des cheveux", "Acuité visuelle uniquement", "Appétit uniquement"],reponse:"Voies aériennes, respiration, circulation et conscience",explication:"La surveillance post-anesthésique porte notamment sur les fonctions vitales et la douleur."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel nerf est particulièrement exposé lors d'une fracture de la diaphyse humérale ?",choix:["Le nerf radial", "Le nerf optique", "Le nerf facial", "Le nerf vague"],reponse:"Le nerf radial",explication:"Le nerf radial chemine dans la gouttière radiale de l'humérus."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le risque majeur d'une torsion d'annexe non traitée ?",choix:["Ischémie puis nécrose de l'ovaire", "Hyperthyroïdie", "Insuffisance hépatique", "Cataracte"],reponse:"Ischémie puis nécrose de l'ovaire",explication:"La torsion compromet le retour veineux puis la vascularisation artérielle de l'annexe."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel examen permet le mieux d'évaluer une collection intra-abdominale profonde chez un patient stable ?",choix:["Scanner abdomino-pelvien injecté, si indiqué", "Radiographie du poignet", "Audiogramme", "ECG seul"],reponse:"Scanner abdomino-pelvien injecté, si indiqué",explication:"La tomodensitométrie injectée est très utile pour localiser et caractériser une collection profonde."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est le but principal d'une stomie digestive ?",choix:["Dériver temporairement ou définitivement le contenu intestinal vers la peau", "Remplacer le foie", "Réparer une fracture", "Mesurer la pression intracrânienne"],reponse:"Dériver temporairement ou définitivement le contenu intestinal vers la peau",explication:"Une stomie permet une dérivation digestive, temporaire ou permanente selon l'indication."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel signe évoque une infection du site opératoire profond ?",choix:["Douleur croissante, fièvre et écoulement purulent de la plaie", "Cicatrice sèche et indolore", "Reprise normale de l'appétit", "Disparition de l'œdème sans douleur"],reponse:"Douleur croissante, fièvre et écoulement purulent de la plaie",explication:"Ces signes doivent faire rechercher une infection et nécessitent une évaluation clinique."},
+      // QUESTIONS ISSUES DES COURS FOURNIS — gynécologie chirurgicale
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Chez une femme non ménopausée présentant un kyste ovarien organique nécessitant une chirurgie, quel geste cherche généralement à préserver la fertilité ?",choix:["La kystectomie", "L'hystérectomie systématique", "La salpingectomie bilatérale", "La colostomie"],reponse:"La kystectomie",explication:"La kystectomie retire le kyste en conservant autant que possible le tissu ovarien sain."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quelle complication d'un kyste ovarien constitue une urgence chirurgicale ?",choix:["La torsion annexielle", "Une dysménorrhée isolée", "Un kyste fonctionnel asymptomatique", "Une aménorrhée isolée"],reponse:"La torsion annexielle",explication:"La torsion peut compromettre la vascularisation de l'ovaire et nécessite une prise en charge urgente."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel abord est souvent privilégié pour l'ablation d'un kyste ovarien lorsque les conditions le permettent ?",choix:["La cœlioscopie", "La thoracotomie", "La craniotomie", "La laparostomie systématique"],reponse:"La cœlioscopie",explication:"La cœlioscopie est un abord de référence dans de nombreuses situations adaptées."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Devant une GEU rompue avec suspicion d'hémopéritoine et choc, quelle priorité s'impose ?",choix:["Réanimation urgente et prise en charge chirurgicale sans retard injustifié", "Surveillance simple à domicile", "Attendre plusieurs jours le dosage des β-HCG", "Administrer uniquement un antalgique"],reponse:"Réanimation urgente et prise en charge chirurgicale sans retard injustifié",explication:"La rupture avec instabilité hémodynamique est une urgence vitale ; la stabilisation et la chirurgie sont prioritaires."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel type de fibrome utérin est particulièrement exposé à une torsion aiguë ?",choix:["Le fibrome sous-séreux pédiculé", "Le fibrome interstitiel", "Le fibrome sous-muqueux sessile", "Le fibrome cervical uniquement"],reponse:"Le fibrome sous-séreux pédiculé",explication:"La torsion concerne surtout le fibrome sous-séreux pédiculé et peut provoquer un abdomen aigu."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel examen confirme le diagnostic histologique d'un cancer du sein ?",choix:["L'analyse anatomopathologique d'un prélèvement biopsique", "La mammographie seule", "L'échographie seule", "Le dosage isolé du CA 15-3"],reponse:"L'analyse anatomopathologique d'un prélèvement biopsique",explication:"L'imagerie oriente le diagnostic, mais l'histologie du prélèvement confirme le cancer."},
+      {categorie:"medecine",niveau:"difficile",theme:"Chirurgie",question:"Quel est l'objectif d'une chirurgie conservatrice du sein lorsqu'elle est indiquée ?",choix:["Retirer la tumeur avec des marges adaptées en conservant le reste du sein", "Retirer systématiquement les deux seins", "Remplacer la chimiothérapie dans tous les cas", "Retirer uniquement le mamelon sans traiter la tumeur"],reponse:"Retirer la tumeur avec des marges adaptées en conservant le reste du sein",explication:"La chirurgie conservatrice vise l'exérèse tumorale avec des marges adéquates, selon l'indication oncologique."},
+      {categorie:"medecine",niveau:"moyen",theme:"Chirurgie",question:"Quel signe clinique peut révéler une complication hémorragique sévère après un avortement compliqué ?",choix:["Hypotension avec tachycardie et signes de mauvaise perfusion", "Prurit isolé", "Hypertension isolée sans symptôme", "Rhinorrhée"],reponse:"Hypotension avec tachycardie et signes de mauvaise perfusion",explication:"L'association hypotension, tachycardie, extrémités froides et altération de conscience évoque un choc hémorragique."},
+            
+      // Banque complémentaire : questions transversales tirées des cours fournis
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen d’imagerie est réalisé en première intention devant une suspicion de kyste ovarien ?", "choix": ["Échographie-Doppler abdomino-pelvienne", "Radiographie thoracique", "Urographie intraveineuse", "Scintigraphie osseuse"], "reponse": "Échographie-Doppler abdomino-pelvienne", "explication": "Le cours présente l’échographie-Doppler abdomino-pelvienne comme l’examen de première intention."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel aspect échographique oriente plutôt vers un kyste ovarien bénin ?", "choix": ["Paroi fine et régulière, contenu homogène", "Végétations multiples et paroi irrégulière", "Néovascularisation anarchique", "Ascite avec nodules péritonéaux"], "reponse": "Paroi fine et régulière, contenu homogène", "explication": "Les critères de bénignité décrits comprennent une petite taille, des parois fines et régulières et une échostructure homogène."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Après combien de temps un kyste ovarien fonctionnel persistant doit-il faire reconsidérer son caractère organique selon le cours ?", "choix": ["Après environ trois mois", "Après 24 heures", "Après une semaine", "Après deux ans"], "reponse": "Après environ trois mois", "explication": "Le cours indique que le kyste fonctionnel disparaît généralement dans les trois mois ; la persistance fait discuter un kyste organique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel tableau évoque une torsion de kyste ovarien ?", "choix": ["Douleur pelvienne aiguë intense avec nausées ou vomissements", "Prurit vulvaire isolé", "Métrorragies indolores sans douleur", "Pollakiurie isolée"], "reponse": "Douleur pelvienne aiguë intense avec nausées ou vomissements", "explication": "La torsion se manifeste notamment par une douleur aiguë intense, souvent accompagnée de nausées et vomissements."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel est l’objectif thérapeutique important lors de la chirurgie d’un kyste ovarien chez une femme en âge de procréer ?", "choix": ["Préserver la fertilité autant que possible", "Réaliser systématiquement une hystérectomie", "Retirer les deux ovaires dans tous les cas", "Éviter toute analyse anatomopathologique"], "reponse": "Préserver la fertilité autant que possible", "explication": "Le cours place la préservation de la fertilité parmi les buts du traitement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel geste est indiqué dans la prise en charge chirurgicale d’une torsion annexielle ?", "choix": ["Détorsion chirurgicale après évaluation", "Néphrectomie", "Cholécystectomie", "Splénectomie"], "reponse": "Détorsion chirurgicale après évaluation", "explication": "La détorsion fait partie des gestes chirurgicaux décrits pour les complications des kystes ovariens."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel est le siège le plus fréquent d’une grossesse extra-utérine ?", "choix": ["L’ampoule tubaire", "La cavité utérine", "Le col vésical", "Le vagin"], "reponse": "L’ampoule tubaire", "explication": "Le cours précise que la GEU se développe le plus souvent dans l’ampoule tubaire."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel trio clinique doit faire évoquer une GEU chez une femme en activité génitale ?", "choix": ["Retard de règles, douleur pelvienne et métrorragies", "Fièvre, toux et expectoration", "Dysurie, hématurie et lombalgie", "Céphalées, photophobie et vomissements"], "reponse": "Retard de règles, douleur pelvienne et métrorragies", "explication": "Le cours insiste sur l’association retard de règles, douleur pelvienne latéralisée et métrorragies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Que signifie une β-HCG plasmatique positive dans le bilan d’une suspicion de GEU ?", "choix": ["Elle témoigne d’un trophoblaste actif mais ne confirme pas seule la GEU", "Elle confirme toujours une GEU", "Elle élimine une grossesse", "Elle prouve une rupture tubaire"], "reponse": "Elle témoigne d’un trophoblaste actif mais ne confirme pas seule la GEU", "explication": "La positivité confirme l’existence d’un trophoblaste actif ; le diagnostic repose sur la confrontation avec l’échographie et le contexte."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel résultat échographique associé à une β-HCG élevée est très évocateur de GEU dans le cours ?", "choix": ["Vacuité utérine", "Sac intra-utérin avec embryon", "Endomètre absent", "Vessie distendue"], "reponse": "Vacuité utérine", "explication": "Le cours indique que β-HCG supérieure au seuil mentionné avec vacuité utérine est très évocatrice."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "En cas de GEU rompue avec choc hémorragique, quelle conduite est prioritaire ?", "choix": ["Réanimation urgente et chirurgie sans retarder la prise en charge", "Attendre le contrôle des β-HCG à 48 heures", "Retour à domicile avec surveillance", "Administrer uniquement un antalgique"], "reponse": "Réanimation urgente et chirurgie sans retarder la prise en charge", "explication": "La rupture avec hémopéritoine et choc est une urgence vitale ; aucun examen ne doit retarder la chirurgie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel facteur de risque infectieux de GEU est particulièrement cité dans le cours ?", "choix": ["Antécédent de salpingite liée à une IST, notamment Chlamydia", "Otite moyenne", "Appendicectomie isolée", "Asthme"], "reponse": "Antécédent de salpingite liée à une IST, notamment Chlamydia", "explication": "Les infections tubaires, notamment à Chlamydia trachomatis, sont citées parmi les facteurs de risque."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Le fibrome utérin est une tumeur bénigne développée à partir de quel tissu ?", "choix": ["Muscle lisse utérin", "Épithélium bronchique", "Parenchyme rénal", "Tissu nerveux cérébral"], "reponse": "Muscle lisse utérin", "explication": "Le fibrome, ou léiomyome, se développe aux dépens du muscle lisse utérin."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel symptôme est le plus souvent révélateur d’un fibrome utérin dans le cours ?", "choix": ["Ménorragies", "Hémoptysie", "Hématurie", "Ictère"], "reponse": "Ménorragies", "explication": "Les ménorragies sont présentées comme le principal signe révélateur."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel examen est l’examen paraclinique de référence pour le diagnostic d’un fibrome utérin ?", "choix": ["Échographie pelvienne", "Radiographie du crâne", "ECG", "Électroencéphalogramme"], "reponse": "Échographie pelvienne", "explication": "L’échographie pelvienne confirme le diagnostic et précise le siège, le nombre et le volume des fibromes."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel fibrome est particulièrement exposé à une torsion aiguë ?", "choix": ["Fibrome sous-séreux pédiculé", "Fibrome interstitiel", "Fibrome sous-muqueux sessile", "Tout fibrome cervical"], "reponse": "Fibrome sous-séreux pédiculé", "explication": "Le cours souligne le risque de torsion aiguë du fibrome sous-séreux pédiculé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quelle conséquence peut résulter de ménorragies répétées liées à un fibrome ?", "choix": ["Anémie ferriprive chronique", "Polyglobulie", "Insuffisance respiratoire aiguë", "Hypercalcémie"], "reponse": "Anémie ferriprive chronique", "explication": "Les hémorragies répétées peuvent entraîner une anémie ferriprive chronique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel type de fibrome est le plus impliqué dans l’infertilité selon le cours ?", "choix": ["Fibrome intracavitaire", "Fibrome sous-séreux pédiculé uniquement", "Fibrome cervical calcifié", "Tous les fibromes sans distinction"], "reponse": "Fibrome intracavitaire", "explication": "Le cours précise que les fibromes intracavitaires sont ceux incriminés dans les troubles de la fertilité."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen est utilisé en première intention pour explorer une suspicion de cancer de l’ovaire ?", "choix": ["Échographie abdomino-pelvienne", "Radiographie du bassin seule", "ECG", "Électromyogramme"], "reponse": "Échographie abdomino-pelvienne", "explication": "Le cours décrit l’échographie abdomino-pelvienne comme examen de première intention."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel ensemble de signes échographiques est suspect de malignité ovarienne ?", "choix": ["Taille supérieure à 6 cm, parois épaisses irrégulières, végétations", "Petit kyste homogène à paroi fine", "Absence de cloison et de végétation", "Kyste simple stable de petite taille"], "reponse": "Taille supérieure à 6 cm, parois épaisses irrégulières, végétations", "explication": "Les signes suspects comprennent notamment une taille supérieure à 6 cm, des parois irrégulières, des cloisons et des végétations."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel marqueur tumoral est fréquemment suivi dans le cancer de l’ovaire ?", "choix": ["CA 125", "Troponine", "PSA", "BNP"], "reponse": "CA 125", "explication": "Le CA 125 est cité pour la surveillance et l’évaluation pronostique, mais il ne suffit pas à établir le diagnostic."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel examen confirme le diagnostic et précise le type histologique du cancer ovarien ?", "choix": ["Examen anatomopathologique", "Échographie seule", "Dosage isolé du CA 125", "Radiographie thoracique"], "reponse": "Examen anatomopathologique", "explication": "L’histologie confirme le diagnostic et précise le type et le grade histopronostique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel type histologique est indiqué comme le plus fréquent parmi les cancers épithéliaux de l’ovaire dans le cours ?", "choix": ["Cystadénocarcinome séreux", "Lymphome de Hodgkin", "Sarcome osseux", "Carcinome hépatocellulaire"], "reponse": "Cystadénocarcinome séreux", "explication": "Le cours cite le cystadénocarcinome séreux comme le type épithélial le plus fréquent."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Dans la classification FIGO résumée dans le cours, que correspond au stade III du cancer de l’ovaire ?", "choix": ["Extension extrapelvienne", "Tumeur limitée aux ovaires", "Extension pelvienne uniquement", "Métastases à distance"], "reponse": "Extension extrapelvienne", "explication": "Le cours résume le stade III par une extension extrapelvienne."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe cutané peut être observé dans un cancer du sein ?", "choix": ["Peau d’orange", "Éruption vésiculeuse généralisée", "Cyanose des doigts uniquement", "Purpura des jambes"], "reponse": "Peau d’orange", "explication": "La peau d’orange est un signe d’alerte recherché à l’inspection du sein."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel aspect mammographique peut évoquer un cancer du sein ?", "choix": ["Opacité stellaire à contours irréguliers", "Image parfaitement ronde et toujours bénigne", "Absence systématique de toute anomalie", "Calcification osseuse du thorax"], "reponse": "Opacité stellaire à contours irréguliers", "explication": "Le cours décrit l’image stellaire dense, hétérogène et spiculée parmi les signes radiologiques."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen permet de confirmer le diagnostic histologique d’un cancer du sein ?", "choix": ["Biopsie avec analyse anatomopathologique", "Mammographie seule", "Dosage isolé du CA 15-3", "Examen clinique seul"], "reponse": "Biopsie avec analyse anatomopathologique", "explication": "La confirmation repose sur l’histologie d’un prélèvement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quelle lésion évoque une maladie de Paget du sein ?", "choix": ["Lésion eczémateuse du mamelon", "Ulcération de la jambe", "Masse rénale lombaire", "Écoulement nasal purulent"], "reponse": "Lésion eczémateuse du mamelon", "explication": "Le cours décrit la maladie de Paget comme une lésion eczémateuse du mamelon, confirmée par biopsie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel ganglion est recherché lors de l’examen des aires ganglionnaires dans le cancer du sein ?", "choix": ["Ganglion axillaire suspect", "Ganglion poplité uniquement", "Ganglion inguinal uniquement", "Ganglion médiastinal par palpation directe"], "reponse": "Ganglion axillaire suspect", "explication": "L’examen recherche notamment des ganglions axillaires petits, durs et indolores."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel est le principe d’une chirurgie conservatrice du sein ?", "choix": ["Retirer la tumeur en conservant une partie du sein", "Retirer systématiquement les deux seins", "Retirer uniquement les ganglions", "Remplacer toute analyse histologique"], "reponse": "Retirer la tumeur en conservant une partie du sein", "explication": "Les gestes conservateurs incluent notamment tumorectomie, zonectomie et quadrantectomie."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel est le symptôme d’alarme majeur du cancer du corps de l’utérus chez la femme ménopausée ?", "choix": ["Métrorragies post-ménopausiques", "Toux chronique", "Hématurie terminale", "Douleur thoracique"], "reponse": "Métrorragies post-ménopausiques", "explication": "Les métrorragies post-ménopausiques constituent le maître symptôme décrit dans le cours."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen permet de visualiser la cavité utérine et de réaliser des biopsies ciblées ?", "choix": ["Hystéroscopie", "Coloscopie", "Bronchoscopie", "Cystoscopie"], "reponse": "Hystéroscopie", "explication": "L’hystéroscopie visualise la lésion endométriale et permet des biopsies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen confirme le diagnostic de cancer de l’endomètre ?", "choix": ["Biopsie endométriale avec anatomopathologie", "Échographie seule", "Dosage de la glycémie", "Radiographie abdominale"], "reponse": "Biopsie endométriale avec anatomopathologie", "explication": "L’échographie oriente, mais l’histologie confirme le diagnostic."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel type histologique est le plus souvent cité dans le cours pour le cancer du corps utérin ?", "choix": ["Carcinome endométrioïde", "Carcinome épidermoïde bronchique", "Sarcome rénal", "Lymphome cérébral"], "reponse": "Carcinome endométrioïde", "explication": "Le cours présente le carcinome endométrioïde comme la forme habituelle."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel facteur hormonal favorise le cancer de l’endomètre selon le cours ?", "choix": ["Hyperœstrogénie non contrebalancée", "Déficit isolé en cortisol", "Excès d’insuline seul", "Hypoœstrogénie permanente"], "reponse": "Hyperœstrogénie non contrebalancée", "explication": "Le cours souligne le rôle initiateur des œstrogènes et le rôle protecteur de la progestérone."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel geste chirurgical est mentionné parmi les traitements du cancer du corps utérin ?", "choix": ["Hystérectomie totale", "Néphrectomie partielle", "Cholécystectomie", "Pneumonectomie"], "reponse": "Hystérectomie totale", "explication": "L’hystérectomie totale, parfois associée à une annexectomie, figure parmi les moyens chirurgicaux."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe fonctionnel classique peut révéler un cancer du rein ?", "choix": ["Hématurie macroscopique", "Hématémèse", "Rectorragie", "Otorrhée"], "reponse": "Hématurie macroscopique", "explication": "Le cours décrit une hématurie souvent macroscopique, totale, indolore et intermittente."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen est présenté comme l’examen de référence d’imagerie du cancer du rein ?", "choix": ["Uro-TDM", "Radiographie du thorax seule", "Échographie cardiaque", "Scintigraphie thyroïdienne"], "reponse": "Uro-TDM", "explication": "L’Uro-TDM est présentée comme l’examen de référence pour caractériser la masse et participer au bilan d’extension."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quelle manœuvre clinique est décrite pour la palpation bi-manuelle de la fosse lombaire ?", "choix": ["Manœuvre de Guyon", "Manœuvre de Heimlich", "Manœuvre de Lasègue", "Manœuvre de Tinel"], "reponse": "Manœuvre de Guyon", "explication": "Le cours décrit la manœuvre de Guyon pour rechercher une masse rénale."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel aspect biologique paranéoplasique peut accompagner un cancer du rein ?", "choix": ["Hypercalcémie", "Hypoglycémie constante", "Hypokaliémie obligatoire", "Hyperbilirubinémie conjuguée isolée dans tous les cas"], "reponse": "Hypercalcémie", "explication": "L’hypercalcémie figure parmi les manifestations paranéoplasiques citées."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel type de chirurgie peut préserver davantage le parenchyme rénal ?", "choix": ["Néphrectomie partielle", "Néphrectomie élargie systématique", "Cystectomie totale", "Prostatectomie"], "reponse": "Néphrectomie partielle", "explication": "La néphrectomie partielle retire la tumeur avec une marge de parenchyme sain."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel syndrome génétique est associé dans le cours aux tumeurs rénales bilatérales ou multifocales ?", "choix": ["Maladie de Von Hippel-Lindau", "Syndrome de Marfan", "Syndrome de Turner", "Syndrome de Guillain-Barré"], "reponse": "Maladie de Von Hippel-Lindau", "explication": "Le cours cite Von Hippel-Lindau dans les formes bilatérales ou multifocales, avec avis oncogénétique."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Chirurgie", "question": "Quel signe fonctionnel est fréquent dans une complication hémorragique après avortement ?", "choix": ["Métrorragies abondantes avec caillots", "Hémoptysie", "Épistaxis isolée", "Hématurie microscopique"], "reponse": "Métrorragies abondantes avec caillots", "explication": "Le cours décrit des métrorragies abondantes de sang rouge avec expulsion de caillots."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel ensemble de signes évoque un choc hémorragique après avortement ?", "choix": ["Hypotension, tachycardie, oligurie et extrémités froides", "Hypertension, bradycardie et polyurie", "Fièvre isolée et toux", "Prurit et urticaire"], "reponse": "Hypotension, tachycardie, oligurie et extrémités froides", "explication": "Ces signes sont décrits dans le tableau de choc hémorragique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel examen biologique est demandé en urgence pour évaluer l’anémie et les pertes sanguines ?", "choix": ["NFS", "Bilan lipidique", "TSH seule", "Dosage de vitamine D"], "reponse": "NFS", "explication": "La NFS fait partie du bilan biologique d’urgence."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "À l’échographie, quel élément peut être retrouvé après un avortement compliqué ?", "choix": ["Débris ovulaires dans la cavité utérine", "Calcul dans la vésicule biliaire", "Tumeur pulmonaire", "Fracture du bassin"], "reponse": "Débris ovulaires dans la cavité utérine", "explication": "Le cours cite les débris ovulaires ou un embryon sans activité cardiaque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Chirurgie", "question": "Quel prélèvement microbiologique est cité dans le bilan des complications infectieuses ?", "choix": ["Hémocultures", "Prélèvement de cheveux", "Écouvillon nasal systématique uniquement", "Liquide synovial"], "reponse": "Hémocultures", "explication": "Les hémocultures sont mentionnées dans le bilan, avec les prélèvements vaginaux et l’ECBU."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Chirurgie", "question": "Quel est le risque pronostique majeur des complications hémorragiques sévères après avortement ?", "choix": ["Choc hémorragique pouvant engager le pronostic vital", "Cataracte", "Surdité définitive", "Hyperthyroïdie"], "reponse": "Choc hémorragique pouvant engager le pronostic vital", "explication": "Le cours souligne le risque vital lié au choc hémorragique et le risque fonctionnel de stérilité."},
+      // CULTURE GÉNÉRALE — nouvelles questions
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Quelle est la capitale du Ghana ?",choix:["Accra", "Lomé", "Abuja", "Cotonou"],reponse:"Accra",explication:"Accra est la capitale du Ghana."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Combien de continents distingue-t-on généralement dans le modèle à sept continents ?",choix:["Sept", "Cinq", "Six", "Huit"],reponse:"Sept",explication:"Le modèle scolaire courant distingue l'Afrique, l'Antarctique, l'Asie, l'Europe, l'Amérique du Nord, l'Amérique du Sud et l'Océanie."},
+      {categorie:"culture",niveau:"facile",theme:"Sciences",question:"Quel est le symbole chimique de l'eau ?",choix:["H₂O", "CO₂", "O₂", "NaCl"],reponse:"H₂O",explication:"Une molécule d'eau contient deux atomes d'hydrogène et un atome d'oxygène."},
+      {categorie:"culture",niveau:"facile",theme:"Culture",question:"Quel animal est le symbole souvent associé à la sagesse dans les traditions occidentales ?",choix:["La chouette", "Le dauphin", "Le cheval", "Le papillon"],reponse:"La chouette",explication:"La chouette ou le hibou est fréquemment associé à la sagesse dans l'imaginaire occidental."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Dans quel pays se trouve la ville de Marrakech ?",choix:["Maroc", "Tunisie", "Algérie", "Égypte"],reponse:"Maroc",explication:"Marrakech est une ville du Maroc."},
+      {categorie:"culture",niveau:"facile",theme:"Connaissances générales",question:"Combien de minutes y a-t-il dans une heure ?",choix:["60", "30", "90", "100"],reponse:"60",explication:"Une heure compte 60 minutes."},
+      {categorie:"culture",niveau:"facile",theme:"Sciences",question:"Quel est le satellite naturel de la Terre ?",choix:["La Lune", "Mars", "Le Soleil", "Vénus"],reponse:"La Lune",explication:"La Lune est le satellite naturel de la Terre."},
+      {categorie:"culture",niveau:"facile",theme:"Géographie",question:"Quelle langue est principalement parlée au Brésil ?",choix:["Le portugais", "L'espagnol", "Le français", "L'anglais"],reponse:"Le portugais",explication:"Le portugais est la langue officielle du Brésil."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel fleuve traverse notamment l'Égypte avant de se jeter dans la Méditerranée ?",choix:["Le Nil", "Le Niger", "Le Congo", "Le Zambèze"],reponse:"Le Nil",explication:"Le Nil traverse l'Égypte du sud vers le nord et forme un delta en Méditerranée."},
+      {categorie:"culture",niveau:"moyen",theme:"Histoire",question:"En quelle année l'Organisation des Nations unies a-t-elle été fondée ?",choix:["1945", "1919", "1955", "1960"],reponse:"1945",explication:"L'ONU a été fondée en 1945, à la fin de la Seconde Guerre mondiale."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel pays a pour capitale Addis-Abeba ?",choix:["L'Éthiopie", "Le Kenya", "L'Ouganda", "Le Rwanda"],reponse:"L'Éthiopie",explication:"Addis-Abeba est la capitale de l'Éthiopie et accueille le siège de l'Union africaine."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quel scientifique est associé à la théorie de la relativité ?",choix:["Albert Einstein", "Louis Pasteur", "Charles Darwin", "Marie Curie"],reponse:"Albert Einstein",explication:"Albert Einstein a développé les théories de la relativité restreinte et générale."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quel est le plus grand organe du corps humain ?",choix:["La peau", "Le foie", "Le cerveau", "Le poumon"],reponse:"La peau",explication:"La peau est le plus grand organe du corps humain en surface."},
+      {categorie:"culture",niveau:"moyen",theme:"Littérature",question:"Quel écrivain sénégalais a notamment écrit Une si longue lettre ?",choix:["Mariama Bâ", "Ousmane Sembène", "Léopold Sédar Senghor", "Cheikh Hamidou Kane"],reponse:"Mariama Bâ",explication:"Une si longue lettre est un roman de Mariama Bâ, publié en 1979."},
+      {categorie:"culture",niveau:"moyen",theme:"Géographie",question:"Quel détroit sépare l'Europe de l'Afrique entre l'Espagne et le Maroc ?",choix:["Le détroit de Gibraltar", "Le Bosphore", "Le détroit de Béring", "Le canal de Suez"],reponse:"Le détroit de Gibraltar",explication:"Le détroit de Gibraltar relie l'Atlantique à la Méditerranée."},
+      {categorie:"culture",niveau:"moyen",theme:"Sciences",question:"Quelle est l'unité de mesure de la résistance électrique ?",choix:["L'ohm", "Le watt", "Le volt", "L'ampère"],reponse:"L'ohm",explication:"La résistance électrique se mesure en ohms, symbole Ω."},
+      {categorie:"culture",niveau:"difficile",theme:"Histoire",question:"Quel accord a créé l'Union européenne dans sa forme institutionnelle moderne en 1993 ?",choix:["Le traité de Maastricht", "Le traité de Versailles", "Le traité de Rome de 1957 seul", "Le traité de Lisbonne"],reponse:"Le traité de Maastricht",explication:"Le traité de Maastricht est entré en vigueur en 1993 et a institué l'Union européenne."},
+      {categorie:"culture",niveau:"difficile",theme:"Géographie",question:"Quel pays possède le plus grand nombre d'habitants en Afrique selon les estimations récentes ?",choix:["Le Nigeria", "L'Égypte", "L'Éthiopie", "L'Afrique du Sud"],reponse:"Le Nigeria",explication:"Le Nigeria est le pays le plus peuplé du continent africain."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel physicien a formulé le principe d'incertitude ?",choix:["Werner Heisenberg", "Niels Bohr", "Max Planck", "James Clerk Maxwell"],reponse:"Werner Heisenberg",explication:"Le principe d'incertitude est associé au physicien allemand Werner Heisenberg."},
+      {categorie:"culture",niveau:"difficile",theme:"Histoire",question:"Quel événement marque conventionnellement le début de la Révolution française ?",choix:["La prise de la Bastille en 1789", "Le sacre de Napoléon en 1804", "La bataille de Waterloo en 1815", "La Commune de Paris en 1871"],reponse:"La prise de la Bastille en 1789",explication:"La prise de la Bastille, le 14 juillet 1789, est un événement symbolique majeur du début de la Révolution française."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel est le nom du processus par lequel une cellule se divise en deux cellules filles génétiquement proches ?",choix:["La mitose", "La méiose", "La fécondation", "La transcription"],reponse:"La mitose",explication:"La mitose produit deux cellules filles généralement génétiquement identiques à la cellule mère."},
+      {categorie:"culture",niveau:"difficile",theme:"Institutions",question:"Quelle institution africaine continentale a son siège à Addis-Abeba ?",choix:["L'Union africaine", "La CEDEAO", "La Banque africaine de développement", "L'UEMOA"],reponse:"L'Union africaine",explication:"Le siège de l'Union africaine se trouve à Addis-Abeba, en Éthiopie."},
+      {categorie:"culture",niveau:"difficile",theme:"Philosophie",question:"Quel philosophe est l'auteur de la formule « Je pense, donc je suis » ?",choix:["René Descartes", "Jean-Jacques Rousseau", "Platon", "Aristote"],reponse:"René Descartes",explication:"La formule résume le cogito de René Descartes."},
+      {categorie:"culture",niveau:"difficile",theme:"Sciences",question:"Quel phénomène explique principalement l'alternance des saisons sur Terre ?",choix:["L'inclinaison de l'axe terrestre pendant la révolution autour du Soleil", "La variation quotidienne de la distance Terre-Lune", "La rotation de la Terre seule", "Les marées océaniques"],reponse:"L'inclinaison de l'axe terrestre pendant la révolution autour du Soleil",explication:"L'inclinaison de l'axe terrestre modifie l'angle et la durée d'ensoleillement des hémisphères au cours de l'année."},
+            // Questions supplémentaires
+      {categorie:"medecine",niveau:"facile",question:"Quel os protège le cerveau ?",choix:["Le fémur","Le crâne","Le sternum","Le tibia"],reponse:"Le crâne",explication:"Le crâne enferme et protège le cerveau."},
+      {categorie:"medecine",niveau:"facile",question:"Combien de dents un adulte possède-t-il normalement ?",choix:["20","28","32","36"],reponse:"32",explication:"Un adulte a normalement 32 dents, dents de sagesse comprises."},
+      {categorie:"medecine",niveau:"facile",question:"Quel organe digère les aliments grâce à un liquide acide ?",choix:["L'estomac","Le cœur","Le poumon","Le cerveau"],reponse:"L'estomac",explication:"L'estomac sécrète de l'acide chlorhydrique qui participe à la digestion."},
+      {categorie:"medecine",niveau:"facile",question:"Quel sens utilise-t-on grâce au nez ?",choix:["La vue","L'ouïe","L'odorat","Le goût"],reponse:"L'odorat",explication:"Le nez est l'organe de l'odorat."},
+      {categorie:"medecine",niveau:"facile",question:"Quel est le plus grand organe du corps humain ?",choix:["Le foie","La peau","Le cœur","Le poumon"],reponse:"La peau",explication:"La peau est l'organe le plus étendu et le plus lourd du corps."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel est le plus long os du corps humain ?",choix:["Le tibia","L'humérus","Le fémur","Le radius"],reponse:"Le fémur",explication:"Le fémur, dans la cuisse, est l'os le plus long et le plus solide."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel organe produit la bile ?",choix:["Le foie","Le rein","La rate","Le pancréas"],reponse:"Le foie",explication:"La bile est produite par le foie puis stockée dans la vésicule biliaire."},
+      {categorie:"medecine",niveau:"moyen",question:"Quelle vitamine est essentielle à la coagulation du sang ?",choix:["Vitamine A","Vitamine C","Vitamine K","Vitamine E"],reponse:"Vitamine K",explication:"La vitamine K intervient dans la fabrication de facteurs de coagulation."},
+      {categorie:"medecine",niveau:"moyen",question:"Quel groupe sanguin est considéré comme donneur universel pour les globules rouges ?",choix:["AB+","A+","B-","O-"],reponse:"O-",explication:"Les globules rouges O négatif peuvent être transfusés à la plupart des patients."},
+      {categorie:"medecine",niveau:"moyen",question:"Quelle est la plus grosse artère du corps ?",choix:["L'aorte","La carotide","La veine cave","L'artère fémorale"],reponse:"L'aorte",explication:"L'aorte part du ventricule gauche et distribue le sang à tout le corps."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle hormone est produite par la glande thyroïde ?",choix:["L'insuline","La thyroxine","Le cortisol","La mélatonine"],reponse:"La thyroxine",explication:"La thyroïde produit notamment la thyroxine (T4), qui régule le métabolisme."},
+      {categorie:"medecine",niveau:"difficile",question:"Comment s'appelle la membrane qui enveloppe le cœur ?",choix:["La plèvre","Le péricarde","Le péritoine","Les méninges"],reponse:"Le péricarde",explication:"Le péricarde entoure et protège le cœur."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelles cellules du sang participent principalement à la coagulation ?",choix:["Les plaquettes","Les globules rouges","Les lymphocytes","Les neutrophiles"],reponse:"Les plaquettes",explication:"Les plaquettes forment le clou plaquettaire qui arrête les saignements."},
+      {categorie:"medecine",niveau:"difficile",question:"Quelle valve sépare l'oreillette gauche du ventricule gauche ?",choix:["La valve tricuspide","La valve mitrale","La valve pulmonaire","La valve aortique"],reponse:"La valve mitrale",explication:"La valve mitrale (bicuspide) relie l'oreillette gauche au ventricule gauche."},
+      {categorie:"medecine",niveau:"difficile",question:"Quel est le principal muscle de la respiration ?",choix:["Le diaphragme","Le biceps","Le trapèze","Le deltoïde"],reponse:"Le diaphragme",explication:"Le diaphragme se contracte à chaque inspiration."},
+      {categorie:"culture",niveau:"facile",question:"Quel est le plus grand animal terrestre ?",choix:["Le lion","La girafe","L'éléphant","L'hippopotame"],reponse:"L'éléphant",explication:"L'éléphant d'Afrique est le plus grand animal terrestre."},
+      {categorie:"culture",niveau:"facile",question:"Combien y a-t-il de mois dans une année ?",choix:["10","11","12","13"],reponse:"12",explication:"Une année compte douze mois."},
+      {categorie:"culture",niveau:"facile",question:"Quelle est la capitale de la France ?",choix:["Lyon","Marseille","Paris","Lille"],reponse:"Paris",explication:"Paris est la capitale de la France."},
+      {categorie:"culture",niveau:"facile",question:"Quelle étoile éclaire et réchauffe la Terre ?",choix:["La Lune","Le Soleil","Mars","Sirius"],reponse:"Le Soleil",explication:"Le Soleil est l'étoile au centre de notre système solaire."},
+      {categorie:"culture",niveau:"facile",question:"Combien font 5 × 6 ?",choix:["25","30","35","11"],reponse:"30",explication:"5 multiplié par 6 égale 30."},
+      {categorie:"culture",niveau:"moyen",question:"Quel est le plus long fleuve d'Afrique ?",choix:["Le Congo","Le Niger","Le Sénégal","Le Nil"],reponse:"Le Nil",explication:"Le Nil mesure environ 6 650 km."},
+      {categorie:"culture",niveau:"moyen",question:"Qui a peint la Joconde ?",choix:["Michel-Ange","Léonard de Vinci","Raphaël","Picasso"],reponse:"Léonard de Vinci",explication:"La Joconde a été peinte par Léonard de Vinci au début du XVIe siècle."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la capitale du Brésil ?",choix:["Rio de Janeiro","São Paulo","Salvador","Brasília"],reponse:"Brasília",explication:"Brasília est la capitale du Brésil depuis 1960."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la formule chimique de l'eau ?",choix:["CO2","H2O","O2","NaCl"],reponse:"H2O",explication:"Une molécule d'eau contient deux atomes d'hydrogène et un atome d'oxygène."},
+      {categorie:"culture",niveau:"moyen",question:"Quelle est la plus haute montagne du monde ?",choix:["Le K2","Le Mont Blanc","L'Everest","Le Kilimandjaro"],reponse:"L'Everest",explication:"L'Everest culmine à environ 8 849 m."},
+      {categorie:"culture",niveau:"difficile",question:"Qui a été le premier homme à marcher sur la Lune ?",choix:["Buzz Aldrin","Youri Gagarine","Neil Armstrong","Michael Collins"],reponse:"Neil Armstrong",explication:"Neil Armstrong a posé le pied sur la Lune le 20 juillet 1969."},
+      {categorie:"culture",niveau:"difficile",question:"Quelle est la capitale de l'Australie ?",choix:["Sydney","Melbourne","Canberra","Perth"],reponse:"Canberra",explication:"Canberra est la capitale de l'Australie, et non Sydney."},
+      {categorie:"culture",niveau:"difficile",question:"En quelle année le mur de Berlin est-il tombé ?",choix:["1985","1989","1991","1993"],reponse:"1989",explication:"Le mur de Berlin est tombé le 9 novembre 1989."},
+      {categorie:"culture",niveau:"difficile",question:"Quel est le plus petit pays du monde ?",choix:["Monaco","Saint-Marin","Le Vatican","Malte"],reponse:"Le Vatican",explication:"Le Vatican couvre environ 0,44 km²."},
+      {categorie:"culture",niveau:"difficile",question:"Quel est le symbole chimique de l'or ?",choix:["Ag","Au","Or","Go"],reponse:"Au",explication:"Au vient du latin aurum."}
+    ,
+      // QCM DE GYNÉCOLOGIE-OBSTÉTRIQUE — issus des six cours transmis
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Avant quel terme le cours définit-il le diagnostic précoce de grossesse ?", "choix": ["Avant 3 mois (13 SA)", "Avant 6 mois", "Avant 20 SA", "Avant l’accouchement"], "reponse": "Avant 3 mois (13 SA)", "explication": "Le diagnostic précoce regroupe les signes permettant d’affirmer une grossesse avant 3 mois, soit 13 SA."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel signe fonctionnel est classiquement recherché à l’interrogatoire ?", "choix": ["Aménorrhée secondaire", "Hémoptysie", "Dysurie isolée", "Prurit généralisé"], "reponse": "Aménorrhée secondaire", "explication": "L’aménorrhée secondaire est un argument clinique majeur du début de grossesse."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "À quelle semaine d’aménorrhée la vésicule vitelline apparaît-elle à l’échographie selon le cours ?", "choix": ["5 SA", "3 SA", "8 SA", "12 SA"], "reponse": "5 SA", "explication": "Le support indique que la vésicule vitelline apparaît à 5 SA."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À partir de quelle période l’activité cardiaque embryonnaire est-elle visible selon le cours ?", "choix": ["Dès 6 SA", "Dès 3 SA", "À 10 SA seulement", "Après 14 SA"], "reponse": "Dès 6 SA", "explication": "Le cours mentionne un embryon avec activité cardiaque visible dès 6 SA."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect échographique est décrit comme normal pour le sac gestationnel ?", "choix": ["Intra-utérin, tonique et transsonique", "Extra-utérin et hétérogène", "Vide et aplati", "Calcifié"], "reponse": "Intra-utérin, tonique et transsonique", "explication": "Le support décrit un sac gestationnel intra-utérin tonique et transsonique comme aspect de normalité."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est l’un des buts du diagnostic précoce ?", "choix": ["Identifier les facteurs de risque et planifier la surveillance", "Déclencher systématiquement l’accouchement", "Éviter toute échographie", "Confirmer le sexe fœtal"], "reponse": "Identifier les facteurs de risque et planifier la surveillance", "explication": "Le diagnostic précoce permet d’identifier les risques, de planifier la surveillance et de programmer certaines investigations."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel seuil de β-hCG est mentionné dans le cours pour le test qualitatif/quantitatif de grossesse ?", "choix": ["Un taux supérieur à 10 UI/L", "Un taux supérieur à 100 UI/L", "Un taux supérieur à 1 000 UI/L", "Un taux supérieur à 10 000 UI/L"], "reponse": "Un taux supérieur à 10 UI/L", "explication": "Le support mentionne un taux supérieur à 10 UI/L et un dédoublement en 48 heures."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle mesure biométrique est utilisée plus tardivement à partir de 10 SA selon le support ?", "choix": ["Longueur du fémur", "Diamètre bipariétal dès 5 SA", "Périmètre thoracique", "Longueur du tibia"], "reponse": "Longueur du fémur", "explication": "Le cours indique que la longueur du fémur est mesurable à partir de 10 SA."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel est l’objectif général de la surveillance de la grossesse ?", "choix": ["Assurer une évolution normale et préserver la santé de la mère et de l’enfant", "Éviter toutes les consultations", "Déterminer uniquement le sexe du fœtus", "Remplacer l’accouchement"], "reponse": "Assurer une évolution normale et préserver la santé de la mère et de l’enfant", "explication": "La surveillance associe des moyens cliniques, paracliniques, préventifs et thérapeutiques pour une mère et un enfant en bonne santé."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien de consultations prénatales au minimum le support attribue-t-il au Ministère de la Santé du Sénégal ?", "choix": ["Au moins 4", "Au moins 1", "Au moins 2", "Au moins 12"], "reponse": "Au moins 4", "explication": "Le document indique au moins quatre CPN dans les dispositions du Ministère de la Santé du Sénégal."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel examen fait partie du bilan obligatoire de la première consultation ?", "choix": ["Groupe sanguin ABO et Rhésus", "Scanner cérébral", "Radiographie du bassin systématique", "Dosage des troponines"], "reponse": "Groupe sanguin ABO et Rhésus", "explication": "Le groupe sanguin ABO et le Rhésus figurent parmi les examens complémentaires obligatoires du premier bilan."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quand doit idéalement avoir lieu la première consultation prénatale selon le support ?", "choix": ["Au premier trimestre, avant 16 SA", "Après 28 SA", "Au neuvième mois", "Uniquement pendant le travail"], "reponse": "Au premier trimestre, avant 16 SA", "explication": "Le cours présente la première consultation du premier trimestre comme devant avoir lieu avant 16 SA."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle valeur de pression artérielle est donnée comme seuil de référence à la deuxième consultation ?", "choix": ["Inférieure à 140/90 mmHg", "Inférieure à 160/110 mmHg", "Supérieure à 150/100 mmHg", "Égale à 180/120 mmHg"], "reponse": "Inférieure à 140/90 mmHg", "explication": "Le support rappelle une PA inférieure à 140/90 mmHg dans le bilan de la deuxième consultation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À partir de quelle période les mouvements actifs fœtaux sont-ils mentionnés dans le cours ?", "choix": ["18 à 20 SA", "8 à 10 SA", "12 à 13 SA", "30 à 32 SA"], "reponse": "18 à 20 SA", "explication": "Le document situe la perception des mouvements actifs fœtaux autour de 18–20 SA."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel examen urinaire simple est prévu parmi les examens obligatoires de la première consultation ?", "choix": ["Recherche de sucre et d’albumine par bandelette", "ECBU obligatoire chez toutes selon la liste", "Recherche de cétones uniquement", "Culture des selles"], "reponse": "Recherche de sucre et d’albumine par bandelette", "explication": "La bandelette urinaire recherche le sucre et l’albumine dans le bilan obligatoire présenté."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel conseil hygiéno-diététique figure dans le support ?", "choix": ["Éviter alcool, tabac et drogues", "Augmenter la consommation d’alcool", "Éviter toute activité physique sans exception", "Supprimer systématiquement les protéines"], "reponse": "Éviter alcool, tabac et drogues", "explication": "Le cours recommande l’absence d’alcool, de tabac et de drogues, avec une alimentation équilibrée et une activité adaptée."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment sont appelés les vomissements gravidiques graves dans le cours ?", "choix": ["Hyperemesis gravidarum", "Pré-éclampsie", "Cholestase gravidique", "Placenta prævia"], "reponse": "Hyperemesis gravidarum", "explication": "Le support utilise le terme hyperemesis gravidarum pour les vomissements graves."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "À quelle période surviennent habituellement les vomissements simples décrits ?", "choix": ["De 4–6 SA à 15–17 SA", "Uniquement après 30 SA", "Avant la fécondation", "Après l’accouchement"], "reponse": "De 4–6 SA à 15–17 SA", "explication": "Le cours situe les vomissements simples entre 4–6 SA et 15–17 SA."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel état général est habituellement conservé dans les vomissements simples ?", "choix": ["Bon état général", "Choc hypovolémique constant", "Coma", "Déshydratation sévère constante"], "reponse": "Bon état général", "explication": "Le support précise que l’état général reste bon dans la phase de vomissements simples."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel signe général évoque une forme grave ?", "choix": ["Oligurie franche", "Prise de poids rapide isolée", "Bradycardie constante", "Polyurie abondante"], "reponse": "Oligurie franche", "explication": "L’oligurie, associée notamment à l’amaigrissement et à la déshydratation, fait partie des signes généraux des formes graves."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle anomalie ionique peut être observée dans les vomissements graves ?", "choix": ["Diminution de la kaliémie", "Augmentation systématique du calcium", "Augmentation du sodium", "Augmentation du chlore"], "reponse": "Diminution de la kaliémie", "explication": "Le bilan biologique décrit une diminution de la chlorémie, de la natrémie et de la kaliémie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle carence est impliquée dans l’encéphalopathie de Gayet-Wernicke décrite ?", "choix": ["Vitamine B1 (thiamine)", "Vitamine C", "Vitamine D", "Vitamine K"], "reponse": "Vitamine B1 (thiamine)", "explication": "Le support relie l’encéphalopathie de Gayet-Wernicke à une carence en vitamine B1 ou thiamine."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel signe biologique peut traduire la déshydratation dans les vomissements graves ?", "choix": ["Hémoconcentration avec hématocrite augmenté", "Anémie hémolytique constante", "Thrombopénie isolée", "Hypoglycémie obligatoire"], "reponse": "Hémoconcentration avec hématocrite augmenté", "explication": "Le cours cite l’hémoconcentration, avec polyglobulie et augmentation de l’hématocrite."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle perte pondérale est citée parmi les complications nutritionnelles graves ?", "choix": ["Perte de poids supérieure à 5 %", "Perte de poids de 1 % exactement", "Prise de poids supérieure à 10 %", "Aucune perte de poids"], "reponse": "Perte de poids supérieure à 5 %", "explication": "Le document cite une perte de poids supérieure à 5 % parmi les conséquences graves."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle définition de l’avortement est retenue dans le support OMS/FIGO ?", "choix": ["Expulsion d’un produit ovulaire de moins de 500 g ou avant 22 SA", "Toute naissance après 37 SA", "Toute grossesse après 40 SA", "Expulsion après 28 SA uniquement"], "reponse": "Expulsion d’un produit ovulaire de moins de 500 g ou avant 22 SA", "explication": "Le cours reprend le seuil de moins de 500 g ou avant la 22e semaine d’aménorrhée."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Qu’est-ce qu’un avortement spontané ?", "choix": ["Une interruption survenant sans tentative volontaire d’arrêter la grossesse", "Une interruption toujours chirurgicale", "Une interruption provoquée clandestinement", "Un accouchement à terme"], "reponse": "Une interruption survenant sans tentative volontaire d’arrêter la grossesse", "explication": "La fausse couche spontanée survient d’elle-même, en dehors de toute tentative volontaire."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel symptôme est fréquent lors de la phase de menace d’avortement ?", "choix": ["Métrorragies souvent peu abondantes et répétées", "Hémoptysie", "Ictère isolé", "Douleur thoracique"], "reponse": "Métrorragies souvent peu abondantes et répétées", "explication": "La phase de menace associe notamment des douleurs à type de coliques et des métrorragies de quantité variable, souvent minimes et répétées."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel examen confirme le siège intra-utérin et apprécie la vitalité de la grossesse ?", "choix": ["Échographie", "Radiographie abdominale", "ECG", "Endoscopie digestive"], "reponse": "Échographie", "explication": "L’échographie confirme la grossesse intra-cavitaire et apprécie la vitalité de l’œuf."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel élément clinique caractérise la phase d’avortement proprement dite ?", "choix": ["Col ouvert ou effacé avec métrorragies plus abondantes", "Col toujours fermé avec absence de saignement", "Absence de contractions et de douleur", "Hypertension isolée"], "reponse": "Col ouvert ou effacé avec métrorragies plus abondantes", "explication": "Le support décrit des saignements plus abondants, des contractions plus rythmées et un col ouvert ou effacé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À partir de combien d’épisodes consécutifs le support parle-t-il d’avortements à répétition ?", "choix": ["Au moins 3", "Au moins 2", "Au moins 5", "Au moins 10"], "reponse": "Au moins 3", "explication": "Le document définit les avortements à répétition par au moins trois avortements consécutifs."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel trépied est présenté comme utile au diagnostic et à l’évaluation d’un avortement spontané ?", "choix": ["Clinique, β-hCG et échographie", "Radiographie, ECG et scanner", "NFS, EEG et radiographie", "Examen urinaire seul"], "reponse": "Clinique, β-hCG et échographie", "explication": "Le support insiste sur le trépied clinique, dosage des β-hCG et échographie, notamment pour éliminer une GEU."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle complication infectieuse peut survenir en cas de rétention ovulaire ?", "choix": ["Endométrite", "Otite moyenne", "Pneumothorax", "Pancréatite"], "reponse": "Endométrite", "explication": "Le cours cite l’infection ovulaire, l’endométrite, la salpingite et la pelvipéritonite parmi les complications possibles."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on une grossesse extra-utérine ?", "choix": ["Nidation et développement de l’œuf en dehors de la cavité utérine", "Grossesse implantée dans le fond utérin", "Grossesse gémellaire", "Grossesse après 42 SA"], "reponse": "Nidation et développement de l’œuf en dehors de la cavité utérine", "explication": "La GEU correspond à une nidation et un développement de l’œuf fécondé hors de la cavité utérine."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel est le siège le plus fréquent de la GEU ?", "choix": ["Ampoule tubaire", "Col utérin", "Ovaire droit uniquement", "Cavité abdominale"], "reponse": "Ampoule tubaire", "explication": "Le support indique que la localisation la plus fréquente est ampullaire, au niveau de l’ampoule tubaire."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle triade clinique doit faire évoquer une GEU ?", "choix": ["Aménorrhée, douleurs pelviennes et métrorragies", "Fièvre, toux et diarrhée", "Céphalées, œdèmes et prurit", "Vomissements, ictère et constipation"], "reponse": "Aménorrhée, douleurs pelviennes et métrorragies", "explication": "La triade évocatrice associe aménorrhée, douleurs pelviennes et métrorragies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel est un facteur de risque de GEU cité dans le cours ?", "choix": ["Antécédent de chirurgie tubaire", "Appendicectomie simple sans complication", "Myopie", "Asthme isolé"], "reponse": "Antécédent de chirurgie tubaire", "explication": "Les antécédents de chirurgie tubaire, d’IST/salpingite, de GEU, le tabac et la PMA figurent parmi les facteurs cités."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel signe échographique est un signe direct de GEU ?", "choix": ["Masse annexielle contenant un sac gestationnel avec embryon", "Utérus vide seul", "Épanchement du Douglas seul", "Pseudosac intra-utérin seul"], "reponse": "Masse annexielle contenant un sac gestationnel avec embryon", "explication": "Le cours décrit comme signe direct une masse annexielle contenant un sac gestationnel et un embryon."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel signe peut être observé en cas de GEU rompue ?", "choix": ["Hémopéritoine avec signes de choc", "Polyurie isolée", "Bradycardie sans douleur", "Prise de poids"], "reponse": "Hémopéritoine avec signes de choc", "explication": "La rupture peut provoquer une hémorragie intra-abdominale, un hémopéritoine et un état de choc."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel mécanisme explique principalement les complications hémorragiques d’une implantation tubaire ?", "choix": ["Érosions vasculaires", "Hyperplasie endométriale simple", "Obstruction urétérale", "Rupture de la vessie"], "reponse": "Érosions vasculaires", "explication": "L’implantation tubaire peut entraîner des érosions vasculaires, des hémorragies, un hématosalpinx puis une rupture."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel signe indirect échographique peut orienter vers une GEU ?", "choix": ["Utérus vide", "Embryon intra-utérin avec activité cardiaque", "Sac intra-utérin normal seul", "Placenta normalement inséré"], "reponse": "Utérus vide", "explication": "L’utérus vide fait partie des signes indirects listés, avec masse latéro-utérine, hématosalpinx ou épanchement du Douglas."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle anomalie caractérise la môle hydatiforme ?", "choix": ["Dégénérescence kystique des villosités choriales et prolifération trophoblastique", "Infection bactérienne du liquide amniotique", "Défaut de fermeture du tube neural", "Implantation placentaire basse"], "reponse": "Dégénérescence kystique des villosités choriales et prolifération trophoblastique", "explication": "Le cours définit la môle par la dégénérescence kystique des villosités choriales associée à une prolifération trophoblastique."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel dosage biologique est particulièrement élevé dans la môle hydatiforme ?", "choix": ["β-hCG", "Troponine", "Créatinine uniquement", "Bilirubine"], "reponse": "β-hCG", "explication": "La môle entraîne une sécrétion excessive de β-hCG, souvent à des taux très élevés."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel aspect échographique classique est décrit dans la môle complète ?", "choix": ["Image en tempête de neige ou floconneuse", "Image en double rail", "Image en verre dépoli pulmonaire", "Image en cocarde hépatique"], "reponse": "Image en tempête de neige ou floconneuse", "explication": "Le support décrit une image floue, diffuse et floconneuse, dite tempête ou flocon de neige."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel facteur de risque de môle est cité dans le cours ?", "choix": ["Âge inférieur à 20 ans ou supérieur à 35 ans", "Âge entre 25 et 30 ans uniquement", "Activité sportive régulière", "Taille maternelle élevée"], "reponse": "Âge inférieur à 20 ans ou supérieur à 35 ans", "explication": "Les âges extrêmes, avant 20 ans et après 35 ans, sont cités comme facteurs de risque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel caryotype est habituellement associé à la môle complète ?", "choix": ["46 XX d’origine paternelle", "46 XY d’origine maternelle uniquement", "69 XXX systématiquement", "45 X"], "reponse": "46 XX d’origine paternelle", "explication": "Le cours indique que la môle complète est le plus souvent diploïde 46 XX, d’origine paternelle."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel caryotype caractérise classiquement la môle partielle ?", "choix": ["Triploïdie (69 XXX, 69 XXY ou 69 XYY)", "Diploïdie 46 XX exclusivement", "Monosomie X", "Tétraploïdie 92 XXYY"], "reponse": "Triploïdie (69 XXX, 69 XXY ou 69 XYY)", "explication": "Le support associe la môle partielle à une triploïdie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel aspect macroscopique est typique de la môle hydatiforme ?", "choix": ["Vésicules translucides en grappe de raisin", "Placenta calcifié sans vésicule", "Membranes épaissies avec pus", "Sac amniotique contenant toujours un fœtus normal"], "reponse": "Vésicules translucides en grappe de raisin", "explication": "Les vésicules de tailles variables sont translucides, tendues et reliées par de fins filaments, donnant un aspect en grappe de raisin."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel élément fait partie de la surveillance post-molaire décrite ?", "choix": ["Dosage mensuel de β-hCG", "Dosage quotidien de troponine", "Radiographie thoracique quotidienne systématique", "Arrêt de tout suivi après évacuation"], "reponse": "Dosage mensuel de β-hCG", "explication": "Le cours prévoit une surveillance biologique post-molaire reposant notamment sur le dosage mensuel de β-hCG."},
+
+
+      // QCM SUPPLÉMENTAIRES — Môle hydatiforme et Choriocarcinome (Pr S. M. K. Gueye)
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Dans la classification nosologique des tumeurs trophoblastiques gestationnelles (TTG), quelles sont les deux tumeurs bénignes ?", "choix": ["Môle hydatiforme complète et môle hydatiforme partielle", "Môle invasive et choriocarcinome", "Tumeur trophoblastique du site d'implantation et épithélioïde", "Choriocarcinome et môle partielle"], "reponse": "Môle hydatiforme complète et môle hydatiforme partielle", "explication": "Les tumeurs trophoblastiques gestationnelles bénignes regroupent la môle hydatiforme complète et la môle hydatiforme partielle."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel taux seuil de β-hCG est typiquement dépassé en cas de môle hydatiforme ?", "choix": ["Supérieur à 100 000 UI/L", "Supérieur à 1 000 UI/L", "Inférieur à 50 UI/L", "Entre 100 et 500 UI/L"], "reponse": "Supérieur à 100 000 UI/L", "explication": "Dans la môle hydatiforme, le dosage quantitatif des β-hCG retrouve des taux très élevés, supérieurs à 100 000 UI/L."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel signe physique utérin associe une augmentation du volume de l'utérus avec des zones dures dites plaques de blindage ?", "choix": ["Le signe d'Andérodias", "L'utérus accordéon de Jeannin", "Le signe de Harzer", "Le signe de Murphy"], "reponse": "Le signe d'Andérodias", "explication": "À la palpation, l'utérus est plus gros que l'âge gestationnel et exagérément mou avec par endroits des plaques de blindage (signe d'Andérodias)."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment appelle-t-on la variabilité de la hauteur utérine d'un jour à l'autre dans la môle hydatiforme ?", "choix": ["L'utérus accordéon de Jeannin", "Le signe d'Andérodias", "Le signe de Hegar", "Le signe de Noble"], "reponse": "L'utérus accordéon de Jeannin", "explication": "La mesure de la hauteur utérine montre une variabilité d'un jour à l'autre appelée utérus accordéon de Jeannin."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "À quel stade anatomique FIGO correspond une néoplasie trophoblastique gestationnelle strictement limitée à l'utérus ?", "choix": ["Stade I", "Stade II", "Stade III", "Stade IV"], "reponse": "Stade I", "explication": "Dans la classification anatomique FIGO, le stade I désigne une maladie limitée à l'utérus."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel médicament est utilisé en première intention dans le traitement d'une néoplasie trophoblastique gestationnelle à bas risque ?", "choix": ["Le méthotrexate", "Le cisplatine", "La pénicilline", "L'oxytocine"], "reponse": "Le méthotrexate", "explication": "Pour les NTG à bas risque (score FIGO ≤ 6), la monochimiothérapie par méthotrexate est le traitement de première intention."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel mécanisme cytogénétique est le plus fréquent à l'origine d'une môle hydatiforme partielle triploïde ?", "choix": ["La dispermie (fécondation par deux spermatozoïdes haploïdes)", "La monosomie X", "La délétion du chromosome 5", "La translocation robertsonienne"], "reponse": "La dispermie (fécondation par deux spermatozoïdes haploïdes)", "explication": "La môle partielle (triploïde) résulte le plus souvent d'une dispermie (fécondation d'un ovule par deux spermatozoïdes haploïdes)."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la fréquence et la taille habituelles des kystes lutéiniques à l'échographie lors d'une môle hydatiforme ?", "choix": ["15 à 25 % des cas, généralement bilatéraux, mesurant entre 6 et 12 cm", "Moins de 1 % des cas, toujours unilatéraux, inférieurs à 2 cm", "80 % des cas, calcifiés, mesurant plus de 25 cm", "50 % des cas, toujours unilatéraux, de 1 à 3 cm"], "reponse": "15 à 25 % des cas, généralement bilatéraux, mesurant entre 6 et 12 cm", "explication": "Les kystes lutéiniques s'observent dans 15 à 25 % des cas, sont généralement bilatéraux et mesurent entre 6 et 12 cm."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le rythme de dosage des β-hCG dans la surveillance biologique post-molaire standard ?", "choix": ["Mensuel jusqu'au 3e mois, puis tous les 3 mois pendant 1 an, puis tous les 6 mois jusqu'à 2 ans", "Hebdomadaire pendant 2 ans", "Tous les 6 mois dès le 1er mois pendant 5 ans", "Un seul dosage à 6 mois après l'évacuation"], "reponse": "Mensuel jusqu'au 3e mois, puis tous les 3 mois pendant 1 an, puis tous les 6 mois jusqu'à 2 ans", "explication": "La surveillance biologique post-molaire impose un dosage mensuel des β-hCG jusqu'au 3e mois, puis (si négativation) tous les 3 mois pendant 1 an, et tous les 6 mois jusqu'à 2 ans."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Dans le score pronostique de Dakar (2000), à quel niveau de risque correspond un score compris entre 8 et 15 ?", "choix": ["Risque moyen", "Risque faible", "Risque élevé", "Risque nul"], "reponse": "Risque moyen", "explication": "Selon le score de Dakar, un score < 8 indique un risque faible, entre 8 et 15 un risque moyen, et > 15 un risque élevé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À quel stade anatomique FIGO correspond une néoplasie trophoblastique gestationnelle étendue aux poumons ?", "choix": ["Stade III", "Stade I", "Stade II", "Stade IV"], "reponse": "Stade III", "explication": "Le stade III de la classification anatomique FIGO correspond à une extension aux poumons, avec ou sans atteinte connue du tractus génital."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Dans la classification pronostique FIGO 2000, quel score définit une tumeur trophoblastique gestationnelle à haut risque ?", "choix": ["Score ≥ 7", "Score ≤ 6", "Score ≥ 15", "Score entre 3 et 5"], "reponse": "Score ≥ 7", "explication": "La classification FIGO 2000 distingue les tumeurs à bas risque (score ≤ 6) et les tumeurs à haut risque (score ≥ 7)."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel protocole de polychimiothérapie est la référence en première intention pour une NTG à haut risque (score ≥ 7) ?", "choix": ["Le protocole EMA-CO", "Le méthotrexate en monothérapie", "L'actinomycine D seule", "L'association amoxicilline-acide clavulanique"], "reponse": "Le protocole EMA-CO", "explication": "Les NTG à haut risque (score ≥ 7) relèvent d'une polychimiothérapie selon le protocole de référence EMA-CO."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel est le critère minimal FIGO (2000) d'augmentation des β-hCG sériques permettant de diagnostiquer une NTG après évacuation molaire ?", "choix": ["Une ré-ascension de 10 % ou plus des hCG sur 3 dosages consécutifs", "Une augmentation de 50 % sur 2 dosages à 6 mois d'intervalle", "Une ré-ascension de 5 % sur un seul dosage", "Un doublement quotidien pendant 10 jours"], "reponse": "Une ré-ascension de 10 % ou plus des hCG sur 3 dosages consécutifs", "explication": "Selon les critères FIGO 2000, le diagnostic biologique d'évolution vers une NTG repose sur une ré-ascension ≥ 10 % des β-hCG sur 3 dosages consécutifs."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel est le critère minimal FIGO (2000) de stagnation des β-hCG sériques pour diagnostiquer une NTG après évacuation molaire ?", "choix": ["Une variation de moins de 10 % du taux d'hCG sur 4 dosages", "Une variation de moins de 50 % sur 2 dosages", "Une stagnation pendant au moins 12 mois", "Une baisse inférieure à 5 % entre 2 dosages annuels"], "reponse": "Une variation de moins de 10 % du taux d'hCG sur 4 dosages", "explication": "Le critère minimal de stagnation défini par la FIGO 2000 est une variation de moins de 10 % du taux d'hCG sur 4 dosages."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la conduite préventive proposée selon le score de Dakar en cas de risque moyen (score 8 à 15) ?", "choix": ["Chimioprophylaxie par méthotrexate 25 mg/j en IM pendant 5 jours", "Hystérectomie préventive systématique chez toutes les patientes", "Simple surveillance clinique sans dosage biologique", "Polychimiothérapie EMA-CO immédiate"], "reponse": "Chimioprophylaxie par méthotrexate 25 mg/j en IM pendant 5 jours", "explication": "Dans le protocole du cours selon le score de Dakar, un risque moyen (8-15) indique une chimioprophylaxie par MTX 25 mg/j IM pendant 5 jours (avec acide folinique)."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel protocole de polychimiothérapie de rattrapage est indiqué en cas de résistance au protocole EMA-CO ?", "choix": ["Le protocole EMA-EP", "Le protocole R-CHOP", "La monochimiothérapie par méthotrexate seul", "Le protocole FOLFOX"], "reponse": "Le protocole EMA-EP", "explication": "En cas de résistance au protocole EMA-CO, le cours indique le recours au protocole EMA-EP (remplaçant le cyclophosphamide et l'oncovin à J8 par l'étoposide et le cisplatine)."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la durée totale de la surveillance mensuelle des β-hCG après négativation pour une TTG à haut risque ?", "choix": ["Jusqu'à 18 mois", "Jusqu'à 12 mois", "Jusqu'à 6 mois", "Jusqu'à 5 ans"], "reponse": "Jusqu'à 18 mois", "explication": "Après traitement d'un choriocarcinome/TTG, la surveillance des β-hCG se fait toutes les semaines pendant 8 semaines, puis tous les 15 jours pendant 8 semaines, puis tous les mois jusqu'à 12 mois (bas risque) ou 18 mois (haut risque)."},
+
+      // 30 NOUVEAUX QCM DE GYNÉCOLOGIE — questions vérifiées contre les 48 déjà présents
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quelle durée de grossesse est donnée comme durée normale dans le cours ?","choix":["285 jours ± 10 jours","200 jours ± 5 jours","300 jours ± 30 jours","365 jours"],"reponse":"285 jours ± 10 jours","explication":"Le support indique une durée normale de 285 jours, avec une marge de ± 10 jours."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel calcul est associé à la règle de Naegele pour estimer le terme à partir des dernières règles ?","choix":["J1 + 14 jours − 3 mois, puis ajustement à l’année","J1 + 7 jours + 9 mois","J1 − 14 jours + 6 mois","J1 + 280 jours exactement, sans correction"],"reponse":"J1 + 14 jours − 3 mois, puis ajustement à l’année","explication":"Le cours présente le calcul de Naegele à partir du premier jour des dernières règles."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quelle modification générale accompagne normalement le début de grossesse ?","choix":["Suppression de l’ovulation et des menstruations","Augmentation systématique des menstruations","Reprise des ovulations chaque semaine","Disparition de toute activité hormonale"],"reponse":"Suppression de l’ovulation et des menstruations","explication":"La grossesse entraîne notamment l’arrêt de l’ovulation et des menstruations."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel examen peut contribuer à dater la grossesse en évaluant les paramètres morphologiques ?","choix":["L’échographie obstétricale","La radiographie du bassin","L’électrocardiogramme maternel","La spirométrie"],"reponse":"L’échographie obstétricale","explication":"Le cours distingue l’âge morphologique, évalué notamment par échographie, de l’âge calculé depuis les règles."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Parmi les signes sympathiques cités, lequel appartient au groupe neuro-endocrinien ?","choix":["Asthénie et modification du sommeil","Hématurie et douleur lombaire","Hémoptysie et dyspnée","Œdème aigu des membres supérieurs"],"reponse":"Asthénie et modification du sommeil","explication":"Le cours cite l’asthénie, les modifications du goût, de l’odorat et du sommeil parmi les signes neuro-endocriniens."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"À quel moment le cours situe-t-il la première consultation prénatale du premier trimestre ?","choix":["Avant 16 SA","Entre 20 et 24 SA","Après 28 SA","Uniquement au 9e mois"],"reponse":"Avant 16 SA","explication":"La première consultation du premier trimestre est prévue avant 16 semaines d’aménorrhée."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quelle mesure fait partie de l’examen physique de la première consultation prénatale ?","choix":["Mesure de la pression artérielle en position assise","Mesure systématique de la pression intracrânienne","Mesure quotidienne du débit expiratoire","Mesure de la pression veineuse centrale"],"reponse":"Mesure de la pression artérielle en position assise","explication":"Le bilan clinique initial comprend notamment la pesée, la taille et la prise de la tension artérielle en position assise."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel examen urinaire est prévu dans le bilan complémentaire obligatoire du premier trimestre ?","choix":["Recherche de sucre et d’albumine par bandelette","Dosage urinaire de troponine","Recherche systématique de bilirubine uniquement","Recherche de myoglobine"],"reponse":"Recherche de sucre et d’albumine par bandelette","explication":"Le cours mentionne la recherche urinaire de sucre et d’albumine par bandelette."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Chez une femme Rhésus négatif, quel examen immuno-hématologique est indiqué dans le bilan obligatoire ?","choix":["RAI (recherche d’agglutinines irrégulières)","Test de Coombs direct uniquement chez le fœtus","Dosage des D-dimères","Test de compatibilité plaquettaire"],"reponse":"RAI (recherche d’agglutinines irrégulières)","explication":"Le support prévoit la RAI chez les femmes Rhésus négatif."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"À partir de quel terme l’utérus devient-il palpable au-dessus du pubis selon le cours ?","choix":["Vers 10 SA","Dès 3 SA","À 24 SA seulement","Après 32 SA"],"reponse":"Vers 10 SA","explication":"Le cours indique que l’utérus est palpable dès 10 semaines d’aménorrhée."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel examen sérologique est à refaire si les sérologies antérieures étaient négatives, selon le bilan présenté ?","choix":["Rubéole et toxoplasmose","Hépatite C et dengue systématiquement","Paludisme et grippe","Rougeole et oreillons"],"reponse":"Rubéole et toxoplasmose","explication":"Le bilan prévoit les sérologies rubéole et toxoplasmose si elles étaient négatives antérieurement."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quel facteur hormonal est présenté comme stimulant important des centres bulbaires dans les vomissements gravidiques ?","choix":["L’hCG","La calcitonine","L’insuline","La mélatonine"],"reponse":"L’hCG","explication":"Le cours met en avant l’hCG parmi les facteurs hormonaux impliqués."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quelle perte pondérale constitue un signe de gravité cité dans l’évolution des vomissements sévères ?","choix":["Plus de 5 % du poids","Moins de 0,5 % du poids","Exactement 1 % du poids","Toute prise de poids de 2 %"],"reponse":"Plus de 5 % du poids","explication":"Une perte de poids supérieure à 5 % est citée parmi les complications nutritionnelles des formes graves."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quelle carence vitaminique est responsable de l’encéphalopathie de Gayet-Wernicke dans ce contexte ?","choix":["Vitamine B1 (thiamine)","Vitamine C","Vitamine D","Vitamine K"],"reponse":"Vitamine B1 (thiamine)","explication":"Le support relie l’encéphalopathie de Gayet-Wernicke à une carence en thiamine."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel signe biologique peut accompagner les vomissements graves ?","choix":["Hémoconcentration avec augmentation de l’hématocrite","Anémie macrocytaire constante dès le début","Hyperkaliémie isolée obligatoire","Diminution systématique de l’urée"],"reponse":"Hémoconcentration avec augmentation de l’hématocrite","explication":"La déshydratation peut entraîner une hémoconcentration, avec polyglobulie et hausse de l’hématocrite."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel élément doit être surveillé pour apprécier l’équilibre hydrique pendant le traitement ?","choix":["La diurèse","La longueur du col utérin","Le périmètre crânien fœtal quotidien","La fréquence des mouvements oculaires"],"reponse":"La diurèse","explication":"La surveillance des formes graves comprend notamment le poids, le pouls, la diurèse, la cétonurie et l’ionogramme."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quel examen permet d’évaluer la vitalité et l’évolution de l’œuf lors d’un saignement du début de grossesse ?","choix":["L’échographie obstétricale","La radiographie thoracique","La coloscopie","L’ECG"],"reponse":"L’échographie obstétricale","explication":"L’échographie apprécie le siège intra-utérin et la vitalité de la grossesse."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel élément oriente vers un avortement en cours plutôt qu’une simple menace ?","choix":["Modification cervicale avec ouverture du col","Col fermé sans douleur ni saignement","Disparition complète des contractions","Absence de tout symptôme"],"reponse":"Modification cervicale avec ouverture du col","explication":"L’ouverture ou l’effacement du col, associé aux contractions et aux saignements, évoque l’avortement proprement dit."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel signe doit faire suspecter une complication infectieuse après un avortement ?","choix":["Fièvre associée à des douleurs pelviennes et des pertes malodorantes","Prurit isolé des mains","Éternuements sans fièvre","Douleur du poignet"],"reponse":"Fièvre associée à des douleurs pelviennes et des pertes malodorantes","explication":"La fièvre, les douleurs pelviennes et les pertes fétides font craindre un avortement infecté et imposent une évaluation urgente."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel objectif poursuit l’examen anatomopathologique des produits d’évacuation lorsqu’il est indiqué ?","choix":["Analyser les tissus évacués et rechercher une anomalie, notamment trophoblastique","Mesurer la tension artérielle","Déterminer le groupe sanguin du partenaire","Évaluer la fonction respiratoire"],"reponse":"Analyser les tissus évacués et rechercher une anomalie, notamment trophoblastique","explication":"L’analyse des produits peut préciser la nature des tissus et aider à identifier une pathologie trophoblastique."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Devant une hémorragie importante lors d’un avortement, quelle priorité guide la prise en charge initiale ?","choix":["Évaluer et stabiliser l’état hémodynamique","Attendre systématiquement 48 heures","Retarder toute évaluation clinique","Faire marcher la patiente"],"reponse":"Évaluer et stabiliser l’état hémodynamique","explication":"La priorité est l’évaluation de la gravité hémorragique et la stabilisation maternelle avant et pendant le traitement étiologique."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quel examen permet de rechercher une masse annexielle et un épanchement dans le contexte d’une suspicion de GEU ?","choix":["Échographie pelvienne","Radiographie du crâne","Électroencéphalogramme","Fibroscopie gastrique"],"reponse":"Échographie pelvienne","explication":"L’échographie recherche notamment une masse annexielle, un utérus vide et un épanchement péritonéal."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel élément peut être visualisé à la cœlioscopie dans une GEU ampullaire ?","choix":["Un nodule bleuté correspondant à un hématosalpinx","Une plaque blanche sur le col","Un calcul dans la vessie","Une dilatation du ventricule gauche"],"reponse":"Un nodule bleuté correspondant à un hématosalpinx","explication":"Le cours décrit un nodule bleuté ampullaire correspondant à un hématosalpinx."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel paramètre biologique est suivi après un traitement médical par méthotrexate ?","choix":["Les β-hCG","La troponine","La bilirubine seule","La calcitonine"],"reponse":"Les β-hCG","explication":"Le suivi après méthotrexate repose sur des dosages répétés de β-hCG, avec surveillance biologique adaptée."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel élément influence particulièrement le pronostic d’une GEU ?","choix":["L’état hémodynamique et l’existence d’une rupture","La couleur des cheveux","La taille des pieds","Le groupe sanguin du conjoint seul"],"reponse":"L’état hémodynamique et l’existence d’une rupture","explication":"Le pronostic dépend notamment de la rupture, de l’état hémodynamique, du délai de prise en charge et de l’adhésion au traitement."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel examen peut rechercher des séquelles tubaires ou une cause organique lors du bilan de fertilité après GEU ?","choix":["Hystérosalpingographie (HSG)","Électrocardiogramme","Audiométrie","Radiographie du poignet"],"reponse":"Hystérosalpingographie (HSG)","explication":"Le cours mentionne une HSG à distance, notamment dans le suivi tubaire et l’évaluation de la fertilité."},
+      {"categorie":"medecine","niveau":"facile","theme": "Gynécologie-obstétrique","question":"Quel aspect macroscopique évoque une môle hydatiforme évacuée ?","choix":["Des vésicules translucides ressemblant à une grappe de raisin","Un caillot noir homogène uniquement","Une membrane sèche et calcifiée","Un placenta toujours normal"],"reponse":"Des vésicules translucides ressemblant à une grappe de raisin","explication":"Les villosités transformées en vésicules donnent l’aspect classique en grappe de raisin."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel élément biologique après évacuation molaire fait suspecter une néoplasie trophoblastique ?","choix":["Une β-hCG qui persiste en plateau","Une β-hCG qui devient indétectable immédiatement dans tous les cas","Une baisse isolée de la glycémie","Une hausse des plaquettes"],"reponse":"Une β-hCG qui persiste en plateau","explication":"La persistance en plateau ou la ré-ascension des β-hCG après évacuation est un critère d’alerte."},
+      {"categorie":"medecine","niveau":"moyen","theme": "Gynécologie-obstétrique","question":"Quel tissu constitue le choriocarcinome selon le cours ?","choix":["Du trophoblaste malin sans villosités choriales","Du muscle lisse utérin uniquement","De l’épithélium cervical normal","Du tissu osseux"],"reponse":"Du trophoblaste malin sans villosités choriales","explication":"Le choriocarcinome est décrit comme une tumeur maligne constituée exclusivement de trophoblaste, sans villosités."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel signe clinique peut révéler un choriocarcinome après une grossesse molaire ?","choix":["Des métrorragies persistantes ou récidivantes","Une amélioration durable de l’acuité visuelle","Une douleur de l’épaule isolée après effort","Une toux uniquement saisonnière"],"reponse":"Des métrorragies persistantes ou récidivantes","explication":"Les métrorragies, notamment dans les suites post-molaires, sont une circonstance de découverte fréquente."},
+      {"categorie":"medecine","niveau":"difficile","theme": "Gynécologie-obstétrique","question":"Quel examen apporte le diagnostic de certitude d’une tumeur trophoblastique selon le cours ?","choix":["L’examen histologique","La mesure de la température seule","La bandelette urinaire","L’ECG"],"reponse":"L’examen histologique","explication":"Le support indique que l’histologie constitue le diagnostic de certitude, même si le diagnostic biologique par β-hCG est essentiel."},
+
+      // NOUVEAUX QCM DE GYNÉCOLOGIE-OBSTÉTRIQUE — cours UASZ (SR, adolescents, mastopathies, placenta prævia, HRP, MAP)
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle conférence internationale a donné la définition de la santé de la reproduction en 1994 ?", "choix": ["Le sommet d’Ottawa", "La conférence de Genève", "La conférence d’Alma-Ata", "La CIPD du Caire"], "reponse": "La CIPD du Caire", "explication": "La définition de la santé de la reproduction date de la Conférence internationale sur la population et le développement (CIPD), Le Caire, 1994."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel autre nom désigne la santé de la reproduction ?", "choix": ["Santé génésique", "Santé familiale", "Santé néonatale", "Santé périnatale"], "reponse": "Santé génésique", "explication": "Santé de la reproduction (SR) et santé génésique sont synonymes."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien de droits des client(e)s des services de santé de la reproduction sont énumérés ?", "choix": ["10", "5", "7", "12"], "reponse": "10", "explication": "Dix droits : information, accès, choix, sécurité, intimité, confidentialité, dignité, opinion, confort, continuité des services."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments fait partie des droits des client(e)s des services de SR ?", "choix": ["Le droit à une hospitalisation systématique", "Le droit de choisir son prestataire nominativement", "Le droit à la confidentialité", "Le droit à la gratuité totale des soins"], "reponse": "Le droit à la confidentialité", "explication": "Parmi les dix droits figurent l’information, le choix, la sécurité, l’intimité, la confidentialité et la dignité."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien de piliers compte la maternité à moindre risque au Sénégal ?", "choix": ["5", "9", "4", "7"], "reponse": "7", "explication": "Sept piliers : SSP, planification familiale, soins prénatals, soins obstétricaux, soins post-natals, soins post-avortement, lutte contre les IST/VIH."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est l’un des piliers de la maternité à moindre risque ?", "choix": ["La chirurgie esthétique", "Le dépistage du cancer de la prostate", "Les soins post-avortement", "La médecine du travail"], "reponse": "Les soins post-avortement", "explication": "Les soins post-avortement (SAA) constituent l’un des sept piliers."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "En quelle année la conférence d’Alma-Ata a-t-elle défini les soins de santé primaires ?", "choix": ["1948", "1994", "1978", "1986"], "reponse": "1978", "explication": "Les SSP ont été définis dans le rapport de l’OMS à Alma-Ata en 1978."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Combien de principes fondamentaux des soins de santé primaires sont retenus ?", "choix": ["5", "10", "3", "8"], "reponse": "5", "explication": "Équité, technologie appropriée, participation communautaire, multisectorialité et pluridisciplinarité, prévention."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Combien de composantes principales comptent les soins de santé primaires ?", "choix": ["5", "8", "6", "10"], "reponse": "8", "explication": "Huit composantes, de l’éducation pour la santé à l’approvisionnement en médicaments essentiels."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est un principe des soins de santé primaires ?", "choix": ["Le paiement à l’acte obligatoire", "La centralisation hospitalière", "La participation communautaire", "L’usage exclusif de technologies de pointe"], "reponse": "La participation communautaire", "explication": "Les principes sont l’équité, la technologie appropriée, la participation communautaire, la multisectorialité et la prévention."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel programme encadre la vaccination contre les maladies infectieuses dans les SSP ?", "choix": ["Le SAA", "Le PEV", "Le PTME", "La CCC"], "reponse": "Le PEV", "explication": "Le Programme élargi de vaccination (PEV) est la 5e composante des SSP."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel intervalle minimal le concept de PEIGS recommande-t-il entre un accouchement et une nouvelle grossesse ?", "choix": ["3 ans", "6 mois", "2 ans", "12 mois"], "reponse": "2 ans", "explication": "Pour un accouchement, l’intervalle recommandé va de 2 à 5 ans."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel intervalle minimal recommande-t-on entre un avortement et une nouvelle grossesse ?", "choix": ["6 mois", "2 ans", "3 mois", "12 mois"], "reponse": "6 mois", "explication": "PEIGS : au moins 2 ans après un accouchement et 6 mois après un avortement."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle période correspond à la première consultation post-natale (CPoN 1) ?", "choix": ["À 3 mois, lors du premier vaccin", "J16 à J42, lors de la visite finale", "J9 à J15, avant la fin de la 2e semaine", "J1 à J3, avant la sortie de l’accouchée"], "reponse": "J1 à J3, avant la sortie de l’accouchée", "explication": "CPoN 1 : J1–J3 ; CPoN 2 : J9–J15 ; CPoN 3 : J16–J42."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle période correspond à la troisième consultation post-natale (CPoN 3) ?", "choix": ["Entre J60 et J90", "Entre J9 et J15", "Entre J1 et J3", "Entre J16 et J42"], "reponse": "Entre J16 et J42", "explication": "CPoN 3 : J16–J42, avec examen mère-enfant, conseils et planification familiale."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Sous quel rythme les SONU doivent-ils être offerts ?", "choix": ["24 h sur 24 et 7 jours sur 7", "De 8 h à 16 h en semaine", "Uniquement la nuit", "Sur rendez-vous programmé"], "reponse": "24 h sur 24 et 7 jours sur 7", "explication": "Les SONU sont des soins d’urgence offerts en continu à toute femme ou nouveau-né présentant une complication."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces fonctions relève des SONU de base (SONUB) ?", "choix": ["L’administration d’ocytociques par voie injectable", "La pratique de la césarienne", "La transfusion sanguine", "La réanimation néonatale complète avec intubation"], "reponse": "L’administration d’ocytociques par voie injectable", "explication": "Césarienne et transfusion sont des fonctions des SONU complets."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelles fonctions s’ajoutent aux SONUB pour constituer les SONU complets ?", "choix": ["La révision utérine et la ventouse", "L’extraction des débris intra-utérins et les sédatifs", "Les antibiotiques parentéraux et les ocytociques", "La césarienne et la transfusion sanguine"], "reponse": "La césarienne et la transfusion sanguine", "explication": "Les SONUC reprennent les 7 fonctions de base et ajoutent césarienne, transfusion, réanimation néonatale complète, antibiotiques et anticonvulsivants au nouveau-né."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Combien de fonctions comprennent les SONU de base ?", "choix": ["12", "9", "7", "5"], "reponse": "7", "explication": "Sept fonctions SONUB ; les fonctions 8 à 12 sont propres aux SONU complets."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces composantes fait partie des soins après avortement ?", "choix": ["La césarienne préventive", "La contraception post-abortum", "L’hystérectomie systématique", "Le cerclage cervical de principe"], "reponse": "La contraception post-abortum", "explication": "Les SAA associent soins d’urgence, counseling, contraception post-abortum, liens avec les autres services et activités communautaires."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel sigle désigne la prévention de la transmission du VIH de la mère à l’enfant ?", "choix": ["PEV", "CCC", "PTME", "PEIGS"], "reponse": "PTME", "explication": "PTME (devenue ETME : élimination de la transmission mère-enfant)."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Dans quel délai l’alimentation du nouveau-né doit-elle être débutée après la naissance ?", "choix": ["Dans l’heure qui suit la naissance", "Dans les 24 premières heures", "Après 6 heures de vie", "À partir du 3e jour"], "reponse": "Dans l’heure qui suit la naissance", "explication": "L’alimentation précoce fait partie des soins essentiels du nouveau-né."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Combien de grands groupes de composantes la santé de la reproduction comprend-elle (femme, enfant, adolescents et jeunes, hommes, autres) ?", "choix": ["5 groupes", "2 groupes", "9 groupes", "3 groupes"], "reponse": "5 groupes", "explication": "Santé de la femme, de l’enfant, des adolescents et jeunes, des hommes, et autres composantes."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Selon l’OMS, quelle tranche d’âge définit l’adolescent ?", "choix": ["10 à 19 ans", "12 à 18 ans", "15 à 25 ans", "13 à 21 ans"], "reponse": "10 à 19 ans", "explication": "L’OMS définit l’adolescent comme tout individu âgé de 10 à 19 ans."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle tranche d’âge correspond au milieu de l’adolescence ?", "choix": ["17 à 19 ans", "14 à 16 ans", "10 à 13 ans", "12 à 15 ans"], "reponse": "14 à 16 ans", "explication": "Début : 10–13 ans ; milieu : 14–16 ans ; fin : 17–19 ans."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion de la population sénégalaise a moins de 20 ans ?", "choix": ["70 %", "53,4 %", "24,4 %", "35 %"], "reponse": "53,4 %", "explication": "La population est très jeune : 53,4 % ont moins de 20 ans (source ANSD)."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel pourcentage de la population sénégalaise est âgé de 10 à 19 ans ?", "choix": ["11,1 %", "13,3 %", "53,4 %", "24,4 %"], "reponse": "24,4 %", "explication": "10–14 ans : 13,3 % ; 15–19 ans : 11,1 % ; soit 24,4 % pour les 10–19 ans."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel pourcentage des adolescentes de 15 à 19 ans sont mariées au Sénégal ?", "choix": ["10 %", "25 %", "5 %", "50 %"], "reponse": "25 %", "explication": "25 % des adolescentes de 15–19 ans sont mariées ; l’âge moyen d’entrée en union est de 18,5 ans."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel est l’âge moyen d’entrée en union au Sénégal ?", "choix": ["18,5 ans", "15 ans", "21 ans", "16,5 ans"], "reponse": "18,5 ans", "explication": "Donnée de contexte sur la nuptialité des adolescentes."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la prévalence contraceptive chez les 15 à 19 ans ?", "choix": ["4,7 %", "14,7 %", "24 %", "40 %"], "reponse": "4,7 %", "explication": "Elle est très faible, ce qui favorise les grossesses précoces."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel pourcentage des filles de moins de 20 ans ont déjà eu une naissance vivante ou une grossesse ?", "choix": ["5 %", "19 %", "9 %", "35 %"], "reponse": "19 %", "explication": "Les grossesses précoces touchent 19 % des filles de moins de 20 ans."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est l’indice synthétique de fécondité rapporté pour le Sénégal ?", "choix": ["5,3", "7,2", "2,1", "3,5"], "reponse": "5,3", "explication": "ISF de 5,3 enfants par femme."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que concluent l’OMS et l’ONUSIDA à propos de l’éducation sexuelle ?", "choix": ["Elle est sans intérêt pour la santé des adolescents", "Elle multiplie le nombre de partenaires sexuels", "Elle favorise le début précoce de l’activité sexuelle", "Elle n’est pas à l’origine d’une activité sexuelle précoce ou accrue"], "reponse": "Elle n’est pas à l’origine d’une activité sexuelle précoce ou accrue", "explication": "L’information seule ne suffit pas à empêcher les grossesses non désirées chez les femmes sexuellement actives."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Dans quel délai maximal après un rapport non protégé la contraception d’urgence en prise unique doit-elle être prise ?", "choix": ["7 jours", "24 heures", "72 heures", "12 heures"], "reponse": "72 heures", "explication": "À prendre le plus tôt possible et au plus tard dans les 72 h qui suivent le rapport."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Les mutilations génitales féminines sont rangées parmi quel groupe de problèmes de la SSR des adolescents ?", "choix": ["Les infections sexuellement transmissibles", "Les troubles de la contraception", "Les violences sexuelles", "Les dysfonctions sexuelles masculines"], "reponse": "Les violences sexuelles", "explication": "Les violences sexuelles regroupent abus sexuels et MGF."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel service fait partie d’un centre conseil pour adolescents ?", "choix": ["La dialyse", "L’assistance sociale", "La chirurgie cardiaque", "L’imagerie interventionnelle"], "reponse": "L’assistance sociale", "explication": "Le centre conseil ado associe counseling, psychologie, médecine, assistance sociale et animation-sensibilisation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Une lycéenne de 16 ans aux cycles réguliers consulte pour une aménorrhée de 4 mois avec troubles digestifs et un évanouissement. Quelle étiologie évoquer en premier ?", "choix": ["Une grossesse", "Une hypothyroïdie", "Une insuffisance ovarienne prématurée", "Une anorexie mentale"], "reponse": "Une grossesse", "explication": "Chez une adolescente aux cycles réguliers, une aménorrhée secondaire doit faire penser d’abord à une grossesse."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Une adolescente de 15 ans, nièce de l’agent de santé de garde, vient se réapprovisionner en préservatifs. Quelle attitude respecte les droits en SR ?", "choix": ["Prévenir d’abord ses parents", "Les lui délivrer en respectant sa confidentialité", "Les délivrer puis en informer la famille", "Refuser car elle est mineure"], "reponse": "Les lui délivrer en respectant sa confidentialité", "explication": "Le droit à la confidentialité, à l’intimité et à la dignité s’applique à tous les clients, y compris les adolescents."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Que signifie le sigle CIPD ?", "choix": ["Conférence internationale sur la prévention des décès", "Comité international de planification démographique", "Centre d’information sur la population et le développement", "Conférence internationale sur la population et le développement"], "reponse": "Conférence internationale sur la population et le développement", "explication": "La CIPD s’est tenue au Caire en 1994."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la définition d’une mastopathie bénigne ?", "choix": ["Un cancer du sein à croissance lente", "Une malformation mammaire congénitale exclusive", "Une infection du sein uniquement liée à l’allaitement", "Une affection non cancéreuse du sein, tumorale ou non"], "reponse": "Une affection non cancéreuse du sein, tumorale ou non", "explication": "Les mastopathies bénignes sont non cancéreuses et compromettent rarement le pronostic vital."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la fréquence des mastopathies bénignes parmi les motifs de consultation mammaire ?", "choix": ["60 %, troisième motif de consultation", "40 %, deuxième motif de consultation", "85 %, premier motif de consultation", "15 %, motif de consultation rare"], "reponse": "85 %, premier motif de consultation", "explication": "Leur fréquence est élevée ; elles posent surtout le problème de masquer un cancer."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "À quel moment du cycle réalise-t-on idéalement l’examen clinique des seins ?", "choix": ["Pendant la première phase du cycle", "Pendant la période prémenstruelle", "Pendant les règles uniquement", "Juste après l’ovulation"], "reponse": "Pendant la première phase du cycle", "explication": "L’examen se fait en première phase du cycle, dans de bonnes conditions de lumière, femme dévêtue jusqu’à la ceinture."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel examen d’imagerie est toujours réalisé devant un nodule du sein chez une jeune femme ?", "choix": ["La galactographie", "L’IRM mammaire", "L’échographie mammaire", "Le scanner thoracique"], "reponse": "L’échographie mammaire", "explication": "L’échographie est toujours indiquée ; la mammographie est demandée au cas par cas."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le terrain habituel du fibroadénome ?", "choix": ["Femme ménopausée de 60 ans", "Jeune fille de 16 à 25 ans", "Nullipare âgée de 45 ans", "Femme allaitante de 30 ans"], "reponse": "Jeune fille de 16 à 25 ans", "explication": "Le fibroadénome est la tumeur bénigne du sein de la jeune fille."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment est classiquement le nodule du fibroadénome à la palpation ?", "choix": ["Mou, douloureux, fluctuant", "Ferme, indolore, régulier, très mobile « en bille »", "Irrégulier, rétracté, avec écoulement sanglant", "Dur, fixé, adhérent à la peau"], "reponse": "Ferme, indolore, régulier, très mobile « en bille »", "explication": "Il siège souvent au quadrant supéro-externe et progresse lentement."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels contingents tissulaires retrouve-t-on à l’histologie d’un fibroadénome ?", "choix": ["Un contingent glandulaire exclusif", "Un contingent adipeux et un contingent musculaire", "Un contingent épithélial et un contingent conjonctif", "Un contingent osseux et un contingent épithélial"], "reponse": "Un contingent épithélial et un contingent conjonctif", "explication": "Le fibroadénome associe deux contingents : épithélial et conjonctif."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle taille de fibroadénome constitue une indication d’exérèse ?", "choix": ["Entre 1 et 2 cm", "Supérieure à 8 cm uniquement", "Supérieure à 3 cm", "Inférieure à 1 cm"], "reponse": "Supérieure à 3 cm", "explication": "Autres indications : gêne clinique, âge supérieur à 35 ans, antécédents personnels ou familiaux de cancer du sein."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion de fibroadénomes s’accompagne de cancer ?", "choix": ["10 à 20 pour cent", "1 à 2 pour mille", "1 à 2 pour cent", "Plus de la moitié"], "reponse": "1 à 2 pour mille", "explication": "Le fibroadénome ne dégénère pas ; la coexistence d’un cancer reste exceptionnelle."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle association caractérise la mastopathie fibrokystique ?", "choix": ["Abcès, fistule et rétraction du mamelon", "Kystes, fibrose et hyperplasie (adénose)", "Papillomes, atypies et métastases", "Lipomes, nécrose et calcifications"], "reponse": "Kystes, fibrose et hyperplasie (adénose)", "explication": "Elle survient souvent chez la nullipare âgée en situation d’hyperœstrogénie, avec mastodynies."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel traitement est privilégié dans la mastopathie fibrokystique ?", "choix": ["Une radiothérapie mammaire exclusive à fortes doses", "Une chimiothérapie néoadjuvante de première intention", "Une mastectomie systématique avec reconstruction", "Un traitement médical (antalgique, progestérone locale, danazol)"], "reponse": "Un traitement médical (antalgique, progestérone locale, danazol)", "explication": "La chirurgie reste exceptionnelle."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel aspect échographique d’un kyste doit faire craindre une néoplasie intrakystique ?", "choix": ["Un contenu liquidien pur sans aucune cloison", "Une image ronde bien limitée à contenu transsonique", "Une paroi fine avec contenu anéchogène homogène", "Une paroi épaisse et festonnée avec végétations"], "reponse": "Une paroi épaisse et festonnée avec végétations", "explication": "Il faut se méfier des kystes à contenu hyperéchogène, avec végétations ou parois épaisses festonnées."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect définit l’hamartome du sein ?", "choix": ["Une collection purulente rétroaréolaire", "Un nodule graisseux encapsulé de 5 cm", "Un écoulement mamelonnaire lactescent", "Un « sein dans le sein » bien limité de 1 à 2 cm"], "reponse": "Un « sein dans le sein » bien limité de 1 à 2 cm", "explication": "Il contient la structure normale du sein ; l’exérèse est exceptionnelle."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel âge moyen est rapporté pour le lipome du sein ?", "choix": ["45 ans", "20 ans", "70 ans", "30 ans"], "reponse": "45 ans", "explication": "Le lipome est un nodule adipeux encapsulé ; pas d’exérèse systématique, surveillance."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel signe clinique est au premier plan de l’ectasie canalaire ?", "choix": ["L’adénopathie axillaire dure", "L’écoulement mamelonnaire", "La peau d’orange diffuse", "La gigantomastie unilatérale"], "reponse": "L’écoulement mamelonnaire", "explication": "Âge moyen 55 ans ; autres signes : rétraction du mamelon, nodule inflammatoire rétroaréolaire, fistule périaréolaire."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel traitement est proposé dans l’ectasie canalaire ?", "choix": ["Une mastectomie totale", "Des anti-inflammatoires non stéroïdiens", "Une chimiothérapie", "Une hormonothérapie par œstrogènes"], "reponse": "Des anti-inflammatoires non stéroïdiens", "explication": "L’exérèse chirurgicale n’est envisagée qu’éventuellement."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Dans quel contexte survient typiquement une mastite infectieuse ?", "choix": ["Chez l’homme de plus de 60 ans", "Chez la femme allaitante", "Chez la femme ménopausée sous THS", "Chez la fillette prépubère"], "reponse": "Chez la femme allaitante", "explication": "Facteurs favorisants : allaitement, blessure du sein, diabète."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle prise en charge convient à une mastite non collectée (phase présuppurative) ?", "choix": ["Antibiotique, antalgique et arrêt de l’allaitement du sein atteint", "Incision et drainage chirurgical immédiats sous anesthésie", "Mastectomie large avec curage axillaire d’emblée", "Radiothérapie locale suivie d’une surveillance simple"], "reponse": "Antibiotique, antalgique et arrêt de l’allaitement du sein atteint", "explication": "Traitement médical à ce stade ; la phase suppurative collectée relève du drainage chirurgical."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel traitement s’applique à un abcès du sein collecté ?", "choix": ["L’abstention thérapeutique", "L’incision-drainage avec antibiotiques", "Le seul pansement sec", "La mammographie de contrôle seule"], "reponse": "L’incision-drainage avec antibiotiques", "explication": "Incision par le point de fistulisation, drainage et antibiotiques."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle lésion correspond au sigle DIN 1b ?", "choix": ["Le papillome central", "La métaplasie cylindrique atypique", "L’hyperplasie lobulaire atypique", "L’hyperplasie canalaire atypique"], "reponse": "L’hyperplasie canalaire atypique", "explication": "DIN 1a : métaplasie cylindrique atypique ; DIN 1b : hyperplasie canalaire atypique ; LIN 1 et 2 : hyperplasies lobulaires atypiques."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle lésion ne nécessite ni opération ni surveillance ?", "choix": ["Le papillome périphérique", "L’hyperplasie canalaire atypique", "L’hyperplasie lobulaire atypique", "Le kyste simple"], "reponse": "Le kyste simple", "explication": "Ni opérer ni surveiller : ectasie canalaire, kystes simples, métaplasie apocrine, fibrose, adénose non sclérosante, hyperplasie canalaire simple."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle lésion à risque sans atypie est opérée de façon conservatrice sans surveillance particulière ?", "choix": ["L’hyperplasie canalaire simple", "La métaplasie apocrine", "La fibrose", "Le papillome central solitaire"], "reponse": "Le papillome central solitaire", "explication": "Même groupe : cicatrices radiaires et adénose sclérosante complexe."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Jusqu’à quel âge un adénofibrome simple n’est-il ni opéré ni surveillé ?", "choix": ["Avant 20 ans", "Avant 40 ans", "Avant 25 ans", "Avant 55 ans"], "reponse": "Avant 40 ans", "explication": "L’adénofibrome simple avant 40 ans appartient aux lésions à ne ni opérer ni surveiller."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite s’applique aux DIN ou LIN étendues ?", "choix": ["Surveillance simple annuelle sans aucun geste chirurgical", "Mastectomie avec préservation de l’étui cutané et reconstruction", "Tumorectomie isolée suivie d’un arrêt du suivi définitif", "Traitement médical prolongé par danazol et progestérone"], "reponse": "Mastectomie avec préservation de l’étui cutané et reconstruction", "explication": "Ces lésions étendues portent un risque relatif de 4 à 10 et relèvent d’un geste radical."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on le placenta prævia ?", "choix": ["Une insertion placentaire sur une cicatrice de césarienne", "Une insertion totale ou partielle du placenta sur le segment inférieur", "Un décollement prématuré du placenta normalement inséré", "Une insertion du placenta au niveau du fond utérin"], "reponse": "Une insertion totale ou partielle du placenta sur le segment inférieur", "explication": "On parle aussi d’insertion à moins de 10 cm de l’orifice interne du col."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À quelle distance maximale de l’orifice interne du col le placenta est-il dit prævia ?", "choix": ["20 cm", "5 cm", "10 cm", "2 cm"], "reponse": "10 cm", "explication": "Le placenta prævia est inséré à moins de 10 cm de l’orifice interne du col."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel est le symptôme principal du placenta prævia hémorragique ?", "choix": ["Des métrorragies indolores de sang rouge", "Un écoulement de liquide clair seul", "Une douleur abdominale en coup de poignard", "Des saignements noirâtres avec contracture"], "reponse": "Des métrorragies indolores de sang rouge", "explication": "Les métrorragies sont spontanées, inopinées, indolores, avec caillots, souvent nocturnes et récidivantes."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment est l’utérus à la palpation dans un placenta prævia ?", "choix": ["Contracturé en permanence", "Dur comme du bois", "Souple", "Tendu en sébile de bois"], "reponse": "Souple", "explication": "L’utérus souple s’oppose à la contracture de l’HRP ; les BDCF sont présents."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle présentation est fréquemment retrouvée dans le placenta prævia ?", "choix": ["Une présentation bien engagée", "Toujours un sommet engagé", "Une présentation déviée ou anormale", "Toujours une présentation de la face"], "reponse": "Une présentation déviée ou anormale", "explication": "Épaule, siège ou autre présentation anormale sont fréquents."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que retrouve-t-on au toucher vaginal si le col est perméable ?", "choix": ["Une languette placentaire entre le doigt et la présentation", "Une poche des eaux tendue avec un col dur et spasmé", "Un col long et fermé sans aucune languette palpable", "Un segment inférieur dur et tendu en sébile de bois"], "reponse": "Une languette placentaire entre le doigt et la présentation", "explication": "Le toucher vaginal est dangereux et doit être proscrit en cas de suspicion."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le mode d’expulsion du placenta à la délivrance dans le placenta prævia ?", "choix": ["Le mode Duncan", "Le mode de Pajot", "Le mode Baudelocque-Schultze", "Le mode de Bandl"], "reponse": "Le mode Duncan", "explication": "Le petit côté placentaire est de moins de 10 cm."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel examen précise la position basse du placenta et sa variété topographique ?", "choix": ["L’amnioscopie", "Le toucher vaginal répété", "L’échographie", "Le dosage des β-hCG"], "reponse": "L’échographie", "explication": "L’échographie est l’examen de référence."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel type de la classification de Macafee correspond au placenta prævia recouvrant total (central) ?", "choix": ["Le type II", "Le type IV", "Le type I", "Le type III"], "reponse": "Le type IV", "explication": "Type I : latéral ; type II : marginal ; type III : recouvrant partiel ; type IV : recouvrant total."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel type de la classification de Macafee correspond au placenta prævia marginal ?", "choix": ["Le type I", "Le type IV", "Le type II", "Le type III"], "reponse": "Le type II", "explication": "Dans le type II, le bord inférieur du placenta affleure le pourtour de l’orifice cervical interne."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel groupe de la classification de Denhez correspond au placenta prævia ?", "choix": ["Aucun groupe de Denhez ne décrit le placenta prævia", "Denhez II, limite supérieure entre la moitié et le fond", "Denhez III, entièrement situé dans la moitié inférieure de l’utérus", "Denhez I, placenta fundique à distance du col utérin"], "reponse": "Denhez III, entièrement situé dans la moitié inférieure de l’utérus", "explication": "Denhez I est fundique ; Denhez II n’a habituellement pas de conséquence."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle zone est appelée « zone dangereuse de Barnes » ?", "choix": ["La zone de tiraillement entre le pôle inférieur du placenta et le segment inférieur", "La zone de jonction entre le col utérin et le vagin", "Le fond utérin au niveau de la corne tubaire droite", "L’isthme tubaire situé à proximité de l’ovaire"], "reponse": "La zone de tiraillement entre le pôle inférieur du placenta et le segment inférieur", "explication": "Le tiraillement de cette zone provoque la rupture des vaisseaux et l’hémorragie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Pourquoi l’hémorragie de la délivrance est-elle fréquente dans le placenta prævia ?", "choix": ["Le fond utérin est très riche en fibres musculaires lisses", "Le segment inférieur est pauvre en fibres musculaires, d’où un défaut de ligature vivante de Pinard", "Le placenta est toujours adhérent à la paroi postérieure", "La rétraction utérine est exagérée avec ligature trop serrée"], "reponse": "Le segment inférieur est pauvre en fibres musculaires, d’où un défaut de ligature vivante de Pinard", "explication": "Absence de couche musculaire plexiforme et de ligature artérielle vivante."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est un facteur favorisant du placenta prævia ?", "choix": ["Une hypotension artérielle", "Un utérus parfaitement vierge de toute cicatrice", "La primiparité jeune sans antécédent", "Un antécédent de césarienne"], "reponse": "Un antécédent de césarienne", "explication": "La cicatrice appelle le placenta ; la multiparité, l’âge, les curetages et les grossesses multiples sont aussi cités."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle forme associée au placenta prævia expose à un risque accru d’embolie amniotique ?", "choix": ["L’association à un fibrome sous-séreux", "La rupture prématurée des membranes", "L’association à une présentation du sommet", "L’association à un hydramnios modéré"], "reponse": "La rupture prématurée des membranes", "explication": "L’embolie amniotique est un accident grave marqué par insuffisance respiratoire, collapsus et signes neurologiques."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Qu’est-ce que l’hémorragie de Benkiser ?", "choix": ["Une hémorragie d’origine cervicale liée à un ectropion", "Une hémorragie par décollement du placenta normalement inséré", "Une hémorragie par rupture utérine sur utérus cicatriciel", "Une hémorragie par rupture de vaisseaux vélamenteux lors de la rupture artificielle des membranes"], "reponse": "Une hémorragie par rupture de vaisseaux vélamenteux lors de la rupture artificielle des membranes", "explication": "Elle fait partie du diagnostic différentiel du placenta prævia."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel geste faut-il proscrire devant un placenta prævia hémorragique ?", "choix": ["Les touchers vaginaux", "La pose d’une voie veineuse", "La prise de sang pour groupage", "La mesure de la tension artérielle"], "reponse": "Les touchers vaginaux", "explication": "Les touchers vaginaux peuvent provoquer une hémorragie cataclysmique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite est indiquée pendant la grossesse devant un placenta prævia hémorragique ?", "choix": ["Déclenchement immédiat du travail", "Hospitalisation, repos strict et tocolyse", "Rapports sexuels sans restriction", "Reprise normale des activités"], "reponse": "Hospitalisation, repos strict et tocolyse", "explication": "Associer transfusion au besoin, fer, antibiotiques et surveillance des garnitures."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle règle s’applique pendant le travail si les membranes sont accessibles et l’enfant vivant ?", "choix": ["L’expectative sans aucune surveillance de l’hémorragie", "La version par manœuvre interne suivie d’une grande extraction", "La césarienne systématique d’emblée dès le début du travail", "La « loi du tout ou rien » avec rupture artificielle des membranes"], "reponse": "La « loi du tout ou rien » avec rupture artificielle des membranes", "explication": "Si l’hémorragie s’arrête, voie basse ; si elle persiste, césarienne."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la conduite si les membranes sont inaccessibles (placenta recouvrant) et l’enfant vivant ?", "choix": ["La rupture artificielle des membranes", "L’accouchement par forceps", "La césarienne", "Le déclenchement par ocytocine"], "reponse": "La césarienne", "explication": "Les membranes inaccessibles correspondent aux formes recouvrantes partielles ou totales."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle manœuvre consiste à appliquer une pince de Museux sur le cuir chevelu du fœtus mort ?", "choix": ["La manœuvre de Simpson", "La manœuvre de Braxton Hicks", "La manœuvre de Lacomme", "La manœuvre de Willet"], "reponse": "La manœuvre de Willet", "explication": "La traction comprime le placenta et arrête l’hémorragie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle manœuvre associe version par manœuvre interne et grande extraction du siège ?", "choix": ["La manœuvre de Simpson", "La manœuvre de Willet", "La manœuvre de Lacomme", "La manœuvre de Braxton Hicks"], "reponse": "La manœuvre de Braxton Hicks", "explication": "Le fœtus est amené à s’asseoir sur le placenta."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "À quelle dilatation la manœuvre de Lacomme décolle-t-elle manuellement le placenta ?", "choix": ["À 1 cm de dilatation", "À 5 cm de dilatation du col", "Avant tout début de travail", "À dilatation complète"], "reponse": "À 5 cm de dilatation du col", "explication": "La manœuvre de Simpson se pratique à dilatation complète ou presque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel risque principal le placenta prævia fait-il courir au fœtus ?", "choix": ["Une cardiopathie congénitale systématique", "La prématurité et la souffrance fœtale aiguë", "Une macrosomie constante avec dystocie des épaules", "Une hypertrophie surrénalienne néonatale"], "reponse": "La prématurité et la souffrance fœtale aiguë", "explication": "La mortalité fœtale (environ 5 %) est liée à l’asphyxie, au choc maternel et à la prématurité."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel type de sang transfuse-t-on devant un placenta prævia hémorragique ?", "choix": ["Du plasma seul dans tous les cas", "Du sang frais iso-groupe iso-rhésus", "Du sang O négatif universel sans bilan", "Du sang d’un groupe quelconque"], "reponse": "Du sang frais iso-groupe iso-rhésus", "explication": "Le sang frais isogroupe isorhésus compense la spoliation sanguine."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle séquelle lointaine peut compliquer une anémie aiguë sévère du post-partum ?", "choix": ["Le syndrome de Cushing", "La maladie de Basedow", "Le syndrome de Turner", "La maladie de Sheehan"], "reponse": "La maladie de Sheehan", "explication": "Elle est liée à la nécrose ischémique de l’hypophyse après hémorragie obstétricale."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle complication un placenta acreta associé fait-il craindre ?", "choix": ["Une éclampsie", "Un hydramnios", "Une hémorragie de la délivrance", "Une rupture prématurée des membranes seule"], "reponse": "Une hémorragie de la délivrance", "explication": "Il augmente le risque d’hémorragie lors de la délivrance."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Que signifie le sigle DPPNI ?", "choix": ["Décollement placentaire post-natal immédiat", "Déchirure du placenta et de la poche des eaux", "Défaut de protection placentaire néonatal", "Décollement prématuré du placenta normalement inséré"], "reponse": "Décollement prématuré du placenta normalement inséré", "explication": "Il s’agit de l’hématome rétroplacentaire, ou abruptio placentae, alors que le fœtus est encore in utero."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel autre nom l’hématome rétroplacentaire porte-t-il ?", "choix": ["Hémorragie de Benkiser par rupture de vaisseaux", "Syndrome de Mondor par thrombose veineuse", "Apoplexie utéro-placentaire de Couvelaire", "Maladie de Sheehan par nécrose hypophysaire"], "reponse": "Apoplexie utéro-placentaire de Couvelaire", "explication": "On parle aussi d’abruptio placentae chez les anglo-saxons."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le contexte classique de survenue d’un HRP ?", "choix": ["Une multipare au 3e trimestre avec toxémie gravidique", "Une femme au 2e mois de grossesse", "Une primipare au 1er trimestre sans pathologie", "Une nullipare en post-partum"], "reponse": "Une multipare au 3e trimestre avec toxémie gravidique", "explication": "Urgence obstétricale grave du dernier trimestre, associée aux syndromes vasculo-rénaux."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment la douleur de l’HRP est-elle décrite ?", "choix": ["Légère et crampiforme", "Absente dans la forme grave", "Progressive, intermittente et lombaire", "Brutale, en coup de poignard, permanente"], "reponse": "Brutale, en coup de poignard, permanente", "explication": "Elle est intense, syncopale, associée à des métrorragies noirâtres avec caillots."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est l’aspect des métrorragies dans l’HRP ?", "choix": ["Un sang noirâtre avec caillots", "Un écoulement purulent", "Un liquide clair incolore", "Un sang rouge vif sans caillots"], "reponse": "Un sang noirâtre avec caillots", "explication": "L’origine est endo-utérine."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la description de l’utérus dans la forme complète de l’HRP ?", "choix": ["Un utérus souple, indolore et bien rétracté", "Un « utérus de bois », dur partout et tout le temps", "Un utérus mou, atone et très augmenté de volume", "Un utérus latéro-dévié, souple et peu douloureux"], "reponse": "Un « utérus de bois », dur partout et tout le temps", "explication": "Contracture douloureuse, permanente, invincible et généralisée."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que révèle l’auscultation dans la forme complète et grave de l’HRP ?", "choix": ["Des bruits du cœur fœtal absents", "Des BDCF accélérés", "Un souffle utérin isolé", "Des BDCF normaux"], "reponse": "Des bruits du cœur fœtal absents", "explication": "Le fœtus est presque toujours mort dans cette forme."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle particularité caractérise l’état de choc dans l’HRP ?", "choix": ["Son intensité contraste avec l’hémorragie extériorisée", "Il est absent dans les formes graves", "Il est toujours proportionnel à la perte visible", "Il survient uniquement après la délivrance"], "reponse": "Son intensité contraste avec l’hémorragie extériorisée", "explication": "Le sang se collecte dans l’hématome rétroplacentaire."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Que désigne l’« HTA cache-misère » dans l’HRP ?", "choix": ["Une HTA isolée sans état de choc associé", "Une hypotension permanente sans aucune phase hypertensive", "Une HTA stable bien équilibrée sous traitement", "Une TA élevée au début, vite effondrée et pincée"], "reponse": "Une TA élevée au début, vite effondrée et pincée", "explication": "Elle précède l’effondrement tensionnel du choc."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que retrouve-t-on au toucher vaginal dans l’HRP complet ?", "choix": ["Un col long et fermé sans aucune anomalie palpable", "Un col mou et dilaté de 5 cm avec poche des eaux souple", "Une languette placentaire entre le doigt et la présentation", "Un col dur et spasmé, un segment inférieur en sébile de bois"], "reponse": "Un col dur et spasmé, un segment inférieur en sébile de bois", "explication": "La poche des eaux est tendue, le liquide amniotique hématique si les membranes sont rompues."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel mécanisme est à l’origine des troubles de la coagulation dans l’HRP ?", "choix": ["Un excès de plaquettes avec thrombose diffuse des veines", "Une libération de thromboplastine avec consommation de fibrinogène (CIVD)", "Une hémophilie A héréditaire associée à la grossesse", "Une carence en vitamine K isolée sans consommation"], "reponse": "Une libération de thromboplastine avec consommation de fibrinogène (CIVD)", "explication": "Ils se traduisent par un sang fluide incoagulable, des ecchymoses extensives et des saignements aux points de piqûre."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Que signifie le sigle HELLP ?", "choix": ["Hémolyse, élévation des enzymes hépatiques, thrombopénie", "Hématome, éclampsie, lésion, lymphopénie, pronostic", "Hypertension, œdèmes, leucocytose, lithiase, protéinurie", "Hémorragie, ecchymoses, leucopénie, lipase, prurit"], "reponse": "Hémolyse, élévation des enzymes hépatiques, thrombopénie", "explication": "Le foie est atteint dans les formes graves d’HRP."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle place a l’échographie dans l’HRP complet et grave ?", "choix": ["Elle doit toujours précéder la réanimation", "C’est l’examen indispensable avant tout geste", "Elle remplace le bilan de coagulation", "Un intérêt très limité, le diagnostic est clinique"], "reponse": "Un intérêt très limité, le diagnostic est clinique", "explication": "Il peut être dangereux d’attendre la disponibilité de l’échographie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels gestes d’urgence sont indiqués devant un HRP avec état de choc ?", "choix": ["Simple surveillance à domicile avec repos strict allongé", "Deux voies veineuses, bilan sanguin, réanimation et RAM immédiate", "Pratiquer des touchers vaginaux répétés pour suivre le col", "Attendre l’échographie avant de démarrer quoi que ce soit"], "reponse": "Deux voies veineuses, bilan sanguin, réanimation et RAM immédiate", "explication": "On démarre la réanimation et la rupture artificielle des membranes immédiatement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle atteinte rénale peut survenir dans les suites d’un HRP et être irréversible ?", "choix": ["L’insuffisance rénale toujours fonctionnelle", "La lithiase rénale", "La polykystose rénale", "L’insuffisance rénale organique par nécrose corticale"], "reponse": "L’insuffisance rénale organique par nécrose corticale", "explication": "L’insuffisance rénale fonctionnelle passagère (nécrose tubulaire aiguë) est réversible."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect de l’utérus évoque l’apoplexie séreuse de Couvelaire ?", "choix": ["Un utérus dur, blanc et parfaitement rétracté", "Un utérus normal en taille, en couleur et en tonicité", "Un utérus rétracté en globe de sécurité de Pinard", "Un utérus mollasse et violacé dit « utérus aubergine »"], "reponse": "Un utérus mollasse et violacé dit « utérus aubergine »", "explication": "Les annexes et le ligament large peuvent participer aux lésions."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel est le risque de récidive de l’HRP lors d’une grossesse ultérieure ?", "choix": ["10 à 30 %", "1 à 2 %", "Nul", "Plus de 70 %"], "reponse": "10 à 30 %", "explication": "Surtout si l’origine est toxémique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect échographique évoque une forme fruste d’HRP ?", "choix": ["Un utérus vide avec embryon visible en extra-utérin", "Une image en tempête de neige avec kystes ovariens", "Un placenta fundique d’aspect parfaitement normal", "Une image en ellipse hypoéchogène entre le placenta et l’utérus"], "reponse": "Une image en ellipse hypoéchogène entre le placenta et l’utérus", "explication": "La tocographie montre une hypertonie utérine permanente ; il faut exclure un placenta prævia."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Sur quoi repose essentiellement le diagnostic positif de l’HRP ?", "choix": ["Sur la clinique", "Sur la laparoscopie", "Sur la scintigraphie", "Sur l’IRM pelvienne"], "reponse": "Sur la clinique", "explication": "Douleur brutale, métrorragies, hypertonie utérine, dysgravidie et mort fœtale fréquente."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le facteur étiologique principal de l’HRP ?", "choix": ["L’anémie ferriprive isolée sans autre pathologie", "L’hypotension orthostatique avec lipothymies répétées", "L’HTA de la grossesse (prééclampsie, HTA chronique)", "La primiparité chez la jeune femme de 20 ans"], "reponse": "L’HTA de la grossesse (prééclampsie, HTA chronique)", "explication": "L’HTA est retrouvée dans 12 à 64 % des cas."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est un facteur étiologique de l’HRP ?", "choix": ["Un terme dépassé sans pathologie", "Un placenta fundique normal", "L’évacuation trop brutale d’un hydramnios", "Un cordon trop long"], "reponse": "L’évacuation trop brutale d’un hydramnios", "explication": "Autres facteurs : traumatismes, manœuvres obstétricales (VME, VMI), cordon court, toxiques, malnutrition."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Dans quel délai faut-il évacuer l’utérus devant un HRP ?", "choix": ["Après la 37e semaine", "Dans les 48 heures", "Dans les 7 jours", "En moins de 6 heures"], "reponse": "En moins de 6 heures", "explication": "Un seul principe : évacuer l’utérus urgemment."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la conduite si le fœtus est vivant dans un HRP ?", "choix": ["Déclenchement lent par ocytocine puis expectative prolongée", "Tocolyse par bêtamimétiques puis retour à domicile", "Réanimation, rupture artificielle des membranes et césarienne en urgence", "Abstention thérapeutique et simple surveillance en maternité"], "reponse": "Réanimation, rupture artificielle des membranes et césarienne en urgence", "explication": "La césarienne rapide améliore le pronostic fœtal."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la conduite en cas de fœtus mort sans coagulopathie dans un HRP ?", "choix": ["Hystérectomie d’emblée avant toute tentative de voie basse", "Césarienne immédiate dans tous les cas sans exception", "Tocolyse prolongée sous perfusion de salbutamol", "RAM, antispasmodique, ocytocine, expulsion visée en 6 h"], "reponse": "RAM, antispasmodique, ocytocine, expulsion visée en 6 h", "explication": "Si le travail n’évolue pas favorablement au bout de 2 h, on pratique une césarienne."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la conduite en cas de coagulopathie avec fœtus mort dans un HRP ?", "choix": ["Réanimation, plasma frais congelé et césarienne de sauvetage maternel", "Simple surveillance en salle de naissance sans geste", "Déclenchement du travail sans aucun bilan de coagulation", "Tocolyse prolongée par nifédipine par voie orale"], "reponse": "Réanimation, plasma frais congelé et césarienne de sauvetage maternel", "explication": "En cas d’échec de l’hémostase : triple ligature artérielle ou hystérectomie d’hémostase."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelles artères sont ligaturées dans la triple ligature de Tsirulnikov ?", "choix": ["Iliaques internes, pudendales et ombilicales", "Épigastriques, obturatrices et fémorales", "Utérines, du ligament rond et utéro-ovariques", "Rénales, mésentériques et ovariennes"], "reponse": "Utérines, du ligament rond et utéro-ovariques", "explication": "C’est un geste d’hémostase conservatrice avant l’hystérectomie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle dose d’ocytocine est utilisée dans le traitement de l’HRP ?", "choix": ["200 UI en une prise intramusculaire unique", "5 UI dans 500 cc de sérum glucosé", "1 UI par jour par voie sous-cutanée seulement", "50 UI en bolus direct dans une voie périphérique"], "reponse": "5 UI dans 500 cc de sérum glucosé", "explication": "Elle accompagne la rupture des membranes et la délivrance dirigée."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel moyen médicamenteux de prévention d’un nouvel HRP est proposé ?", "choix": ["L’aspirine à 100 mg/j de 12 à 36 SA", "Les corticoïdes à 28 SA", "Les bêtamimétiques jusqu’à 37 SA", "La progestérone en continu"], "reponse": "L’aspirine à 100 mg/j de 12 à 36 SA", "explication": "S’ajoutent des CPN de qualité et le traitement correct de toute pathologie vasculaire."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Que fait-on en cas d’insuffisance rénale organique dans les suites d’un HRP ?", "choix": ["Un remplissage seul", "Une simple surveillance", "Un traitement diurétique seul", "Une épuration extra-rénale"], "reponse": "Une épuration extra-rénale", "explication": "L’insuffisance rénale fonctionnelle relève d’un remplissage par macromolécules et d’une relance de la diurèse."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel grade de la classification de Sher correspond à un enfant mort avec troubles de la coagulation ?", "choix": ["Le grade 2", "Le grade 3B", "Le grade 3A", "Le grade 1"], "reponse": "Le grade 3B", "explication": "3A : enfant mort sans trouble de la coagulation."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Entre quelles limites d’âge gestationnel parle-t-on de menace d’accouchement prématuré ?", "choix": ["Entre 37 et 41 SA", "Entre 22 et 37 SA révolues", "Entre 28 et 42 SA", "Entre 12 et 22 SA"], "reponse": "Entre 22 et 37 SA révolues", "explication": "La MAP associe contractions régulières douloureuses et modifications cervicales avant 37 SA (36 SA + 6 jours)."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel critère de durée de grossesse définit l’accouchement prématuré en jours d’aménorrhée ?", "choix": ["Avant 259 jours d’aménorrhée", "Avant 180 jours d’aménorrhée", "Avant 300 jours d’aménorrhée", "Avant 120 jours d’aménorrhée"], "reponse": "Avant 259 jours d’aménorrhée", "explication": "Naissance entre 22 et 37 SA, ou d’un enfant de plus de 500 g (OMS)."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le rythme de contractions utérines typique d’une MAP ?", "choix": ["Au moins 1 à 2 contractions toutes les 10 min pendant 1 h", "1 contraction toutes les 4 heures sans douleur", "5 à 6 contractions par jour, surtout le soir", "1 contraction par heure, indolore et irrégulière"], "reponse": "Au moins 1 à 2 contractions toutes les 10 min pendant 1 h", "explication": "Contractions douloureuses, régulières, à irradiation lombaire."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel examen reste la référence devant des signes de MAP ?", "choix": ["L’hystérosalpingographie", "L’IRM pelvienne", "Le toucher vaginal", "La radiographie du bassin"], "reponse": "Le toucher vaginal", "explication": "L’échographie est un examen de deuxième ligne pour chiffrer les modifications cervicales."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle longueur cervicale à l’échographie constitue la valeur seuil de risque d’accouchement prématuré ?", "choix": ["26 mm", "60 mm", "6 mm", "46 mm"], "reponse": "26 mm", "explication": "Les seuils de risque se situent entre 20 et 30 mm ; la valeur prédictive négative dépasse 90 %."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Dans quelles conditions dose-t-on la fibronectine fœtale ?", "choix": ["Membranes intactes, dilatation inférieure à 3 cm, entre 24 et 34 SA", "Membranes rompues, col dilaté à 5 cm, après 37 SA", "Quel que soit l’âge gestationnel et l’état des membranes", "Uniquement chez la femme en travail à terme"], "reponse": "Membranes intactes, dilatation inférieure à 3 cm, entre 24 et 34 SA", "explication": "Prélèvement vaginal ; sa valeur prédictive négative est de 96 à 99 %."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Pour quelle longueur cervicale la fibronectine peut-elle éviter une hospitalisation si elle est négative ?", "choix": ["Supérieure à 40 mm", "Exactement 60 mm", "Entre 15 et 26 mm", "Inférieure à 5 mm"], "reponse": "Entre 15 et 26 mm", "explication": "Si la fibronectine est négative, l’hospitalisation peut être évitée."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À quel score de Gruber et Baumgarten correspond une MAP moyenne ?", "choix": ["Supérieur à 6", "Entre 4 et 6", "Égal à 0", "Entre 1 et 3"], "reponse": "Entre 4 et 6", "explication": "MAP légère : 1 à 3 ; moyenne : 4 à 6 ; sévère : supérieure à 6."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À quel score correspond une MAP sévère ?", "choix": ["Supérieur à 6", "Entre 1 et 3", "Inférieur à 1", "Entre 4 et 6"], "reponse": "Supérieur à 6", "explication": "Une MAP sévère annonce un accouchement prématuré souvent inéluctable."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces paramètres n’entre pas dans le score de Gruber et Baumgarten ?", "choix": ["Les contractions utérines", "La dilatation cervicale", "L’état des membranes", "Le poids maternel"], "reponse": "Le poids maternel", "explication": "Le score associe contractions, membranes, métrorragies et dilatation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle tranche d’âge gestationnel définit l’extrême prématurité ?", "choix": ["20 à 23 SA", "33 à 36 SA + 6 jours", "28 à 32 SA + 6 jours", "24 à 27 SA + 6 jours"], "reponse": "24 à 27 SA + 6 jours", "explication": "Grande prématurité : 28 à 32 SA + 6 j ; moyenne : 33 à 36 SA + 6 j."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle tranche d’âge gestationnel définit la grande prématurité ?", "choix": ["24 à 27 SA + 6 jours", "37 à 38 SA", "28 à 32 SA + 6 jours", "33 à 36 SA + 6 jours"], "reponse": "28 à 32 SA + 6 jours", "explication": "Environ 36 % de séquelles neurologiques à 5 ans, contre 50 % pour l’extrême prématurité."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment se caractérisent les contractions de Braxton-Hicks ?", "choix": ["Des contractions régulières toutes les 5 min", "Des contractions avec métrorragies noirâtres", "Des contractions permanentes avec contracture", "1 à 5 contractions par jour, le soir ou après un effort"], "reponse": "1 à 5 contractions par jour, le soir ou après un effort", "explication": "Elles font partie du diagnostic différentiel de la MAP."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel syndrome associe douleurs ligamentaires du pubis et de la racine des cuisses sans durcissement utérin ?", "choix": ["Le syndrome de Couvelaire", "Le syndrome de Lacomme", "Le syndrome de Benkiser", "Le syndrome de Sheehan"], "reponse": "Le syndrome de Lacomme", "explication": "Il simule une MAP mais l’utérus ne se contracte pas."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Laquelle est une cause loco-régionale de MAP ?", "choix": ["La primiparité à 25 ans", "La béance cervico-isthmique", "Une prise de poids excessive", "L’allaitement maternel"], "reponse": "La béance cervico-isthmique", "explication": "Autres causes : infections cervico-vaginales ou urinaires, chorioamniotite, fibromes, malformations utérines."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle est une cause annexielle de MAP ?", "choix": ["La macrosomie à terme", "Un cordon long isolé", "Une présentation du sommet", "L’hydramnios"], "reponse": "L’hydramnios", "explication": "Autres causes annexielles : placenta prævia, RPM."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion des MAP les grossesses multiples représentent-elles ?", "choix": ["10 à 20 %", "50 %", "Moins de 1 %", "90 %"], "reponse": "10 à 20 %", "explication": "Les grossesses multiples sont une cause ovulaire fréquente de MAP."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel intervalle entre deux grossesses multiplie par 3 à 4 le risque de MAP ?", "choix": ["Plus de 5 ans", "Aucun intervalle n’influence le risque", "Moins de 12 mois", "24 à 36 mois"], "reponse": "Moins de 12 mois", "explication": "L’espacement des naissances est une mesure de prévention."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "De combien la conisation multiplie-t-elle le risque d’accouchement prématuré si le cône dépasse 2 cm ?", "choix": ["Par 1,7", "Par 0,5", "Elle ne modifie pas le risque", "Par 10"], "reponse": "Par 1,7", "explication": "Les IVG, surtout au-delà de 3 avec traumatismes du col, augmentent aussi le risque."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle exposition médicamenteuse avant 1977 est liée à une hypoplasie utérine et à la MAP ?", "choix": ["Le méthotrexate", "Le distilbène", "La thalidomide", "La warfarine"], "reponse": "Le distilbène", "explication": "L’hypoplasie utérine est une cause maternelle loco-régionale."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel est le principal antécédent obstétrical à risque de MAP ?", "choix": ["Une primiparité à 28 ans", "Un accouchement à terme sans complication", "Un antécédent d’accouchement prématuré", "Une césarienne programmée à terme"], "reponse": "Un antécédent d’accouchement prématuré", "explication": "S’y ajoutent un intervalle court, une menace d’avortement au 1er trimestre, les IVG et la conisation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle tranche d’âge maternel est à risque de MAP ?", "choix": ["Moins de 18 ans", "Entre 30 et 35 ans", "Entre 25 et 30 ans", "Entre 35 et 38 ans"], "reponse": "Moins de 18 ans", "explication": "Le jeune âge, la faible prise de poids, les violences conjugales et les drogues augmentent le risque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "De quel auteur provient le coefficient de risque d’accouchement prématuré ?", "choix": ["Pinard", "Papiernik", "Apgar", "Bishop"], "reponse": "Papiernik", "explication": "Le coefficient de Papiernik (CRAP) cote les facteurs de risque socio-professionnels et obstétricaux."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel bêtamimétique est utilisé comme tocolytique ?", "choix": ["L’indométacine", "Le salbutamol", "L’atosiban", "La nifédipine"], "reponse": "Le salbutamol", "explication": "Ampoules de 0,5 mg/ml en perfusion pour le traitement d’attaque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le mécanisme d’action des bêtamimétiques ?", "choix": ["Le blocage sélectif des récepteurs de l’ocytocine", "L’inhibition de la synthèse des prostaglandines utérines", "La stimulation des récepteurs β-adrénergiques relâchant la fibre musculaire", "Le blocage des canaux calciques membranaires du myomètre"], "reponse": "La stimulation des récepteurs β-adrénergiques relâchant la fibre musculaire", "explication": "Ils inhibent l’interaction actine-myosine."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel effet secondaire peut compliquer les bêtamimétiques ?", "choix": ["Somnolence, hypocalcémie et douleurs thoraciques", "Hypoglycémie maternelle isolée sans tachycardie", "Bradycardie, hypertension et hyperkaliémie profonde", "Tachycardie, tremblements et hypokaliémie"], "reponse": "Tachycardie, tremblements et hypokaliémie", "explication": "Autres effets : OAP (0,3 %), hyperglycémie ; hypoglycémie et tachycardie néonatales."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle pathologie maternelle contre-indique les bêtamimétiques ?", "choix": ["Une lombalgie", "Une cardiopathie décompensée", "Une anémie ferriprive isolée", "Une rhinite allergique"], "reponse": "Une cardiopathie décompensée", "explication": "Autres contre-indications : coronaropathie, HTA sévère, diabète, hyperthyroïdie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la durée maximale du traitement d’attaque par bêtamimétiques par voie intraveineuse ?", "choix": ["6 heures", "48 heures", "3 semaines", "5 jours"], "reponse": "48 heures", "explication": "L’entretien se fait ensuite par voie orale ou rectale jusqu’à 37 SA."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel inhibiteur calcique est l’alternative de choix aux bêtamimétiques ?", "choix": ["L’indométacine", "Le sulfate de magnésium", "La nifédipine", "Le salbutamol"], "reponse": "La nifédipine", "explication": "Il offre une meilleure tolérance ; la nicardipine est une autre option."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel est le mode d’action de l’atosiban ?", "choix": ["Bêtamimétique", "Inhibiteur calcique", "Antagoniste des récepteurs de l’ocytocine", "Anti-inflammatoire non stéroïdien"], "reponse": "Antagoniste des récepteurs de l’ocytocine", "explication": "Il diminue le calcium intracellulaire (Tractocile®)."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelles sont les conditions d’emploi de l’indométacine comme tocolytique ?", "choix": ["Moins de 72 h et avant 34 SA", "Pendant tout le 3e trimestre", "Plus de 7 jours après 36 SA", "Uniquement après 37 SA"], "reponse": "Moins de 72 h et avant 34 SA", "explication": "Elle inhibe la synthèse des prostaglandines ; risque de persistance du canal artériel chez le fœtus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces situations contre-indique la tocolyse ?", "choix": ["Un col court isolé", "Une grossesse gémellaire sans complication", "Une MAP légère à 30 SA", "Une chorioamniotite"], "reponse": "Une chorioamniotite", "explication": "Autres contre-indications : MFIU, souffrance fœtale aiguë, malformation létale, placenta prævia hémorragique, prééclampsie sévère."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la posologie classique de la bétaméthasone pour la maturation pulmonaire ?", "choix": ["50 mg en IV unique", "2 mg par voie orale quotidienne", "12 mg en IM, 2 doses à 24 h d’intervalle", "1 g en perfusion lente"], "reponse": "12 mg en IM, 2 doses à 24 h d’intervalle", "explication": "Elle prévient la maladie des membranes hyalines et réduit les hémorragies intraventriculaires."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels risques néonatals la corticothérapie anténatale réduit-elle ?", "choix": ["La maladie des membranes hyalines et les entérites ulcéro-nécrosantes", "L’ictère nucléaire et la phénylcétonurie congénitale", "Les malformations cardiaques et les fentes labiales", "La rubéole congénitale et la toxoplasmose fœtale"], "reponse": "La maladie des membranes hyalines et les entérites ulcéro-nécrosantes", "explication": "Elle est indiquée avant 34 SA."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle prise en charge convient à une MAP légère avant 34 SA ?", "choix": ["Césarienne en urgence suivie d’une réanimation intensive", "Abstention thérapeutique complète sans surveillance", "Arrêt de travail, repos à domicile, tocolyse et corticothérapie", "Accouchement par forceps immédiat sous anesthésie générale"], "reponse": "Arrêt de travail, repos à domicile, tocolyse et corticothérapie", "explication": "Traiter aussi la cause et les pathologies associées."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle prise en charge convient à une MAP modérée avant 34 SA ?", "choix": ["Retour à une activité normale avec arrêt de toute surveillance", "Déclenchement immédiat du travail par ocytocine IV", "Simple repos à domicile sans aucune tocolyse associée", "Hospitalisation, tocolyse, corticothérapie et discussion d’un cerclage tardif"], "reponse": "Hospitalisation, tocolyse, corticothérapie et discussion d’un cerclage tardif", "explication": "La tocolyse est donnée d’abord par voie veineuse puis rectale ou orale."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle attitude adopter devant une MAP sévère avec accouchement prématuré inéluctable ?", "choix": ["Prolonger la phase d’expulsion pour ménager le périnée", "Surveiller le travail au partogramme et écourter l’expulsion par forceps ou spatules", "Pratiquer systématiquement une version par manœuvre interne", "Interdire tout geste instrumental même en cas de besoin"], "reponse": "Surveiller le travail au partogramme et écourter l’expulsion par forceps ou spatules", "explication": "L’accouchement doit être le moins traumatique possible ; césarienne si facteur de risque."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Qu’appelle-t-on accouchement en « boulet de canon » chez le prématuré ?", "choix": ["Un périnée qui cède brutalement et donne une expulsion très rapide", "Un accouchement avec dystocie sévère des épaules", "Un accouchement par le siège décomplété en mode fesses", "Un accouchement prolongé de plus de 24 heures"], "reponse": "Un périnée qui cède brutalement et donne une expulsion très rapide", "explication": "À l’inverse, le périnée peut être résistant et nécessiter une aide à l’expulsion."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À quoi sert la méthode kangourou chez le prématuré ?", "choix": ["À prévenir l’hypothermie", "À stimuler la production de surfactant", "À traiter l’ictère nucléaire", "À calmer les convulsions"], "reponse": "À prévenir l’hypothermie", "explication": "Elle fait partie des moyens de lutte contre l’hypothermie, avec la couveuse."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle mesure préventive est indiquée en cas de béance cervico-isthmique ?", "choix": ["L’hystérectomie", "Le cerclage", "La tocolyse prophylactique à vie", "Le repos strict au lit toute la grossesse"], "reponse": "Le cerclage", "explication": "La prévention inclut aussi l’espacement des naissances, des CPN de qualité et le dépistage des infections, HTA, diabète et anémie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelles complications immédiates menacent le nouveau-né prématuré ?", "choix": ["Hypertension artérielle sévère et polyglobulie", "Hypoglycémie, hypocalcémie, hypothermie et hémorragie", "Macrosomie, pléthore et excès de poids de naissance", "Hyperglycémie, hypercalcémie et hyperthermie"], "reponse": "Hypoglycémie, hypocalcémie, hypothermie et hémorragie", "explication": "La surveillance thermique, glycémique et calcémique est systématique, avec alimentation précoce."},
+
+      // NOUVEAUX QCM — rupture utérine, RPM, hémorragie du post-partum, adaptation fœto-utéro-pelvienne, présentation du sommet
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on la rupture utérine ?", "choix": ["Une solution de continuité non chirurgicale de l’utérus gravide", "Une déchirure isolée du col utérin à l’accouchement", "Un décollement du placenta normalement inséré", "Une perforation utérine après une manœuvre abortive"], "reponse": "Une solution de continuité non chirurgicale de l’utérus gravide", "explication": "Elle survient pendant la grossesse ou le travail et exclut les déchirures du col et les perforations post-abortives."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelles lésions la définition de la rupture utérine exclut-elle ?", "choix": ["Les ruptures survenant sur utérus cicatriciel pendant le travail", "Les déchirures du col et les perforations après un curetage utérin", "Les déchirures du col et les perforations après manœuvre endo-utérine", "Les ruptures provoquées par un forceps ou une manœuvre interne"], "reponse": "Les déchirures du col et les perforations après manœuvre endo-utérine", "explication": "La rupture utérine concerne l’utérus gravide, en dehors des perforations post-abortives et des déchirures cervicales."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle fréquence de rupture utérine est rapportée au Sénégal ?", "choix": ["1 accouchement sur 40", "1 accouchement sur 2 000", "1 accouchement sur 151", "1 accouchement sur 95"], "reponse": "1 accouchement sur 151", "explication": "Dans les pays développés elle est de 0,03 à 0,05 % ; 1/95 au Mali et 1/40 au Niger."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Pourquoi la rupture utérine est-elle qualifiée d’indicateur de développement ?", "choix": ["Elle survient uniquement dans les pays à fort revenu national", "Elle dépend exclusivement de l’âge maternel et de la parité", "Sa fréquence reflète la qualité de la surveillance obstétricale", "Sa fréquence ne varie pas selon la qualité des soins reçus"], "reponse": "Sa fréquence reflète la qualité de la surveillance obstétricale", "explication": "Conséquence d’une mauvaise gestion du travail, elle reste fréquente dans les pays à faibles ressources."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces causes provoque une rupture utérine pendant la grossesse ?", "choix": ["Une macrosomie à terme", "Un traumatisme (arme blanche, accident, encornement)", "Un travail prolongé en phase active", "Un usage excessif d’ocytociques en salle de travail"], "reponse": "Un traumatisme (arme blanche, accident, encornement)", "explication": "Pendant la grossesse, la rupture est provoquée ou spontanée sur utérus cicatriciel."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces causes fœtales fragilise l’utérus et favorise la rupture pendant le travail ?", "choix": ["Un petit fœtus bien fléchi en présentation du sommet", "Un fœtus hypotrophe en présentation du sommet", "La macrosomie ou une présentation vicieuse", "Un fœtus de poids normal en sommet fléchi"], "reponse": "La macrosomie ou une présentation vicieuse", "explication": "Cause maternelle : multiparité, dystocie ; cause fœtale : macrosomie, présentation vicieuse."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est une cause iatrogène de rupture utérine ?", "choix": ["L’anémie maternelle", "La multiparité", "L’abus d’ocytociques", "Le diabète gestationnel"], "reponse": "L’abus d’ocytociques", "explication": "Les ruptures provoquées ou iatrogènes sont liées au forceps, aux manœuvres et aux ocytociques."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Comment est classiquement la rupture primitive sur utérus neuf ?", "choix": ["Sous-séreuse, transversale et à droite", "Incomplète, transversale et fundique", "Complète, longitudinale, segmentaire et à gauche", "Incomplète avec simple déhiscence de cicatrice"], "reponse": "Complète, longitudinale, segmentaire et à gauche", "explication": "L’éclatement est souvent associé à une propagation de la déchirure."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment est classiquement la rupture secondaire sur utérus cicatriciel ?", "choix": ["Toujours fundique et transversale", "Toujours associée à une mort fœtale immédiate", "Toujours complète avec éclatement utérin", "Souvent incomplète, par déhiscence de l’ancienne cicatrice"], "reponse": "Souvent incomplète, par déhiscence de l’ancienne cicatrice", "explication": "La rupture sur utérus neuf est au contraire souvent complète."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien de phases comporte la rupture utérine spontanée sur utérus neuf en travail ?", "choix": ["2 phases", "3 phases", "5 phases", "4 phases"], "reponse": "3 phases", "explication": "Prodromes, prérupture (syndrome de Bandl-Frommel) et rupture."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle phase de la rupture utérine correspond au « syndrome de lutte » ?", "choix": ["La phase de choc", "La phase de délivrance", "La phase de prodromes", "La phase de rupture"], "reponse": "La phase de prodromes", "explication": "Agitation, anxiété, contractions rapprochées voire subintrantes, col épais et œdématié."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment se présente l’utérus dans la phase de prérupture (syndrome de Bandl-Frommel) ?", "choix": ["Ballonné avec fœtus abdominalisé", "Souple et indolore", "Dur, contracturé, déformé en sablier", "Mou, atone et vide"], "reponse": "Dur, contracturé, déformé en sablier", "explication": "Un anneau de rétraction de Bandl ascensionne progressivement, avec tension douloureuse des ligaments ronds."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel signe est l’anneau de rétraction de Bandl ?", "choix": ["Un écoulement de sang noirâtre au niveau du doigtier du praticien", "Une masse ferme et atone située à côté du fœtus abdominalisé", "Un sillon entre le corps et le segment inférieur qui monte progressivement", "Un œdème sus-pubien sans douleur ni anneau palpable chez la femme"], "reponse": "Un sillon entre le corps et le segment inférieur qui monte progressivement", "explication": "Il faut opérer à ce stade pour éviter la phase de rupture."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Que faut-il faire devant une phase de prérupture ?", "choix": ["Faire une épreuve de travail prolongée", "Opérer pour éviter la rupture", "Poursuivre l’expectative", "Augmenter les ocytociques"], "reponse": "Opérer pour éviter la rupture", "explication": "La levée de la dystocie causale par une césarienne évite la rupture."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment est décrite la douleur de la phase de rupture franche ?", "choix": ["Une douleur progressive suivie d’une aggravation continue", "Un coup de tonnerre dans un ciel serein, sans lien avec une contraction", "Une douleur lombaire intermittente de faible intensité", "Une douleur uniquement à la fin de l’expulsion"], "reponse": "Un coup de tonnerre dans un ciel serein, sans lien avec une contraction", "explication": "Elle est suivie d’une sensation de chaleur diffuse puis d’une accalmie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que signifie le « calme après la tempête » dans la rupture utérine ?", "choix": ["La femme a accouché dans son ventre", "Le travail va reprendre normalement", "L’hémorragie s’est arrêtée spontanément", "La rupture est terminée sans danger"], "reponse": "La femme a accouché dans son ventre", "explication": "L’accalmie douloureuse masque un fœtus passé dans la cavité abdominale."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel aspect de l’abdomen est décrit dans la rupture utérine complète ?", "choix": ["Un abdomen globuleux et dur en bois", "Un ventre de bois avec utérus rétracté en globe", "Un abdomen plat et souple", "Un abdomen étalé sur les côtés en « ventre de batracien »"], "reponse": "Un abdomen étalé sur les côtés en « ventre de batracien »", "explication": "À la palpation, les parties fœtales sont superficielles, presque sous la peau."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que révèle la palpation d’un fœtus « abdominalisé » ?", "choix": ["Un utérus dur partout et tout le temps avec bruits du cœur absents", "Des parties fœtales superficielles et une masse utérine ferme et atone à côté", "Un fœtus encore engagé dans l’excavation avec présentation fixée", "Une présentation du sommet bien fixée avec un utérus souple et rétracté"], "reponse": "Des parties fœtales superficielles et une masse utérine ferme et atone à côté", "explication": "La masse ferme correspond à l’utérus débarrassé de son fœtus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que retrouve-t-on au toucher vaginal dans la rupture utérine complète ?", "choix": ["Un col long fermé", "Une languette placentaire", "Une présentation bien engagée et fixée", "La disparition de la présentation"], "reponse": "La disparition de la présentation", "explication": "Le doigtier ramène un sang rouge ou noirâtre, comparé par Tarnier au « jus de réglisse »."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "À quoi Tarnier comparait-il le sang ramené par le doigtier dans la rupture utérine ?", "choix": ["Au « bouillon clair »", "À l’« eau de riz »", "Au « jus de réglisse »", "Au « lait caillé »"], "reponse": "Au « jus de réglisse »", "explication": "Le sang est rouge ou noirâtre."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion de morts fœtales est rapportée dans la rupture utérine ?", "choix": ["50 %", "99 %", "10 %", "30 %"], "reponse": "99 %", "explication": "Le pronostic fœtal est généralement sombre, le pronostic maternel souvent réservé."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel tableau définit le syndrome de Chastrusse ?", "choix": ["Utérus de bois et bruits du cœur fœtal absents depuis le début", "Col épais œdématié et contractions subintrantes avec agitation", "Douleur exquise sur la cicatrice, œdème sus-pubien, saignement rouge minime", "Utérus en sablier avec anneau de Bandl ascensionnant lentement"], "reponse": "Douleur exquise sur la cicatrice, œdème sus-pubien, saignement rouge minime", "explication": "C’est la forme insidieuse de rupture sur utérus cicatriciel."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel risque lésionnel particulier fait craindre une rupture avec atteinte vésicale ?", "choix": ["Une rétention d’urine chronique sans lésion", "Un prolapsus utérin", "Une fistule vésico-vaginale par chute d’escarre", "Une fistule recto-vaginale congénitale"], "reponse": "Une fistule vésico-vaginale par chute d’escarre", "explication": "L’hématurie est un signe d’appel ; la fistule apparaît après la chute secondaire d’une escarre."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Qu’appelle-t-on rupture utérine négligée ?", "choix": ["Une rupture découverte à l’occasion d’une césarienne programmée", "Une rupture survenue pendant la grossesse sur utérus cicatriciel", "Un diagnostic posé 2 à 3 jours après l’accouchement, devant une péritonite ou une septicémie", "Une rupture sans douleur pendant la phase active du travail"], "reponse": "Un diagnostic posé 2 à 3 jours après l’accouchement, devant une péritonite ou une septicémie", "explication": "Ces formes sont de pronostic très sombre."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces diagnostics différentiels est à éliminer devant une rupture utérine ?", "choix": ["L’hématome rétroplacentaire", "La cystite aiguë", "La constipation", "La grossesse prolongée"], "reponse": "L’hématome rétroplacentaire", "explication": "Autres diagnostics différentiels : placenta prævia, MAP, lésions cervico-vaginales, hémorragie de Benkiser."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la première étape du traitement d’une rupture utérine ?", "choix": ["L’attente d’une échographie", "Le toucher vaginal répété", "Un traitement tocolytique", "La réanimation, précoce et toujours indiquée"], "reponse": "La réanimation, précoce et toujours indiquée", "explication": "Le but est de rétablir l’équilibre hémodynamique, assurer l’hémostase et prévenir les complications."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle intervention est indiquée dans une rupture simple non compliquée ?", "choix": ["Une hystérectomie systématique dans tous les cas de rupture", "Une ligature bilatérale des hypogastriques sans suture utérine", "Un simple packing intra-utérin associé à une surveillance seule", "Une suture conservatrice, éventuellement avec ligature des trompes"], "reponse": "Une suture conservatrice, éventuellement avec ligature des trompes", "explication": "Le choix dépend de l’âge, de la parité et du désir de maternité."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle intervention est indiquée en cas de rupture multiple avec éclatement utérin ?", "choix": ["Un traitement médical seul", "Une hystérectomie, éventuellement avec annexectomie", "Une suture conservatrice simple", "Une simple surveillance"], "reponse": "Une hystérectomie, éventuellement avec annexectomie", "explication": "Une lésion infectée relève aussi de l’hystérectomie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite chirurgicale s’applique à une rupture compliquée de coagulopathie ?", "choix": ["Suture conservatrice utérine seule sans geste de ligature artérielle", "Abstention chirurgicale avec surveillance en soins intensifs", "Hystérectomie avec ligature des artères hypogastriques, ± packing", "Cerclage du col associé à une tocolyse prolongée par voie orale"], "reponse": "Hystérectomie avec ligature des artères hypogastriques, ± packing", "explication": "Les complications associées, comme les lésions vésicales, reçoivent un traitement spécifique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel intervalle minimal entre deux grossesses fait partie de la prévention de la rupture utérine ?", "choix": ["3 mois", "2 ans ou plus", "1 mois", "6 mois"], "reponse": "2 ans ou plus", "explication": "La contraception est la première mesure de prévention."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel outil de surveillance du travail permet de prévenir la rupture utérine ?", "choix": ["La radiographie du bassin", "L’amnioscopie", "Le test à la nitrazine", "Le partogramme"], "reponse": "Le partogramme", "explication": "Il dépiste les dystocies, avec un monitorage correct de la dynamique utérine."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on la rupture prématurée des membranes (RPM) ?", "choix": ["Une rupture artificielle pratiquée au début du travail", "Une rupture des membranes à dilatation complète", "Une rupture survenant pendant l’expulsion", "Une rupture de l’amnios et du chorion avant le début du travail"], "reponse": "Une rupture de l’amnios et du chorion avant le début du travail", "explication": "La rupture prématurée survient avant toute entrée en travail."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle rupture survient à dilatation complète ?", "choix": ["La rupture précoce", "La rupture tardive", "La rupture tempestive", "La rupture prématurée"], "reponse": "La rupture tardive", "explication": "Précoce : tout début du travail ; tempestive : dilatation avancée ; tardive : dilatation complète."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle rupture survient au tout début du travail ?", "choix": ["La rupture tempestive", "La rupture tardive", "La rupture précoce", "La rupture prématurée"], "reponse": "La rupture précoce", "explication": "La rupture prématurée précède toute entrée en travail."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle fissure de la poche des eaux a un meilleur pronostic ?", "choix": ["La rupture au contact de la présentation", "La fissure haute, au pôle supérieur de l’œuf", "La rupture au niveau du col", "La rupture basse, au pôle inférieur de l’œuf"], "reponse": "La fissure haute, au pôle supérieur de l’œuf", "explication": "Dans la fissure haute, les membranes sont senties au toucher."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion des grossesses la RPM touche-t-elle ?", "choix": ["Moins de 0,1 %", "30 à 40 %", "2 à 3 %", "15 à 20 %"], "reponse": "2 à 3 %", "explication": "Elle est responsable d’environ un tiers des naissances prématurées."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle structure de l’œuf donne aux membranes leur résistance ?", "choix": ["La caduque ovulaire seule", "Le liquide amniotique", "Le chorion, très vascularisé", "L’amnios, riche en collagène"], "reponse": "L’amnios, riche en collagène", "explication": "Le chorion est vascularisé et nourrit l’amnios."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels sont les 3 facteurs du mécanisme de rupture spontanée des membranes ?", "choix": ["Mécanique, chimique et infectieux", "Neurologique, thermique et mécanique", "Hormonal, osseux et vasculaire", "Génétique, médicamenteux et hormonal"], "reponse": "Mécanique, chimique et infectieux", "explication": "Tension anormale, anomalie du collagène et collagénase d’origine infectieuse."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quels déficits nutritionnels fragilisent le collagène des membranes ?", "choix": ["Cuivre, zinc et vitamine C", "Sodium, potassium et vitamine B12", "Fer, iode et vitamine K", "Calcium, magnésium et vitamine D"], "reponse": "Cuivre, zinc et vitamine C", "explication": "Le tabac et le plomb perturbent aussi la synthèse du collagène."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment est l’hydrorrhée amniotique de la RPM ?", "choix": ["Un écoulement purulent intermittent, d’odeur fétide, peu abondant", "Un écoulement de liquide clair, abondant, brutal et continu", "Un écoulement sanglant noirâtre, associé à une contracture utérine", "Un écoulement épais et brunâtre, rythmé par les contractions"], "reponse": "Un écoulement de liquide clair, abondant, brutal et continu", "explication": "Il imprègne les garnitures et augmente en position debout."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel signe obstétrical consiste en un écoulement de liquide à la pression du fond utérin ?", "choix": ["Le signe de Farabeuf", "Le signe de Tarnier", "Le signe de Chadwick", "Le signe de Bonnaire"], "reponse": "Le signe de Bonnaire", "explication": "Dans la RPM, la hauteur utérine diminue et les pôles fœtaux sont facilement perçus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect de l’examen au spéculum confirme l’écoulement amniotique ?", "choix": ["Du liquide incolore ou opalescent s’écoulant par le col", "Un col normal, sans écoulement, avec une glaire cervicale épaisse", "Du sang rouge vif en jet, avec un col long, fermé et non effacé", "Du pus franc s’écoulant par un col rouge et friable au spéculum"], "reponse": "Du liquide incolore ou opalescent s’écoulant par le col", "explication": "L’odeur est fade, évoquant le plâtre frais."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel geste est déconseillé devant une RPM hors travail ?", "choix": ["L’auscultation des bruits du cœur", "Les touchers vaginaux répétés", "L’échographie", "La prise de la température"], "reponse": "Les touchers vaginaux répétés", "explication": "Le toucher vaginal expose au risque infectieux ; le signe de Tarnier signale le risque de procidence du cordon."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que montre le test à la nitrazine en cas de rupture des membranes ?", "choix": ["Une bandelette qui vire au bleu (pH alcalin)", "Une bandelette qui se décolore", "Une bandelette qui reste jaune (pH acide)", "Une bandelette qui vire au rouge"], "reponse": "Une bandelette qui vire au bleu (pH alcalin)", "explication": "Le pH vaginal est acide alors que celui du liquide amniotique est alcalin."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel aspect du liquide amniotique séché sur une lame est typique ?", "choix": ["Des cristaux en aiguilles de glace", "Une cristallisation en feuilles de fougère", "Des cristaux d’oxalate en enveloppe", "Un dépôt homogène sans structure"], "reponse": "Une cristallisation en feuilles de fougère", "explication": "C’est le test de cristallisation."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelles cellules recherche-t-on à l’étude cytologique après 32 SA ?", "choix": ["Des cellules orangées de desquamation cutanée au bleu de Nil", "Des hématies crénelées avec des cristaux d’oxalate de calcium", "Des polynucléaires altérés mis en évidence par la coloration de Gram", "Des cellules en clue-cells évoquant une vaginose bactérienne"], "reponse": "Des cellules orangées de desquamation cutanée au bleu de Nil", "explication": "Elles proviennent de la desquamation de la peau fœtale."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "À partir de quel terme l’amnioscopie peut-elle être utilisée pour le diagnostic de RPM ?", "choix": ["Dès 12 SA", "Uniquement à terme dépassé", "Après 34 SA", "Dès 20 SA"], "reponse": "Après 34 SA", "explication": "Elle montre l’absence des membranes et la présentation au contact du tube."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle enzyme synthétisée par le placenta est dosée dans le diagnostic de RPM ?", "choix": ["La phosphatase alcaline", "La lipase pancréatique", "La diamine-oxydase (DAO)", "La transaminase ASAT"], "reponse": "La diamine-oxydase (DAO)", "explication": "On peut aussi rechercher l’IGFBP1 (Actim-Prom test) ou la fibronectine."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle anomalie échographique est secondaire à la perte de liquide amniotique ?", "choix": ["L’hydramnios", "L’oligoamnios", "La macrosomie", "Le placenta fundique"], "reponse": "L’oligoamnios", "explication": "L’échographie recherche aussi la présentation et la biométrie."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel rapport biochimique dans le liquide amniotique traduit la maturité pulmonaire fœtale ?", "choix": ["Un rapport lécithine/sphingomyéline inférieur à 1", "Un rapport albumine/globuline de 4", "Un rapport lécithine/sphingomyéline supérieur à 2", "Un rapport urée/créatinine supérieur à 10"], "reponse": "Un rapport lécithine/sphingomyéline supérieur à 2", "explication": "Un rapport L/S supérieur à 2 correspond à une maturité pulmonaire."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment nomme-t-on le risque de procidence du cordon lors de l’écoulement brutal de liquide ?", "choix": ["Le coup de tonnerre", "La chute de Pajot", "L’ondée procidogène de Bar", "La vague de Couvelaire"], "reponse": "L’ondée procidogène de Bar", "explication": "Les autres complications immédiates sont la compression funiculaire, l’HRP et les présentations irrégulières."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle association à la RPM expose à une embolie amniotique ?", "choix": ["Un fœtus macrosome", "Une présentation du sommet", "Un hydramnios isolé", "Un placenta prævia"], "reponse": "Un placenta prævia", "explication": "L’embolie amniotique est un accident grave de mortalité élevée."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle complication infectieuse maternelle est redoutée en cas de RPM prolongée ?", "choix": ["La rubéole", "La syphilis tertiaire", "La varicelle", "La chorioamniotite"], "reponse": "La chorioamniotite", "explication": "Elle expose aussi à l’infection néonatale et à l’endométrite."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle complication pulmonaire fœtale suit une RPM avant 25 SA ?", "choix": ["L’hypoplasie broncho-pulmonaire", "L’emphysème congénital", "Le pneumothorax à la naissance", "La maladie des membranes hyalines à terme"], "reponse": "L’hypoplasie broncho-pulmonaire", "explication": "L’oligoamnios prolongé peut aussi causer des déformations fœtales."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments n’intervient pas dans le score de Bishop ?", "choix": ["La dilatation du col", "La consistance du col", "L’âge gestationnel", "Le niveau de la présentation"], "reponse": "L’âge gestationnel", "explication": "Le score associe dilatation, effacement, consistance, position du col et niveau de la présentation."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel score de Bishop est de pronostic très favorable pour un déclenchement ?", "choix": ["Supérieur à 9", "Inférieur à 3", "Exactement 0", "Entre 4 et 5"], "reponse": "Supérieur à 9", "explication": "Un score inférieur à 3 est de pronostic très défavorable."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Laquelle de ces causes mécaniques de RPM s’accompagne d’une surdistension utérine ?", "choix": ["La béance cervicale", "Le placenta prævia", "La malformation utérine", "L’hydramnios"], "reponse": "L’hydramnios", "explication": "Autres causes avec surdistension : grossesse multiple, macrosomie, présentations irrégulières."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces gestes est une cause iatrogène de RPM ?", "choix": ["L’échographie transabdominale", "La consultation prénatale simple", "Le repos au lit", "L’amniocentèse"], "reponse": "L’amniocentèse", "explication": "Autres causes iatrogènes : toucher vaginal, décollement du pôle inférieur, cerclage, biopsie du trophoblaste."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle maladie du collagène est citée comme cause de fragilité des membranes ?", "choix": ["La maladie de Basedow", "Le syndrome d’Ehlers-Danlos", "Le syndrome de Turner", "La maladie de Crohn"], "reponse": "Le syndrome d’Ehlers-Danlos", "explication": "La malnutrition et les toxiques (tabac, plomb) sont d’autres causes."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel écoulement faut-il distinguer de la RPM car il est rosé, intermittent voire cyclique ?", "choix": ["L’hydrorrhée déciduale", "La fistule vésico-vaginale", "Les leucorrhées abondantes", "L’incontinence urinaire d’effort"], "reponse": "L’hydrorrhée déciduale", "explication": "Elle fait partie du diagnostic différentiel avec l’incontinence urinaire et les fistules."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle mesure hygiéno-diététique est prescrite devant une RPM ?", "choix": ["Une reprise normale des activités avec marche prolongée quotidienne", "Des touchers vaginaux répétés à chaque visite pour surveiller le col", "Des rapports sexuels autorisés avec des bains prolongés chaque jour", "Repos au lit avec hospitalisation et garnitures stériles"], "reponse": "Repos au lit avec hospitalisation et garnitures stériles", "explication": "On proscrit les touchers vaginaux."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle posologie de bétaméthasone est utilisée pour la maturation pulmonaire en cas de RPM ?", "choix": ["12 mg par voie orale quotidienne pendant 7 jours de suite", "50 mg en IV unique, en une seule prise avant 34 SA", "12 mg en IM, 2 doses à 24 h d’intervalle, avant 34 SA", "1 mg par jour par voie orale pendant 15 jours consécutifs"], "reponse": "12 mg en IM, 2 doses à 24 h d’intervalle, avant 34 SA", "explication": "Elle prévient la maladie des membranes hyalines."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite s’applique à une RPM avant 26 SA sans travail ni complication ?", "choix": ["Déclenchement immédiat du travail avec perfusion d’ocytocine seule", "Tocolyse prolongée sous perfusion sans aucune antibiothérapie associée", "Césarienne en urgence dès l’admission, quelle que soit la situation", "Repos, expectative, information et antibiothérapie courte systématique"], "reponse": "Repos, expectative, information et antibiothérapie courte systématique", "explication": "En cas de chorioamniotite, on débute des antibiotiques et on déclenche le travail."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite s’applique à une RPM entre 26 et 35 SA sans complication ?", "choix": ["Gagner du temps : repos, corticoïdes, antibiotiques, tocolyse si MAP", "Sortie immédiate à domicile sans aucune surveillance obstétricale", "Déclenchement systématique immédiat avec rupture artificielle large", "Césarienne systématique dès l’admission avec antibiothérapie large"], "reponse": "Gagner du temps : repos, corticoïdes, antibiotiques, tocolyse si MAP", "explication": "On envisage un transfert in utero et on surveille les complications."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conduite s’applique à une RPM après 35 SA sans travail ?", "choix": ["Tocolyse prolongée par nifédipine jusqu’à 37 SA sans déclenchement", "Repos prolongé à l’hôpital jusqu’à 42 SA sans surveillance de Bishop", "Césarienne systématique, quel que soit le score de Bishop observé", "Déclenchement si le score de Bishop est favorable"], "reponse": "Déclenchement si le score de Bishop est favorable", "explication": "Antibiotiques et surveillance ; césarienne si complication ou dystocie."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on l’hémorragie du post-partum immédiat (HPPI) ?", "choix": ["Une perte de plus de 2 litres survenant après les 48 premières heures", "Une perte de plus de 250 ml avant le début du travail de la parturiente", "Une perte sanguine de plus de 500 ml dans les 24 heures suivant la naissance", "Une perte de plus de 100 ml dans la première heure qui suit l’accouchement"], "reponse": "Une perte sanguine de plus de 500 ml dans les 24 heures suivant la naissance", "explication": "Ce seuil est porté à 1000 ml en cas de césarienne."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel seuil de perte sanguine définit l’HPP après césarienne ?", "choix": ["300 ml", "500 ml", "2000 ml", "1000 ml"], "reponse": "1000 ml", "explication": "Pour une voie basse, le seuil est de 500 ml."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel seuil définit une HPP grave après accouchement par voie basse ?", "choix": ["Plus de 500 ml", "Plus de 300 ml", "Plus de 3000 ml", "Plus de 1000 ml"], "reponse": "Plus de 1000 ml", "explication": "Pour une césarienne, l’HPP grave dépasse 1500 ml."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "À partir de quel délai parle-t-on d’HPP tardive ?", "choix": ["Au-delà de 6 heures", "Au-delà de 2 heures", "Au-delà de 24 heures", "Au-delà de 12 heures"], "reponse": "Au-delà de 24 heures", "explication": "L’HPP immédiate survient dans les 24 premières heures."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle place l’HPP occupe-t-elle dans la mortalité maternelle mondiale ?", "choix": ["La première cause", "La deuxième cause après le paludisme", "Une cause très rare", "La dernière cause"], "reponse": "La première cause", "explication": "Elle touche environ 5 % des naissances et un décès survient toutes les 4 minutes."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Dans quel délai suivant l’accouchement surviennent la plupart des décès par HPP ?", "choix": ["Dans les 6 mois", "Dans les 4 heures", "Dans les 3 semaines", "Dans les 7 jours"], "reponse": "Dans les 4 heures", "explication": "D’où la surveillance de 2 heures en salle d’accouchement."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle proportion d’HPP est évitable ?", "choix": ["Environ 90 %", "Environ 5 %", "Environ 40 %", "Moins de 1 %"], "reponse": "Environ 40 %", "explication": "Le retard diagnostique et de prise en charge intervient dans 60 à 85 % des cas."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle mesure systématique de prévention de l’HPP est recommandée pour toute femme ?", "choix": ["La tocolyse systématique", "Le repos strict au lit", "La césarienne prophylactique", "La GATPA"], "reponse": "La GATPA", "explication": "La gestion active de la troisième phase de l’accouchement."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle durée de travail constitue un facteur de risque d’HPP ?", "choix": ["Entre 2 et 3 heures", "Inférieure à 1 heure", "Un travail court de 2 heures", "Supérieure à 6 heures"], "reponse": "Supérieure à 6 heures", "explication": "Autres facteurs : antécédent d’HPP, grossesses multiples, macrosomie, hydramnios, grande multiparité (4 ou plus), anémie, drépanocytose."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À partir de quelle parité parle-t-on de grande multiparité facteur de risque d’HPP ?", "choix": ["2 accouchements", "Aucune parité ne compte", "1 accouchement", "4 accouchements ou plus"], "reponse": "4 accouchements ou plus", "explication": "Les utérus fibromateux ou cicatriciels sont aussi à risque."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le signe d’une hémorragie occulte du post-partum ?", "choix": ["Des lochies normales", "Une hémorragie externe abondante", "Un utérus rétracté en globe de sécurité", "Des signes de choc malgré peu de sang extériorisé"], "reponse": "Des signes de choc malgré peu de sang extériorisé", "explication": "On apprécie le globe utérin, on pratique une révision utérine et un examen sous valves."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quels signes accompagnent une perte de 500 ml ?", "choix": ["Un choc profond avec confusion", "Une perte de connaissance", "Une hypotension sévère avec agitation", "Aucun symptôme ni signe particulier"], "reponse": "Aucun symptôme ni signe particulier", "explication": "À partir de 1,5 litre apparaissent tachycardie, polypnée, extrémités froides et pâleur."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quels signes apparaissent avec une perte supérieure à 2 litres ?", "choix": ["Une pâleur discrète avec une tension artérielle restée parfaitement normale", "Une hypertension artérielle franche avec une bradycardie et une peau chaude", "Pouls et fréquence respiratoire rapides, TA basse, sueurs froides, confusion", "Aucun signe clinique notable, un simple pouls légèrement accéléré chez la patiente"], "reponse": "Pouls et fréquence respiratoire rapides, TA basse, sueurs froides, confusion", "explication": "C’est un tableau de choc hémorragique décompensé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle chute de l’hématocrite est évocatrice d’une HPP importante ?", "choix": ["Environ 1 %", "Environ 10 %", "Environ 3 %", "Aucune chute"], "reponse": "Environ 10 %", "explication": "On réalise hémoglobine, hématocrite et bilan de coagulation sans attendre."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel calibre de cathéter est conseillé pour la voie veineuse en urgence dans l’HPP ?", "choix": ["24 G", "16 G", "26 G", "Aucun cathéter"], "reponse": "16 G", "explication": "On vise une bonne voie veineuse voire deux."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle position est recommandée devant une hémorragie avec choc ?", "choix": ["La position de Trendelenburg", "La position assise", "Le décubitus ventral", "La position demi-assise"], "reponse": "La position de Trendelenburg", "explication": "Avec macromolécules, oxygène à 5-6 litres par minute et sonde vésicale."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Pourquoi vider la vessie dans l’HPP ?", "choix": ["Un globe vésical gêne la rétraction utérine et permet de suivre la diurèse", "Pour faciliter la pose d’un sac de sable sur le fond de l’utérus", "Pour prévenir uniquement une rupture utérine pendant la révision utérine", "Pour accélérer la décoagulation du sang accumulé dans la cavité utérine"], "reponse": "Un globe vésical gêne la rétraction utérine et permet de suivre la diurèse", "explication": "La sonde vésicale permet aussi la surveillance de la diurèse."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la cause la plus fréquente d’HPP ?", "choix": ["Les déchirures du col", "La rupture utérine", "Les troubles de la coagulation", "L’inertie utérine"], "reponse": "L’inertie utérine", "explication": "C’est le « T » du tonus dans les quatre grands T : tonus, tissus, traumatisme, thrombine."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que regroupe le « T » de tissus dans les causes d’HPP ?", "choix": ["L’inertie utérine", "Les troubles de l’hémostase", "La rétention placentaire totale ou partielle", "Les déchirures périnéales"], "reponse": "La rétention placentaire totale ou partielle", "explication": "Il inclut aussi les anomalies de la délivrance et les débris placentaires."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle anomalie d’adhérence placentaire est cause de rétention ?", "choix": ["Le placenta fundique", "Le placenta circumvallé isolé", "Le placenta bipartita sans anomalie", "Le placenta accreta, increta ou percreta"], "reponse": "Le placenta accreta, increta ou percreta", "explication": "Les cotylédons ectopiques et le placenta prævia peuvent aussi être en cause."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est une cause iatrogène d’HPP ?", "choix": ["Les tractions intempestives sur le cordon", "Le respect de la physiologie de la délivrance", "La GATPA bien conduite", "La surveillance au partogramme"], "reponse": "Les tractions intempestives sur le cordon", "explication": "S’y ajoutent le chatouillement du fond utérin et les expressions utérines maladroites."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle maladie de la coagulation constitutionnelle peut causer une HPP ?", "choix": ["La maladie de Basedow", "La drépanocytose", "Le diabète insipide", "La maladie de Willebrand"], "reponse": "La maladie de Willebrand", "explication": "Les anomalies acquises comprennent l’HRP et les troubles de la coagulation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces éléments est une complication immédiate de l’HPP ?", "choix": ["L’infertilité secondaire", "Les synéchies utérines", "Le syndrome de Sheehan", "L’état de choc et la CIVD"], "reponse": "L’état de choc et la CIVD", "explication": "Les complications tardives sont le syndrome de Sheehan, les séquelles neurologiques et obstétricales."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle séquelle tardive hypophysaire peut compliquer une HPP sévère ?", "choix": ["Le syndrome de Sheehan", "Le syndrome de Conn", "La maladie de Cushing", "Le syndrome de Turner"], "reponse": "Le syndrome de Sheehan", "explication": "Elle résulte d’une nécrose ischémique de l’hypophyse."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le premier geste obstétrical si la délivrance n’est pas faite devant une hémorragie ?", "choix": ["Une tocolyse par bêtamimétiques puis une surveillance simple de 6 heures", "La délivrance artificielle suivie d’une révision utérine", "Une hystérectomie d’hémostase d’emblée avant toute autre manœuvre", "Une attente de 2 heures sans aucun geste dans l’espoir d’un arrêt spontané"], "reponse": "La délivrance artificielle suivie d’une révision utérine", "explication": "On y associe ocytocine, massage utérin et examen sous valves."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle dose d’ocytocine est utilisée au début de la prise en charge d’une HPP ?", "choix": ["100 UI par voie sublinguale", "1 UI en IM unique", "50 UI en bolus rapide", "5 à 10 UI en IV lente, puis 20 UI en perfusion sur 2 heures"], "reponse": "5 à 10 UI en IV lente, puis 20 UI en perfusion sur 2 heures", "explication": "Si l’hémorragie persiste après 15 minutes, on passe aux prostaglandines."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Au bout de combien de temps passe-t-on à l’étape suivante si l’hémorragie persiste malgré l’ocytocine ?", "choix": ["15 minutes", "1 heure", "6 heures", "2 minutes"], "reponse": "15 minutes", "explication": "L’étape suivante est la prise en charge par prostaglandines."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la voie d’administration du misoprostol dans l’HPP ?", "choix": ["Intrathécale", "Sous-cutanée", "Intrarectale", "Intra-oculaire"], "reponse": "Intrarectale", "explication": "2 à 4 comprimés en intrarectal."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la dose horaire du sulprostone dans l’HPP ?", "choix": ["10 UI en perfusion lente", "1 g en bolus", "100 à 500 µg par heure à la seringue électrique", "5 à 10 mg par heure"], "reponse": "100 à 500 µg par heure à la seringue électrique", "explication": "Le maximum est de 500 µg."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel antifibrinolytique est cité pour l’HPP ?", "choix": ["L’aspirine", "La warfarine", "L’acide tranexamique", "L’héparine"], "reponse": "L’acide tranexamique", "explication": "Il fait partie des moyens médicaux adjuvants avec le facteur VII activé."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces moyens est une technique mécanique de compression utérine ?", "choix": ["Le cerclage du col", "La conisation", "Le ballonnet de Bakri", "La ligature des trompes"], "reponse": "Le ballonnet de Bakri", "explication": "On peut aussi utiliser la compression bimanuelle ou aortique et des dispositifs improvisés."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Pendant combien de temps maintient-on la compression bimanuelle ou aortique ?", "choix": ["24 heures", "30 secondes", "15 minutes", "3 heures"], "reponse": "15 minutes", "explication": "C’est une méthode mécanique temporaire."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle technique chirurgicale conservatrice consiste en une triple ligature artérielle ?", "choix": ["La technique de Jin Ho Cho", "La technique de Tsirulnikov", "La technique de Bakri", "La technique de B-Lynch"], "reponse": "La technique de Tsirulnikov", "explication": "B-Lynch, Hayman et Jin Ho Cho sont des capitonnages utérins."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelles techniques réalisent un capitonnage utérin ?", "choix": ["Willet et Simpson", "B-Lynch, Hayman et Jin Ho Cho", "Tsirulnikov et Bakri", "Lacomme et Braxton Hicks"], "reponse": "B-Lynch, Hayman et Jin Ho Cho", "explication": "Elles sont conservatrices."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la technique de référence en cas d’échec de tous les moyens conservateurs ?", "choix": ["Le cerclage", "La simple surveillance", "La conisation", "L’hystérectomie d’hémostase"], "reponse": "L’hystérectomie d’hémostase", "explication": "Geste mutilant à décider sans retard et à réaliser rapidement."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien d’étapes comporte la GATPA ?", "choix": ["4", "10", "2", "6"], "reponse": "6", "explication": "Contenu utérin, ocytocine, clampage du cordon, traction contrôlée, massage utérin, examen du placenta."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la première étape de la GATPA ?", "choix": ["Examiner le placenta et les membranes avant toute autre étape", "Faire le massage utérin de façon prolongée dès l’expulsion", "Clamper le cordon ombilical immédiatement après la naissance du bébé", "Vérifier le contenu utérin pour éliminer un deuxième jumeau"], "reponse": "Vérifier le contenu utérin pour éliminer un deuxième jumeau", "explication": "On passe à l’étape suivante en l’absence de deuxième fœtus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle dose d’ocytocine est administrée à l’étape 2 de la GATPA ?", "choix": ["50 UI après la délivrance du placenta, sous forme d’un bolus unique", "10 UI dans la minute qui suit l’expulsion du fœtus", "1 UI une heure après l’expulsion complète du placenta de la femme", "10 UI administrées uniquement en cas d’hémorragie déclarée du post-partum"], "reponse": "10 UI dans la minute qui suit l’expulsion du fœtus", "explication": "C’est un utérotonique en prévention systématique."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est le but de la contre-pression utérine pendant la traction du cordon ?", "choix": ["Accélérer le travail", "Faciliter l’engagement", "Éviter l’inversion utérine", "Favoriser la rupture de la poche"], "reponse": "Éviter l’inversion utérine", "explication": "La traction contrôlée dure 30 à 40 secondes pendant une contraction."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Pendant combien de temps surveille-t-on la femme en salle de naissance après l’accouchement ?", "choix": ["24 heures", "10 minutes", "2 heures", "3 jours"], "reponse": "2 heures", "explication": "On surveille pouls, tension, globe utérin et écoulement vulvaire."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Au-delà de quel délai pratique-t-on une délivrance artificielle si le placenta n’est pas expulsé ?", "choix": ["2 heures", "30 minutes", "6 heures", "5 minutes"], "reponse": "30 minutes", "explication": "Pour une césarienne, on pratique une délivrance dirigée."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel autre nom porte l’adaptation fœto-utéro-pelvienne ?", "choix": ["La dynamique utérine", "La mécanique obstétricale", "La physiologie placentaire", "La statique pelvienne"], "reponse": "La mécanique obstétricale", "explication": "Ensemble des phénomènes mécaniques et évolutifs qui commandent l’attitude du fœtus pendant la grossesse et le travail."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels sont les deux types d’accommodation ?", "choix": ["Fœto-placentaire (grossesse) et fœto-maternelle (travail) de l’enfant", "Cervicale (grossesse) et vaginale (travail) pendant l’accouchement", "Fœto-utérine (grossesse) et fœto-pelvienne (travail)", "Utéro-pelvienne (grossesse) et ovulaire (travail) selon la position"], "reponse": "Fœto-utérine (grossesse) et fœto-pelvienne (travail)", "explication": "L’adaptation fœto-utérine précède l’adaptation fœto-pelvienne."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels sont les trois éléments en présence dans l’adaptation fœto-pelvienne ?", "choix": ["Le fœtus, le périnée et la vessie", "Le moteur utérin, le mobile fœtal et la filière pelvienne", "Le col, le vagin et la vulve", "Le placenta, le cordon et le liquide amniotique"], "reponse": "Le moteur utérin, le mobile fœtal et la filière pelvienne", "explication": "Le bassin mou intervient aussi dans la progression."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Où se situe en général la tête fœtale avant le 6e mois ?", "choix": ["Dans la région sus-pubienne", "Dans l’excavation pelvienne", "Au niveau du détroit inférieur", "Au fond utérin"], "reponse": "Au fond utérin", "explication": "Avant le 6e mois, il n’y a pas d’attitude précise du fœtus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle forme prend l’utérus vers le 6e mois ?", "choix": ["Aplatie transversalement", "Triangulaire", "Sphérique", "Ovoïde à grand axe longitudinal"], "reponse": "Ovoïde à grand axe longitudinal", "explication": "Le fœtus adopte le plus souvent une position longitudinale non définitive."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle loi d’accommodation s’applique vers le 7e mois ?", "choix": ["La loi de Lacomme", "La loi de Pajot", "La loi de Naegele", "La loi de Pinard"], "reponse": "La loi de Pajot", "explication": "Le contenu adapte sa forme et ses dimensions à celles du contenant."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que provoque un obstacle à l’accommodation fœto-utérine ?", "choix": ["Une présentation du sommet", "Un accouchement normal", "Une présentation toujours engagée", "Une anomalie de présentation"], "reponse": "Une anomalie de présentation", "explication": "Face, front, épaule ou siège."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle présentation résulte d’une accommodation fœto-utérine parfaite ?", "choix": ["La présentation de la face", "La présentation de l’épaule", "La présentation du siège", "La présentation du sommet"], "reponse": "La présentation du sommet", "explication": "C’est le prélude d’un accouchement normal."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la succession des niveaux de la présentation au 8e mois ?", "choix": ["Fixée, haute, engagée, amorcée", "Amorcée, engagée, haute, fixée", "Engagée, fixée, amorcée, haute", "Haute (mobile), amorcée, fixée, engagée"], "reponse": "Haute (mobile), amorcée, fixée, engagée", "explication": "La descente de la présentation termine l’adaptation fœto-utérine avec la latéralisation du dos."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quels sont les trois mouvements successifs de l’évolution de la présentation ?", "choix": ["Engagement, descente avec rotation intrapelvienne, dégagement", "Dégagement, engagement et restitution de la tête fœtale en travail", "Flexion, déflexion et restitution de la présentation au détroit inférieur", "Rotation, expulsion et délivrance du placenta après la naissance"], "reponse": "Engagement, descente avec rotation intrapelvienne, dégagement", "explication": "Au niveau du détroit supérieur, du détroit moyen puis du détroit inférieur."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quand une présentation est-elle dite engagée ?", "choix": ["Quand son plus grand diamètre franchit l’aire du détroit supérieur", "Quand la présentation est haute et mobile au-dessus du détroit supérieur", "Quand la présentation est arrivée sur le périnée en fin d’expulsion", "Quand la présentation est simplement amorcée au détroit supérieur"], "reponse": "Quand son plus grand diamètre franchit l’aire du détroit supérieur", "explication": "C’est le temps le plus important pour le pronostic de l’accouchement par voie basse."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "En combien de temps s’effectue l’engagement de la présentation ?", "choix": ["Un seul temps", "Trois temps : orientation, amoindrissement, engagement proprement dit", "Quatre temps : flexion, rotation, restitution, expulsion", "Deux temps : flexion et déflexion"], "reponse": "Trois temps : orientation, amoindrissement, engagement proprement dit", "explication": "L’orientation se fait sur un diamètre oblique du bassin."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la valeur du diamètre oblique du bassin sur lequel s’oriente la présentation ?", "choix": ["12 cm", "18 cm", "9 cm", "6 cm"], "reponse": "12 cm", "explication": "L’amoindrissement présente ensuite le plus petit diamètre compatible."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Comment appelle-t-on l’engagement dans lequel la suture sagittale se projette sur le diamètre oblique du bassin ?", "choix": ["Asynclite antérieur", "Synclite", "Dystocique", "Asynclite postérieur"], "reponse": "Synclite", "explication": "En asynclitisme, la suture est un peu en avant ou en arrière du diamètre oblique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quand l’engagement a-t-il lieu chez la primipare ?", "choix": ["En fin de grossesse", "Dès le 4e mois", "Uniquement pendant l’expulsion", "Après la délivrance"], "reponse": "En fin de grossesse", "explication": "Chez la multipare, il survient pendant le travail."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel axe suit la descente de la présentation ?", "choix": ["L’axe ombilico-coccygien", "L’axe sacro-pubien", "L’axe coccy-périnéal", "L’axe vertical du rachis"], "reponse": "L’axe ombilico-coccygien", "explication": "L’axe du détroit inférieur est coccy-périnéal."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle rotation intrapelvienne est la plus fréquente ?", "choix": ["La petite rotation de 45°", "La grande rotation de 135°", "Une rotation de 180°", "Une absence de rotation"], "reponse": "La petite rotation de 45°", "explication": "Les grandes rotations se voient surtout dans les variétés postérieures."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Autour de quelle structure la tête pivote-t-elle lors du dégagement ?", "choix": ["Les épines sciatiques", "La symphyse pubienne, qui agit comme une charnière", "Le promontoire", "Le coccyx fixe"], "reponse": "La symphyse pubienne, qui agit comme une charnière", "explication": "L’occiput glisse sous la symphyse."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle conséquence a la rétropulsion du coccyx au dégagement ?", "choix": ["Une fracture du sacrum au moment de l’expulsion de la tête fœtale", "La diminution du diamètre transversal du détroit supérieur du bassin", "Un rétrécissement du périnée antérieur et de l’orifice vulvaire", "L’augmentation du diamètre antéro-postérieur du détroit inférieur"], "reponse": "L’augmentation du diamètre antéro-postérieur du détroit inférieur", "explication": "Elle accompagne la distension du périnée postérieur puis antérieur."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Comment définit-on la présentation du sommet ?", "choix": ["Une tête en flexion maximale, le menton au contact du tronc", "Une tête en extension, l’occiput contre le dos", "Les fesses en bas dans le détroit supérieur", "Une tête défléchie présentant la face"], "reponse": "Une tête en flexion maximale, le menton au contact du tronc", "explication": "La tête est fléchie au moment où elle prend contact avec le détroit supérieur."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la fréquence de la présentation du sommet ?", "choix": ["50 %", "70 %", "95 %", "99,9 %"], "reponse": "95 %", "explication": "C’est une présentation eutocique dont le repère est l’occiput."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quel est le repère de la présentation du sommet ?", "choix": ["Le front", "Le sacrum", "L’occiput", "Le menton"], "reponse": "L’occiput", "explication": "Le repère de la face est le menton et celui du siège le sacrum."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel diamètre de la tête fœtale franchit le bassin dans la flexion maximale ?", "choix": ["L’occipito-frontal de 13 à 14 cm", "Le sous-occipito-bregmatique de 9,5 cm", "Le bi-pariétal de 12 cm", "Le sous-occipito-frontal de 12 cm"], "reponse": "Le sous-occipito-bregmatique de 9,5 cm", "explication": "Le complément de flexion fait passer du diamètre occipito-frontal au sous-occipito-bregmatique."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la valeur du diamètre occipito-frontal ?", "choix": ["18 cm", "13 à 14 cm", "7 cm", "9,5 cm"], "reponse": "13 à 14 cm", "explication": "Il est supérieur aux diamètres de la tête fléchie."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la variété de position la plus fréquente du sommet ?", "choix": ["L’OIDA, avec 4 % des cas", "L’OIGP, avec 2 % des cas", "L’OIDP, avec 37 % des cas", "L’OIGA, avec 57 % des cas"], "reponse": "L’OIGA, avec 57 % des cas", "explication": "OIDP : 37 % ; OIDA : 4 % ; OIGP : 2 %."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle est la fréquence de l’OIDP ?", "choix": ["2 %", "37 %", "57 %", "4 %"], "reponse": "37 %", "explication": "Les variétés postérieures donnent un travail plus long."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que signifie OIGA ?", "choix": ["Occipito-ischiatique gauche antérieure", "Occipito-iliaque gauche postérieure", "Occipito-iliaque droite antérieure", "Occipito-iliaque gauche antérieure"], "reponse": "Occipito-iliaque gauche antérieure", "explication": "Les variétés antérieures sont plus favorables."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que perçoit-on à la palpation sus-pubienne dans un sommet ?", "choix": ["Un moignon d’épaule mou", "Une masse molle, irrégulière et non ballottante", "Deux renflements séparés par un sillon", "Une masse arrondie, dure, régulière et ballottante"], "reponse": "Une masse arrondie, dure, régulière et ballottante", "explication": "Le fond utérin donne au contraire une masse arrondie, molle, irrégulière, non ballottante."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle manœuvre permet de repérer le dos et les membres sur les bords latéraux de l’utérus ?", "choix": ["La manœuvre de Budin", "La manœuvre de Willet", "La manœuvre de Lacomme", "La manœuvre de Simpson"], "reponse": "La manœuvre de Budin", "explication": "Elle complète l’inspection et la palpation de l’utérus à grand axe longitudinal."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Où se situe le foyer d’auscultation des bruits du cœur dans un sommet ?", "choix": ["Au niveau du fond utérin, à droite, à distance du dos du fœtus", "Sur la ligne médiane sus-pubienne, juste au-dessus de la symphyse", "Sous l’ombilic, en dehors de la ligne médiane, du côté du dos", "Au-dessus de l’ombilic, sur la ligne médiane et du côté opposé au dos"], "reponse": "Sous l’ombilic, en dehors de la ligne médiane, du côté du dos", "explication": "Le foyer se situe du côté du dos fœtal."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel repère perçoit-on au toucher vaginal pour affirmer le sommet ?", "choix": ["L’occiput, près du lambda", "L’anus et les fesses", "Le moignon de l’épaule", "Le menton et la bouche"], "reponse": "L’occiput, près du lambda", "explication": "Le toucher vaginal précise aussi la variété de position et la hauteur de la présentation."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel élément évoque une présentation transversale au toucher vaginal ?", "choix": ["Une masse dure ballottante", "Un occiput près du lambda", "Deux renflements avec un anus", "Le moignon de l’épaule, mou"], "reponse": "Le moignon de l’épaule, mou", "explication": "Le siège est reconnu par deux renflements et l’anus."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle orientation prend le diamètre occipito-frontal lors de l’engagement d’une OIGA ?", "choix": ["Parallèle au diamètre oblique gauche du bassin", "Parallèle au diamètre antéro-postérieur", "Parallèle au diamètre oblique droit", "Perpendiculaire au diamètre transverse"], "reponse": "Parallèle au diamètre oblique gauche du bassin", "explication": "Puis a lieu le complément de flexion."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "De quel angle est la rotation intrapelvienne d’une OIGA évoluant en occipito-pubien ?", "choix": ["180°", "45° (1/8 de cercle)", "90°", "135°"], "reponse": "45° (1/8 de cercle)", "explication": "En occipito-sacré la rotation est de 135° (3/8 de cercle)."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "De quel angle est la rotation intrapelvienne d’une OIGA évoluant en occipito-sacré ?", "choix": ["Aucune rotation", "135° (3/8 de cercle)", "45° (1/8 de cercle)", "90° (1/4 de cercle)"], "reponse": "135° (3/8 de cercle)", "explication": "C’est une rotation plus longue et moins fréquente."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Combien de processus interviennent dans le dégagement de la tête ?", "choix": ["2 processus : la flexion puis la déflexion de la tête fœtale", "4 processus : flexion, rotation, restitution puis expulsion de la tête", "1 seul processus : une simple traction douce sur la tête fœtale", "3 : ampliation du périnée, changement de direction, changement d’attitude"], "reponse": "3 : ampliation du périnée, changement de direction, changement d’attitude", "explication": "« L’enfant naît en regardant en bas »."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quel est l’adage décrivant la naissance du fœtus en sommet ?", "choix": ["L’enfant naît en regardant de côté", "L’enfant naît en regardant en haut", "L’enfant naît le dos en bas", "L’enfant naît en regardant en bas"], "reponse": "L’enfant naît en regardant en bas", "explication": "Le dégagement se fait par déflexion autour de l’occiput calé sous le pubis."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Comment se fait le dégagement des épaules dans une OIGA ?", "choix": ["En position dorso-postérieure", "Sans aucune rotation", "En position dorso-antérieure fixe", "En position dorso-transverse gauche"], "reponse": "En position dorso-transverse gauche", "explication": "Les épaules suivent un processus identique à celui de la tête."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle caractéristique ont les variétés postérieures du sommet ?", "choix": ["Un travail plus rapide", "Un travail plus long et un périnée plus menacé", "Une flexion plus importante", "Un périnée jamais menacé"], "reponse": "Un travail plus long et un périnée plus menacé", "explication": "La flexion est moins marquée et l’accommodation moins favorable ; le dégagement se fait souvent en occipito-sacré."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Où se forme la bosse séro-sanguine dans un sommet ?", "choix": ["Au niveau du menton", "Au niveau de l’occiput", "Au niveau du front", "Au niveau de la nuque"], "reponse": "Au niveau de l’occiput", "explication": "Les os du crâne se chevauchent : ce sont les phénomènes plastiques."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Après quel terme définit-on l’accouchement ?", "choix": ["Après 12 SA", "Après 28 SA", "Après 22 SA", "Après 37 SA uniquement"], "reponse": "Après 22 SA", "explication": "Ensemble des phénomènes mécaniques et dynamiques d’expulsion du fœtus et de ses annexes."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle valeur normale a le diamètre prépubien de Trillat ?", "choix": ["16 cm", "9 cm", "6 cm", "12 cm"], "reponse": "12 cm", "explication": "C’est la distance entre les deux plis inguinaux, à hauteur de la symphyse."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle valeur normale a le diamètre bi-ischiatique ?", "choix": ["6 cm", "11 cm", "14 cm", "8 cm"], "reponse": "11 cm", "explication": "C’est le diamètre transversal du détroit inférieur."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle valeur du diamètre promonto-rétro-pubien impose une référence ?", "choix": ["Supérieure à 15 cm", "Inférieure à 10,5 cm", "Exactement 11 cm", "Supérieure à 12 cm"], "reponse": "Inférieure à 10,5 cm", "explication": "Le PRP est le diamètre antéro-postérieur ; une valeur inférieure à 10,5 cm impose le transfert."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Quelles sont les bornes normales du rythme cardiaque fœtal ?", "choix": ["60 à 100 battements par minute", "170 à 220 battements par minute", "110 à 160 battements par minute", "80 à 120 battements par minute"], "reponse": "110 à 160 battements par minute", "explication": "Elles sont à surveiller régulièrement pendant le travail."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Lequel de ces signes appartient au diagnostic de travail ?", "choix": ["Une hyperthermie fébrile", "L’expulsion du bouchon muqueux", "Une prise de poids brutale", "Une céphalée isolée"], "reponse": "L’expulsion du bouchon muqueux", "explication": "On associe bouchon muqueux, contractions régulières et modifications cervicales."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la caractéristique des contractions utérines du vrai travail ?", "choix": ["Régulières, d’intervalle de plus en plus court, d’intensité croissante", "Irrégulières, d’intervalle long et d’intensité stable ou décroissante", "D’intensité stable, souvent abolies par l’analgésie et sans effet sur le col", "Sans effet sur le col, localisées au bas-ventre et intermittentes"], "reponse": "Régulières, d’intervalle de plus en plus court, d’intensité croissante", "explication": "Dans le faux travail, le col ne change pas et l’analgésie les abolit souvent."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment évolue le col chez la primipare au cours du travail ?", "choix": ["Il reste fermé jusqu’à l’expulsion", "Il se dilate avant de s’effacer", "Il ne s’efface jamais", "Il s’efface avant de se dilater"], "reponse": "Il s’efface avant de se dilater", "explication": "Chez la multipare, effacement et dilatation sont simultanés."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel test utilise Spasfon et Valium en IM pour différencier vrai et faux travail ?", "choix": ["Le test de Farabeuf", "Le test de Budin", "Le test de Bonnaire", "Le test de Kreis"], "reponse": "Le test de Kreis", "explication": "En cas de faux travail, les contractions s’arrêtent."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Combien de paramètres le partogramme comprend-il ?", "choix": ["2", "4", "6", "10"], "reponse": "6", "explication": "Contractions, BDCF, col, poche des eaux, niveau de la présentation, état maternel."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle fréquence de contractions utérines est normale pendant le travail ?", "choix": ["1 par 30 minutes", "3 à 6 par 10 minutes", "1 par heure", "10 par 10 minutes"], "reponse": "3 à 6 par 10 minutes", "explication": "Les contractions ouvrent l’utérus et poussent le fœtus vers le bas."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle est la vitesse moyenne de dilatation du col en phase active ?", "choix": ["Environ 1 cm par heure", "Environ 10 cm par heure", "Environ 1 cm par jour", "Environ 5 cm par heure"], "reponse": "Environ 1 cm par heure", "explication": "De 1 à 5 cm la dilatation est lente, de 5 à 11 cm elle est rapide."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "À partir de quelle dilatation le col est-il complet ?", "choix": ["5 cm", "7 cm", "10 cm", "3 cm"], "reponse": "10 cm", "explication": "La phase d’expulsion débute alors."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quelle caractéristique de la poche des eaux évoque une présentation dystocique ?", "choix": ["Elle est lisse et plate", "Elle est peu saillante", "Elle est absente", "Elle est bombante"], "reponse": "Elle est bombante", "explication": "Dans une présentation eutocique, la poche est peu saillante."},
+      {"categorie": "medecine", "niveau": "difficile", "theme": "Gynécologie-obstétrique", "question": "Quel signe au toucher vaginal témoigne de l’engagement de la tête ?", "choix": ["Le signe du sillon du cou", "Le signe de Bonnaire", "Le signe de Tarnier", "Le signe de Farabeuf"], "reponse": "Le signe de Farabeuf", "explication": "À la palpation, le signe du fœtus sans tête traduit l’engagement."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle durée moyenne a la phase d’expulsion chez la primipare ?", "choix": ["20 minutes", "5 minutes", "1 heure", "2 heures"], "reponse": "20 minutes", "explication": "Elle est de 15 minutes chez la multipare."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Comment doivent être les efforts expulsifs ?", "choix": ["Pendant la contraction, en inspiration bloquée, quand l’envie de pousser est présente", "Dès 5 cm de dilatation, quelle que soit la descente de la tête fœtale", "Entre les contractions, en expiration lente et sans effort de poussée", "En l’absence de toute contraction, sur ordre de la sage-femme seule"], "reponse": "Pendant la contraction, en inspiration bloquée, quand l’envie de pousser est présente", "explication": "Ils se font quand la tête est dans l’excavation pelvienne."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Que fait-on si le périnée est menacé pendant le dégagement de la tête ?", "choix": ["Une rétropulsion du coccyx forcée", "Une épisiotomie", "Une simple traction sur le cordon", "Une version par manœuvre interne"], "reponse": "Une épisiotomie", "explication": "La main droite protège le périnée pendant la déflexion de la tête."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Qu’attend-on avant de dégager les épaules ?", "choix": ["La dilatation complète du col", "L’expulsion du placenta", "Le mouvement de restitution de la tête", "Une nouvelle rotation de 135°"], "reponse": "Le mouvement de restitution de la tête", "explication": "On saisit ensuite la tête entre les index et majeurs des deux mains."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Entre quels instruments sectionne-t-on le cordon ombilical ?", "choix": ["Entre deux pinces de Museux", "Entre deux pinces de Kocher", "Entre deux valves vaginales", "Entre deux forceps"], "reponse": "Entre deux pinces de Kocher", "explication": "Il peut aussi être sectionné entre un clamp de Bard et une pince."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle phase de rémission respecte-t-on avant la délivrance normale ?", "choix": ["2 minutes", "15 à 30 minutes", "12 heures", "3 heures"], "reponse": "15 à 30 minutes", "explication": "On surveille le pouls et l’écoulement vulvaire."},
+      {"categorie": "medecine", "niveau": "facile", "theme": "Gynécologie-obstétrique", "question": "Que ne faut-il jamais faire pendant la délivrance normale ?", "choix": ["Examiner le placenta", "Tirer sur le cordon ou chatouiller le fond utérin", "Surveiller le pouls", "Respecter la phase de rémission"], "reponse": "Tirer sur le cordon ou chatouiller le fond utérin", "explication": "Il faut toujours examiner le placenta et les membranes."},
+      {"categorie": "medecine", "niveau": "moyen", "theme": "Gynécologie-obstétrique", "question": "Quelle durée de surveillance en salle d’accouchement suit la délivrance ?", "choix": ["5 minutes", "24 heures obligatoires", "Au moins 2 heures", "30 minutes"], "reponse": "Au moins 2 heures", "explication": "On surveille pouls, TA, globe utérin et écoulement vulvaire."}
+
+    ];
+
+    (function genererQuestions() {
+      const melanger = a => [...a].sort(() => Math.random() - 0.5);
+      const ajouter = (categorie, niveau, question, bonne, pool, explication, theme) => {
+        const faux = melanger([...new Set(pool)].filter(x => x !== bonne)).slice(0, 3);
+        questionsMedQuiz.push({ categorie, niveau, question, choix: melanger([bonne, ...faux]), reponse: bonne, explication, theme });
+      };
+      const capitales = {
+        facile: [["de l'Italie","Rome"],["de l'Espagne","Madrid"],["de l'Allemagne","Berlin"],["du Royaume-Uni","Londres"],["du Japon","Tokyo"],["de l'Égypte","Le Caire"],["de la Chine","Pékin"],["de la Russie","Moscou"],["du Maroc","Rabat"],["du Mali","Bamako"],["de l'Algérie","Alger"],["de la Guinée","Conakry"],["de la Mauritanie","Nouakchott"],["de la Gambie","Banjul"],["des États-Unis","Washington"]],
+        moyen: [["du Canada","Ottawa"],["du Nigeria","Abuja"],["du Ghana","Accra"],["du Kenya","Nairobi"],["de l'Éthiopie","Addis-Abeba"],["de la Turquie","Ankara"],["de l'Inde","New Delhi"],["de l'Argentine","Buenos Aires"],["du Portugal","Lisbonne"],["de la Grèce","Athènes"],["de la Suisse","Berne"],["de la Tunisie","Tunis"],["du Cameroun","Yaoundé"],["du Burkina Faso","Ouagadougou"],["du Niger","Niamey"]],
+        difficile: [["de la Côte d'Ivoire","Yamoussoukro"],["du Bénin","Porto-Novo"],["de la Tanzanie","Dodoma"],["du Pakistan","Islamabad"],["du Kazakhstan","Astana"],["du Myanmar","Naypyidaw"],["de la Nouvelle-Zélande","Wellington"],["du Vietnam","Hanoï"],["du Pérou","Lima"],["de la Colombie","Bogota"],["de la Norvège","Oslo"],["de la Suède","Stockholm"],["de la Finlande","Helsinki"],["de la République démocratique du Congo","Kinshasa"],["de Madagascar","Antananarivo"]]
+      };
+      const toutesCap = Object.values(capitales).flat().map(x => x[1]).concat(["Dakar","Paris","Lagos","Casablanca","Abidjan"]);
+      for (const [niv, liste] of Object.entries(capitales))
+        liste.forEach(([pays, cap]) => ajouter("culture", niv, `Quelle est la capitale ${pays} ?`, cap, toutesCap, `${cap} est la capitale ${pays}.`, "Géographie"));
+
+      const elements = {
+        moyen: [["l'oxygène","O"],["l'hydrogène","H"],["le carbone","C"],["le sodium","Na"],["le potassium","K"],["l'azote","N"]],
+        difficile: [["l'argent","Ag"],["le plomb","Pb"],["le cuivre","Cu"],["le calcium","Ca"],["le mercure","Hg"],["l'étain","Sn"]]
+      };
+      const symboles = Object.values(elements).flat().map(x => x[1]).concat(["Fe","Au","He"]);
+      for (const [niv, liste] of Object.entries(elements))
+        liste.forEach(([nom, sym]) => ajouter("culture", niv, `Quel est le symbole chimique de ${nom} ?`, sym, symboles, `${sym} est le symbole de ${nom}.`, "Sciences"));
+
+      const oeuvres = {
+        moyen: [["Le Petit Prince","Antoine de Saint-Exupéry"],["Roméo et Juliette","William Shakespeare"],["Une si longue lettre","Mariama Bâ"],["L'Étranger","Albert Camus"],["Le Rouge et le Noir","Stendhal"],["Germinal","Émile Zola"]],
+        difficile: [["L'Aventure ambiguë","Cheikh Hamidou Kane"],["Les Soleils des indépendances","Ahmadou Kourouma"],["Madame Bovary","Gustave Flaubert"],["Les Fleurs du mal","Charles Baudelaire"],["Don Quichotte","Miguel de Cervantes"],["Cahier d'un retour au pays natal","Aimé Césaire"],["Le Ventre de l'Atlantique","Fatou Diome"],["Le Dernier Jour d'un condamné","Victor Hugo"]]
+      };
+      const auteurs = Object.values(oeuvres).flat().map(x => x[1]).concat(["Molière","Léopold Sédar Senghor"]);
+      for (const [niv, liste] of Object.entries(oeuvres))
+        liste.forEach(([titre, auteur]) => ajouter("culture", niv, `Qui est l'auteur de « ${titre} » ?`, auteur, auteurs, `« ${titre} » a été écrit par ${auteur}.`, "Littérature"));
+
+      const corps = {
+        facile: [["permet d'entendre","L'oreille"],["permet de goûter les aliments","La langue"],["contrôle la pensée et les mouvements","Le cerveau"],["stocke l'urine","La vessie"],["conduit les aliments de la bouche à l'estomac","L'œsophage"],["protège le cœur et les poumons","La cage thoracique"],["soutient le corps et protège la moelle épinière","La colonne vertébrale"]],
+        moyen: [["absorbe la majorité des nutriments","L'intestin grêle"],["absorbe l'eau et forme les selles","Le côlon"],["stocke la bile","La vésicule biliaire"],["filtre le sang et participe à l'immunité","La rate"],["fabrique les cellules sanguines","La moelle osseuse"],["conduit l'air vers les bronches","La trachée"],["sécrète l'adrénaline","Les glandes surrénales"],["est en cause dans le scorbut lorsqu'elle manque","La vitamine C"],["protège la vision, notamment nocturne","La vitamine A"],["est nécessaire aux globules rouges et au système nerveux","La vitamine B12"]],
+        difficile: [["sécrète l'hormone de croissance","L'hypophyse"],["produit la mélatonine","La glande pinéale"],["sécrète la parathormone","Les glandes parathyroïdes"],["coordonne l'équilibre et les mouvements","Le cervelet"],["constitue l'unité filtrante du rein","Le néphron"],["relaie les informations sensorielles vers le cortex","Le thalamus"],["joue un rôle clé dans la mémoire","L'hippocampe"],["intervient dans les émotions comme la peur","L'amygdale cérébrale"],["est recommandée pendant la grossesse pour prévenir des malformations du tube neural","La vitamine B9"],["est en cause dans le béribéri lorsqu'elle manque","La vitamine B1"],["est en cause dans la pellagre lorsqu'elle manque","La vitamine B3"]]
+      };
+      const toutCorps = Object.values(corps).flat().map(x => x[1]);
+      for (const [niv, liste] of Object.entries(corps))
+        liste.forEach(([desc, rep]) => {
+          const pool = rep.startsWith("La vitamine") ? toutCorps.filter(x => x.startsWith("La vitamine")) : liste.map(x => x[1]).filter(x => !x.startsWith("La vitamine")).concat(niv === "facile" ? [] : toutCorps.filter(x => !x.startsWith("La vitamine")));
+          const vit = rep.startsWith("La vitamine");
+          ajouter("medecine", niv, vit ? `Quelle vitamine ${desc} ?` : `Qu'est-ce qui ${desc} ?`, rep, pool, `Bonne réponse : ${rep}.`, vit ? "Vitamines" : "Anatomie");
+        });
+      const niveaux = { f: "facile", m: "moyen", d: "difficile" };
+      const cours = {
+        "Plexus brachial": `
+f|Quelles racines forment le plexus brachial ?|C5, C6, C7, C8 et T1|C1 à C4|C3 à C7|C6 à T3
+f|Le plexus brachial innerve :|La ceinture scapulaire et le membre supérieur|Le membre inférieur|Le cou uniquement|Le thorax
+m|Quel tronc est formé par l'union de C5 et C6 ?|Le tronc supérieur|Le tronc moyen|Le tronc inférieur|Le faisceau médial
+m|Le tronc moyen est formé par la racine de :|C7|C6|C8|T1
+m|Le tronc inférieur est formé par :|C8 et T1|C7 et C8|C6 et C7|T1 et T2
+m|Le faisceau latéral est formé par les branches antérieures des troncs :|Supérieur et moyen|Moyen et inférieur|Supérieur et inférieur|Des 3 troncs
+m|Le faisceau postérieur est formé par les branches postérieures :|Des 3 troncs|Des troncs supérieur et moyen|Du tronc inférieur seul|Des troncs moyen et inférieur
+m|Le nerf radial naît du faisceau :|Postérieur|Latéral|Médial|Antérieur
+m|Quel nerf naît du faisceau latéral avec la racine latérale du médian ?|Le nerf musculo-cutané|Le nerf ulnaire|Le nerf radial|Le nerf axillaire
+d|Le nerf ulnaire naît du faisceau :|Médial|Latéral|Postérieur|Antérieur
+d|Le nerf thoraco-dorsal innerve :|Le grand dorsal|Le grand pectoral|Le petit pectoral|Le grand rond
+d|Le bloc supraclaviculaire expose au risque de :|Pneumothorax|Embolie pulmonaire|Pneumonie|Fracture de côte
+m|Le syndrome d'Erb-Duchenne correspond à un déficit de :|C5-C6|C8-T1|C7 seul|T1 seul
+m|Le syndrome de Déjerine-Klumpke correspond à un déficit de :|C8-T1|C5-C6|C6-C7|C4-C5
+d|La racine C5 assure principalement :|L'abduction du bras|La flexion du coude|L'extension du coude|Les muscles intrinsèques de la main
+d|La racine C6 assure principalement :|La flexion du coude|L'abduction du bras|L'extension des doigts|Les muscles intrinsèques de la main
+d|Le syndrome de Pancoast-Tobias est lié à une atteinte du :|Ganglion cervical inférieur|Nerf radial|Nerf fémoral|Plexus lombaire
+d|Quel nerf est comprimé dans le syndrome du canal carpien ?|Le nerf médian|Le nerf radial|Le nerf ulnaire|Le nerf axillaire
+`,
+        "Articulation du genou": `
+f|Le genou comprend deux articulations :|Fémoro-patellaire et fémoro-tibiale|Fémoro-patellaire et tibio-fibulaire|Fémoro-tibiale et tibio-talienne|Coxo-fémorale et fémoro-tibiale
+f|Combien de ménisques possède le genou ?|2|1|3|4
+f|La patella s'articule avec :|La trochlée fémorale|Le plateau tibial|La fibula|Le talus
+m|Le ménisque médial a la forme d'un :|C|O|X|Y
+m|Le ménisque latéral a la forme d'un :|O|C|V|S
+m|Quel système assure la stabilité antéro-postérieure du genou ?|Le pivot central|Le système collatéral|Les ailerons rotuliens|Les ligaments poplités
+m|Les ligaments collatéraux assurent la stabilité :|Latérale|Antéro-postérieure|Verticale|Rotatoire uniquement
+m|Quel signe clinique recherche une lésion des ligaments croisés ?|Le mouvement du tiroir|Le signe du bâillement latéral|Le signe de Lasègue|Le signe de Babinski
+m|Les muscles de la patte d'oie sont :|Sartorius, gracile, demi-tendineux|Biceps, poplité, demi-membraneux|Vaste médial, droit fémoral, sartorius|Gracile, poplité, tenseur du fascia lata
+m|Quelle joue de la trochlée est la plus saillante ?|La joue latérale|La joue médiale|Les deux sont égales|La joue postérieure
+d|L'os sésamoïde inconstant de la coque condylienne latérale est :|La fabella|La patella|Le pisiforme|Le sésamoïde médial
+d|La graisse intra-patellaire de Hoffa est :|Extra-articulaire|Intra-synoviale|Intra-articulaire|Intra-osseuse
+d|L'amplitude de la flexion passive (assis sur les talons) est de :|160°|90°|120°|180°
+d|La flexion active du genou, hanche fléchie, est de :|140°|120°|160°|90°
+d|La rotation externe du genou fléchi à 90° est de :|40°|30°|20°|60°
+d|La rotation interne du genou fléchi à 90° est de :|30°|40°|15°|60°
+d|Le ligament croisé antéro-externe se termine sur :|La face interne du condyle externe|La face externe du condyle médial|La patella|La fibula
+d|Les nerfs du genou dérivent notamment des nerfs obturateur, fémoral, tibial et :|Fibulaire commun|Sciatique poplité interne|Sural|Saphène externe
+`,
+        "Articulation de la hanche": `
+f|La hanche unit :|L'os coxal et le fémur|Le fémur et le tibia|L'os coxal et le sacrum|Le fémur et la patella
+f|La hanche est une articulation :|Synoviale sphéroïde|Trochléenne|En pivot|Condylienne
+f|La coxarthrose est due à :|La dégénérescence du cartilage|Une infection|Une tumeur|Une lésion nerveuse
+m|Où se fixe le ligament rond sur la tête fémorale ?|La fovéa capitis|Le grand trochanter|Le col fémoral|La ligne inter-trochantérienne
+m|Quel est le ligament le plus solide de la hanche ?|Le ligament ilio-fémoral de Bertin|Le ligament pubo-fémoral|Le ligament ischio-fémoral|Le ligament rond
+m|Le ligament ilio-fémoral naît sous :|L'épine iliaque antéro-inférieure|L'épine ischiatique|La symphyse pubienne|Le grand trochanter
+m|Le ligament ischio-fémoral est situé :|En arrière|En avant|En dedans|En haut
+m|Le ligament pubo-fémoral est situé :|En dedans|En arrière|En dehors|En haut
+m|Le bourrelet acétabulaire est un anneau :|Fibrocartilagineux|Osseux|Musculaire|Synovial
+m|La flexion de la hanche, genou fléchi, est de :|120°|90°|45°|160°
+d|Le limbus acétabulaire présente combien d'échancrures ?|3|2|4|5
+d|L'abduction de la hanche a une amplitude de :|45°|30°|90°|10°
+d|Le rayon de la tête fémorale est d'environ :|25 mm|10 mm|50 mm|5 mm
+d|L'artère du ligament rond est une branche de :|L'artère obturatrice|L'artère fémorale profonde|L'artère glutéale supérieure|L'artère circonflexe latérale
+d|L'ostéonécrose aseptique de la hanche serait due à :|Un trouble vasculaire|Une infection|Une fracture du cotyle|Un trouble nerveux
+d|Le ligament rond est :|Extra-synovial mais intra-articulaire|Extra-articulaire|Intra-synovial|Intra-musculaire
+d|Les artères circonflexes médiale et latérale sont des branches de :|L'artère fémorale profonde|L'artère fémorale superficielle|L'artère poplitée|L'artère iliaque interne
+`,
+        "Artère poplitée": `
+f|L'artère poplitée fait suite à :|L'artère fémorale superficielle|L'artère iliaque externe|L'artère tibiale postérieure|L'artère fémorale profonde
+m|Elle naît au niveau du hiatus tendineux du muscle :|Grand adducteur|Soléaire|Sartorius|Biceps fémoral
+m|Elle se termine au niveau de l'arcade tendineuse du muscle :|Soléaire|Gastrocnémien|Poplité|Grand adducteur
+m|Elle se termine en donnant :|Le tronc tibio-péroné et l'artère tibiale antérieure|L'artère fibulaire et l'artère plantaire|L'artère sural et l'artère moyenne du genou|La tibiale postérieure et la fémorale
+m|Le pouls poplité est perçu :|Au centre du creux poplité|Derrière la malléole|Au pli inguinal|Sous la rotule
+m|Quel nerf longe le bord postéro-latéral de la veine poplitée ?|Le nerf tibial|Le nerf fibulaire commun|Le nerf sural|Le nerf fémoral
+m|Quel nerf diverge latéralement contre le tendon du biceps fémoral ?|Le nerf fibulaire commun|Le nerf tibial|Le nerf obturateur|Le nerf saphène
+d|La longueur de l'artère poplitée est d'environ :|16 cm|8 cm|30 cm|4 cm
+d|Son diamètre est d'environ :|8 mm|2 mm|15 mm|25 mm
+d|Les artères surales sont destinées au muscle :|Gastrocnémien|Soléaire|Poplité|Plantaire
+d|L'artère moyenne du genou irrigue notamment :|Les ligaments croisés|Les ménisques|La patella|Le ligament patellaire
+d|La douleur du mollet à la marche chez l'artéritique s'explique par l'ischémie du :|Gastrocnémien|Poplité|Tibial antérieur|Biceps fémoral
+d|Pourquoi l'artère poplitée est-elle dite « dangereuse » ?|Son réseau anastomotique est peu efficace|Elle est très superficielle|Elle est très volumineuse|Elle n'a pas de branches
+d|Le réseau patellaire du genou est :|Superficiel|Profond|Intra-osseux|Intra-articulaire
+`,
+        "Artère fémorale": `
+f|L'artère fémorale fait suite à :|L'artère iliaque externe|L'artère iliaque interne|L'aorte|L'artère poplitée
+f|L'artère fémorale se divise en :|Fémorale superficielle et fémorale profonde|Fémorale et poplitée|Tibiale antérieure et postérieure|Iliaque et obturatrice
+m|La longueur de l'artère fémorale commune est d'environ :|4 cm|16 cm|30 cm|1 cm
+m|Dans la lacune vasculaire, l'artère est :|En dehors de la veine et en dedans du nerf|En dedans de la veine|En dehors du nerf|En arrière de la veine
+m|Le trigone fémoral est aussi appelé :|Triangle de Scarpa|Canal de Hunter|Triangle de Farabeuf|Canal de Guyon
+m|Le canal des adducteurs est aussi appelé :|Canal de Hunter|Triangle de Scarpa|Canal de Guyon|Canal carpien
+m|L'artère nourricière de la cuisse est :|L'artère fémorale profonde|L'artère fémorale superficielle|L'artère poplitée|L'artère obturatrice
+m|Dans le trigone fémoral, la veine fémorale est :|Médiale à l'artère|Latérale à l'artère|Postérieure à l'artère|Antérieure à l'artère
+m|Où perçoit-on le pouls fémoral ?|Au pli inguinal|Dans le creux poplité|Derrière la malléole|À l'aisselle
+d|L'artère fémorale superficielle devient poplitée au niveau :|Du hiatus du grand adducteur|De l'arcade du soléaire|Du ligament inguinal|Du trigone fémoral
+d|L'artère fémorale profonde donne :|Les circonflexes médiale et latérale et les perforantes|L'artère descendante du genou|L'épigastrique superficielle|Les pudendales externes
+d|Quelle est une branche de l'artère fémorale commune ?|L'artère épigastrique superficielle|L'artère circonflexe médiale|Les perforantes|L'artère poplitée
+d|Le pontage fémoro-poplité relie :|L'artère fémorale et l'artère poplitée|L'aorte et l'iliaque|La poplitée et la tibiale|La fémorale et l'iliaque interne
+d|La perte sanguine en cas de traumatisme peut atteindre :|3 litres|500 ml|1 litre|6 litres
+d|L'anastomose cruciforme relie la fémorale profonde aux artères :|Obturatrice, glutéale inférieure et poplitée|Iliaque externe et interne|Tibiales antérieure et postérieure|Épigastriques
+d|Le canal des adducteurs est limité en avant par le muscle :|Vaste médial|Long adducteur|Sartorius|Pectiné
+`,
+        "Artère axillaire": `
+f|L'artère axillaire fait suite à :|L'artère sous-clavière|L'artère humérale|L'artère carotide|L'aorte
+f|Elle devient artère humérale au niveau du bord inférieur du :|Grand pectoral|Petit pectoral|Deltoïde|Grand dorsal
+m|La longueur de l'artère axillaire est d'environ :|8 cm|20 cm|3 cm|15 cm
+m|Son calibre est d'environ :|8 mm|3 mm|15 mm|2 mm
+m|En abduction à 90°, l'artère axillaire est :|Pratiquement horizontale|Verticale|Concave en bas|Oblique en haut
+m|Quel repère sert au bloc axillaire ?|L'artère axillaire et le bord inférieur du grand pectoral|La clavicule|Le processus coracoïde|La 1ère côte
+m|La compression de l'artère contre la paroi latérale permet :|L'hémostase temporaire d'une hémorragie du membre supérieur|Le bloc nerveux|La palpation de l'humérale|Un accès veineux
+d|L'artère thoraco-acromiale naît :|Au-dessus du petit pectoral|En arrière du petit pectoral|Au bord inférieur du subscapulaire|Sous le deltoïde
+d|L'artère thoracique latérale naît :|En arrière du petit pectoral|Au-dessus du petit pectoral|Au bord inférieur du subscapulaire|Au-dessous de la clavicule
+d|L'artère subscapulaire se divise en :|Thoraco-dorsale et circonflexe de la scapula|Acromiale et thoracique|Circonflexes humérales|Thoracique supérieure et latérale
+d|La veine axillaire est située par rapport à l'artère :|Médialement|Latéralement|En avant|En arrière
+d|Les luxations antéro-médiales de l'épaule peuvent :|Comprimer l'artère par la tête humérale|Rompre l'aorte|Léser la veine cave|Atteindre le nerf phrénique
+d|Le cercle périscapulaire est préservé si la ligature siège :|Au-dessus de l'origine de l'artère subscapulaire|En dessous de l'artère subscapulaire|Sur l'humérale|Sur la thoracique
+`,
+        "Vessie": `
+f|La vessie est un réservoir destiné à contenir :|L'urine|La bile|Le sperme|Le sang
+f|La vessie est située dans la loge :|Antérieure de la cavité pelvienne|Postérieure de la cavité pelvienne|Rétropéritonéale lombaire|Thoracique
+m|La capacité physiologique de la vessie est d'environ :|300 ml|100 ml|1 L|3 L
+m|La capacité maximale est d'environ :|3 L|1 L|500 ml|10 L
+m|La vessie vide est :|Exclusivement pelvienne|Abdomino-pelvienne|Abdominale|Rétropéritonéale
+m|Le cystocathéter est possible lorsque la vessie est :|Pleine|Vide|Toujours|Jamais
+m|Le muscle de la paroi vésicale est :|Le détrusor|Le sphincter strié|Le dartos|Le psoas
+m|Le trigone vésical est aussi appelé :|Trigone de Lieutaud|Trigone de Scarpa|Trigone de Hesselbach|Trigone de Farabeuf
+m|L'espace pré-vésical est appelé espace de :|Retzius|Douglas|Winslow|Waldeyer
+m|Le détrusor comporte combien de couches ?|3|2|4|1
+d|L'épithélium de la muqueuse vésicale est :|Pavimenteux stratifié|Cylindrique simple|Cubique|Cilié
+d|Le prolapsus de la paroi vaginale antérieure réalise :|Une cystocèle|Une rectocèle|Une hystérocèle|Une urétérocèle
+d|L'apex de la vessie se continue par :|L'ouraque|L'urètre|Les uretères|Le canal déférent
+d|Les uretères s'abouchent aux angles :|Postéro-latéraux|Antérieur|Supérieur|Inférieur
+d|Le centre parasympathique sacré commande :|L'évacuation vésicale|La fermeture du sphincter lisse|Le caractère volontaire de la miction|La sécrétion rénale
+d|Le centre orthosympathique commande :|La fermeture du sphincter lisse|L'évacuation vésicale|La miction volontaire|La sécrétion rénale
+d|Quels nerfs sacrés innervent la vessie ?|Les 3ème et 4ème|Les 1er et 2ème|Le 5ème|Aucun
+d|Chez l'homme, la loge vésicale est limitée en arrière par :|L'aponévrose de Denonvilliers|L'aponévrose ombilico-prévésicale|Les lames de Delbet|Le fascia de Toldt
+`,
+        "Utérus": `
+f|L'utérus est un organe :|Creux, impair et médian|Plein et pair|Pair et symétrique|Rétropéritonéal
+m|Les 3 parties de l'utérus sont :|Le corps, l'isthme et le col|Le fond, la trompe et le col|Le corps, l'ovaire et le vagin|Le col, le vagin et la vulve
+m|L'utérus est normalement :|Antéversé et antéfléchi|Rétroversé|Antéversé et rétrofléchi|Rétrofléchi
+m|L'angle d'antéflexion est de :|120°|90°|45°|180°
+m|L'orifice externe du col est punctiforme chez :|La nullipare|La multipare|La femme ménopausée|La femme enceinte
+m|L'artère utérine naît de :|L'artère iliaque interne|L'aorte abdominale|L'artère iliaque externe|L'artère fémorale
+m|L'artère ovarique naît de :|L'aorte abdominale|L'artère rénale|L'artère iliaque interne|L'artère utérine
+m|La muqueuse du corps de l'utérus est appelée :|Endomètre|Myomètre|Périmétrium|Exocol
+m|Pendant la grossesse, l'isthme devient :|Le segment inférieur|Le col|Le fond|La corne
+d|Le cul-de-sac recto-utérin est le cul-de-sac de :|Douglas|Winslow|Retzius|Waldeyer
+d|La jonction exo-endocol est le siège électif des :|Cancers du col|Fibromes|Kystes de l'ovaire|Hernies
+d|L'artère du ligament rond naît de :|L'épigastrique inférieure|L'utérine|L'ovarique|L'obturatrice
+d|La couche moyenne du myomètre est :|Très épaisse|Mince|Fibreuse|Absente
+d|Le poids de l'utérus de la nullipare est d'environ :|60 g|10 g|200 g|500 g
+d|L'utérus devient thoraco-abdominal à :|9 mois|6 mois|3 mois|12 mois
+d|L'utérus est abdominal entre :|4 et 6 mois|0 et 3 mois|7 et 8 mois|1 et 2 mois
+d|Pendant la grossesse, l'artère ovarique :|Double de diamètre|Disparaît|Diminue de moitié|Reste inchangée
+`,
+        "Uretères": `
+f|Les uretères conduisent l'urine :|Du bassinet à la vessie|De la vessie à l'urètre|Du rein à l'urètre|Du bassinet à l'urètre
+m|La longueur de l'uretère est de :|24 à 32 cm|10 à 12 cm|40 à 50 cm|5 à 8 cm
+m|Le calibre de l'uretère est de :|3 à 5 mm|1 mm|1 cm|2 cm
+m|Combien de rétrécissements possède l'uretère ?|3|2|4|5
+m|L'uretère naît du bassinet en regard de :|L2|T10|L5|S1
+m|Les calculs de moins de 5 mm :|Peuvent être éliminés spontanément|Sont toujours opérés|Bloquent toujours l'uretère|Se dissolvent dans la vessie
+m|Quel examen explore l'uretère ?|L'UIV|La FOGD|La coloscopie|La rectoscopie
+d|La musculeuse de l'uretère comprend :|Une couche externe circulaire et une interne longitudinale|Trois couches|Une seule couche|Une couche externe longitudinale et une interne circulaire
+d|Les artères uretériques supérieures naissent de :|L'artère rénale|L'artère iliaque commune|L'artère utérine|L'artère génitale
+d|L'artère uretérique moyenne naît de :|L'artère iliaque commune|L'artère rénale|L'artère génitale|L'artère utérine
+d|L'artère uretérique intermédiaire naît de :|L'artère génitale|L'artère rénale|L'artère iliaque commune|L'artère vésicale
+d|La partie abdominale de l'uretère mesure :|12 à 14 cm|24 cm|5 cm|30 cm
+d|La partie pelvienne de l'uretère comprend combien de segments ?|3|2|4|1
+d|Les lymphatiques de l'uretère se drainent vers :|Les ganglions latéro-aortiques, iliaques primitifs et hypogastriques|Les ganglions inguinaux|Les ganglions axillaires|Les ganglions poplités
+d|L'uretère abdominal est en arrière en rapport avec :|Le muscle psoas|Le colon|La rate|L'estomac
+`,
+        "Surrénales": `
+f|Les surrénales sont des glandes :|Endocrines paires|Exocrines|Impaires|Lymphatiques
+f|Les surrénales sont situées à :|La partie supéro-médiale du rein|Le pôle inférieur du rein|La vessie|Le foie
+m|La médullosurrénale produit :|Adrénaline et noradrénaline|Cortisol|Aldostérone|Androgènes
+m|La zone glomérulée sécrète :|Les minéralocorticoïdes|Les glucocorticoïdes|Les androgènes|Les catécholamines
+m|La zone fasciculée sécrète :|Les glucocorticoïdes|Les minéralocorticoïdes|Les androgènes|L'adrénaline
+m|La zone réticulée sécrète :|Les androgènes|Les glucocorticoïdes|Les minéralocorticoïdes|Les catécholamines
+m|Quelle tumeur sécrétante touche la médullaire ?|Le phéochromocytome|Le syndrome de Conn|La maladie d'Addison|Le syndrome de Cushing
+m|Quelle est la couleur des surrénales ?|Jaune chamois|Rouge sombre|Blanc nacré|Gris
+d|Le défaut de sécrétion corticale est la maladie de :|Addison|Cushing|Conn|Basedow
+d|La surrénale droite a la forme :|Pyramidale|D'une virgule renversée|D'un haricot|Sphérique
+d|La surrénale gauche a la forme :|D'une virgule renversée|Pyramidale|D'un haricot|Ronde
+d|La veine surrénale droite rejoint :|La VCI|La veine rénale|La veine porte|La veine phrénique
+d|La veine surrénale gauche rejoint :|La veine rénale|La VCI|La veine porte|La veine cave supérieure
+d|L'artère surrénale moyenne est une branche de :|L'aorte abdominale|L'artère rénale|L'artère phrénique inférieure|L'artère splénique
+d|L'artère surrénale inférieure est une branche de :|L'artère rénale|L'aorte|La phrénique inférieure|La mésentérique
+d|En cas de néphrectomie, la surrénale :|Reste en place|Est enlevée obligatoirement|Descend avec le rein|Se rompt
+d|La surrénale droite est en rapport en avant avec :|Le foie et le duodénum|La rate et le pancréas|L'estomac|Le côlon gauche
+`,
+        "Rein": `
+f|Le rein est un organe :|Pair, rétropéritonéal|Impair, intrapéritonéal|Pair, intrapéritonéal|Thoracique
+f|Le rein a la forme d'un :|Haricot|Disque|Cube|Cône
+m|Le poids moyen du rein est d'environ :|150 g|50 g|500 g|1 kg
+m|La longueur du rein est d'environ :|12 cm|6 cm|20 cm|3 cm
+m|Le hile se situe sur le bord :|Médial concave|Latéral convexe|Supérieur|Inférieur
+m|Les pyramides rénales de Malpighi appartiennent à la zone :|Médullaire|Corticale|Capsulaire|Hilaire
+m|Les colonnes rénales de Bertin sont dans la zone :|Corticale|Médullaire|Papillaire|Hilaire
+m|Quel rein est un peu plus haut situé ?|Le gauche|Le droit|Aucun|Cela dépend du sexe
+m|L'artère rénale naît de l'aorte à hauteur de :|L1|T10|L4|S1
+m|Quelle artère rénale est la plus courte ?|La gauche|La droite|Elles sont égales|Aucune des deux
+d|Quelle veine rénale est la plus longue ?|La gauche (7,5 cm)|La droite (3 cm)|Elles sont égales|Aucune des deux
+d|Les veines rénales se jettent dans :|La VCI|La veine porte|La veine azygos|L'aorte
+d|La distribution artérielle rénale est de type :|Terminal|Anastomotique|Collatéral|Mixte
+d|Le rein en fer à cheval est un rein :|Fusionnel|Ectopique|Polykystique|Agénésique
+d|Une tumeur rénale gauche est à rechercher devant :|Un varicocèle gauche récent|Un varicocèle droit|Une hernie inguinale|Une hydrocèle
+d|La loge rénale est limitée par :|Le fascia de Zuckerkandel et la lame surréno-rénale|Le fascia de Toldt|Le ligament de Treitz|Le fascia de Denonvilliers
+d|Les rapports antérieurs du rein droit incluent :|Le foie et l'angle colique droit|La rate|La queue du pancréas|L'estomac
+d|La partie supérieure du rein gauche répond à :|La rate et la queue du pancréas|Le foie|Le duodénum|La vésicule biliaire
+d|Les artères arquées donnent :|Les artères interlobulaires|Les artères segmentaires|Les artères polaires|Les artères capsulaires
+`,
+        "Ovaires et ligaments larges": `
+f|L'ovaire est une glande :|Amphicrine, paire|Exocrine, impaire|Endocrine, impaire|Salivaire
+f|L'ovaire produit :|Les ovocytes et des hormones sexuelles|Le sperme|La bile|L'urine
+m|L'ovaire est le seul organe :|Intrapéritonéal|Rétropéritonéal|Sous-péritonéal|Thoracique
+m|La couleur de l'ovaire est :|Blanc nacré|Rouge|Jaune|Gris-noir
+m|Le ligament le plus solide de l'ovaire est :|Le ligament suspenseur|Le ligament propre|Le ligament tubo-ovarique|Le mésovarium
+m|Le ligament propre de l'ovaire est aussi appelé :|Utéro-ovarien|Lombo-ovarien|Tubo-ovarien|Pubo-ovarien
+m|Le ligament suspenseur de l'ovaire est aussi appelé :|Lombo-ovarien|Utéro-ovarien|Tubo-ovarien|Ilio-ovarien
+m|Pendant l'ovulation, l'ovaire :|Double ou triple de volume|Diminue de volume|Disparaît|Reste identique
+m|Le ligament large est constitué de :|Deux lames péritonéales|Une lame musculaire|Un cordon fibreux|Un tendon
+d|Le poids de l'ovaire hors ovulation est d'environ :|10 g|50 g|100 g|1 g
+d|Chez la multipare, l'ovaire est dans la fossette :|Sous-ovarique (de Claudius)|Ovarique|Paravésicale|Rétro-utérine
+d|La veine ovarique droite se jette dans :|La VCI|La veine rénale|La veine porte|La veine iliaque
+d|La veine ovarique gauche se jette dans :|La veine rénale gauche|La VCI|La veine porte|La veine iliaque
+d|Le syndrome de Stein-Leventhal est lié à :|Une albuginée très épaisse|Une torsion de l'ovaire|Un kyste dermoïde|Une hernie
+d|La zone supérieure du ligament large est :|Le mésomètre|Le mésométrium|Le paramètre|Le mésorectum
+d|L'aileron supérieur du ligament large est :|Le mésosalpinx|Le mésovarium|Le ligament rond|Le paramètre
+d|L'aileron antérieur du ligament large contient :|Le ligament rond|La trompe|L'ovaire|L'uretère
+d|Le paramètre renferme :|L'artère utérine et l'uretère|La trompe|Uniquement l'ovaire|Uniquement le ligament rond
+d|Les varices des veines ovariques sont appelées :|Varicocèles ovariques|Hémorroïdes|Cystocèles|Hydrocèles
+`,
+        "Canal déférent": `
+f|Le canal déférent est une voie d'excrétion du :|Sperme|Urine|Bile|Sang
+f|Le canal déférent fait suite à :|La queue de l'épididyme|La prostate|La vessie|L'urètre
+m|La longueur du canal déférent est d'environ :|40 cm|10 cm|100 cm|5 cm
+m|Son diamètre est d'environ :|3 mm|1 cm|1 mm|2 cm
+m|Sa portion terminale dilatée est :|L'ampoule|L'uncus|La papille|Le bulbe
+m|La vasectomie consiste à :|Sectionner le canal déférent|Retirer la prostate|Retirer le testicule|Sectionner l'urètre
+m|Avec la vésicule séminale, le déférent forme :|Le canal éjaculateur|L'urètre|L'ampoule de Vater|Le canal pancréatique
+d|Combien de segments décrit-on au canal déférent ?|5|3|4|2
+d|Le canal déférent traverse :|Le canal inguinal|Le canal de Hunter|Le canal carpien|Le canal sacré
+d|La musculeuse du canal déférent a combien de couches ?|3|2|1|4
+d|L'obstruction du canal déférent entraîne :|Une stérilité excrétoire|Une hernie|Une incontinence|Une infection biliaire
+d|Le canal déférent croise la face médiale des :|Vaisseaux iliaques externes|Vaisseaux fémoraux|Vaisseaux rénaux|Vaisseaux ovariques
+d|Au niveau pelvien, il passe au-dessus de :|L'artère ombilicale et de l'uretère|La vessie seulement|Le rectum|L'urètre
+d|Les nerfs du déférent proviennent du plexus :|Déférentiel (hypogastrique inférieur)|Brachial|Lombaire|Sacré
+d|Le canal déférent assure :|Le transport et le stockage des spermatozoïdes|La sécrétion hormonale|La production du sperme|La filtration du sang
+d|Quel examen explore le canal déférent ?|La déférentographie|La coloscopie|La FOGD|Le TOGD
+`,
+        "Rectum": `
+f|Le rectum est le segment terminal du :|Tube digestif|Appareil urinaire|Appareil génital|Système lymphatique
+f|Le rectum fait suite au :|Côlon sigmoïde|Côlon transverse|Caecum|Duodénum
+m|Les 2 segments du rectum sont :|L'ampoule rectale et le canal anal|Le haut et le bas rectum|Le cap et l'ampoule|Le sphincter et le canal
+m|L'ampoule rectale dérive :|De l'intestin primitif|De l'ectoderme|Du cloaque seul|Du mésentère
+m|Le canal anal dérive :|De l'ectoderme|De l'intestin primitif|De l'endoderme|Du mésoderme
+m|La jonction recto-sigmoïdienne est à hauteur de :|S3|L1|T12|S5
+m|Le cap du rectum forme un angle de :|90°|45°|180°|120°
+m|Le bas rectum est à moins de :|5 cm de la marge anale|10 cm de la marge anale|15 cm de la marge anale|20 cm de la marge anale
+m|La dilatation variqueuse du plexus hémorroïdal est :|La maladie hémorroïdaire|Le prolapsus|La fistule|L'abcès
+m|Quel est l'examen clinique de base du rectum ?|Le toucher rectal|La palpation de la rate|L'auscultation|La percussion
+d|Le haut rectum est à plus de :|10 cm de la marge anale|5 cm de la marge anale|15 cm de la marge anale|3 cm de la marge anale
+d|Combien de valvules de Houston ?|3|2|5|1
+d|La ligne pectinée sépare :|La zone colunnaire et la zone intermédiaire|Le rectum et le sigmoïde|L'anus et la peau|L'ampoule et le cap
+d|Le sphincter interne est :|Lisse et réflexe|Strié et volontaire|Strié et réflexe|Lisse et volontaire
+d|Le sphincter externe est :|Strié et volontaire|Lisse|Réflexe|Interne
+d|Les artères rectales supérieures sont des branches de :|L'artère mésentérique inférieure|L'artère iliaque interne|L'artère honteuse interne|L'artère mésentérique supérieure
+d|Les artères rectales moyennes naissent de :|L'artère iliaque interne|L'artère honteuse interne|L'artère mésentérique inférieure|L'aorte
+d|Les artères rectales inférieures naissent de :|L'artère honteuse interne|L'artère iliaque interne|L'artère mésentérique|L'artère fémorale
+d|Le cul-de-sac de Douglas est accessible :|Au toucher rectal|À la palpation lombaire|À l'auscultation|À la percussion costale
+d|L'infection des glandes anales cause :|Un kyste, un abcès ou une fistule anale|Des hémorroïdes|Un cancer|Un prolapsus
+`,
+        "Pédicule hépatique": `
+f|Le pédicule hépatique contient la veine porte, l'artère hépatique propre et :|Les voies biliaires extra-hépatiques|L'aorte|La VCI|Le canal thoracique
+m|Le pédicule hépatique mesure environ :|4 cm de long|20 cm|10 cm|1 cm
+m|La veine porte mesure environ :|10 cm de long|3 cm|20 cm|5 cm
+m|Le pédicule hépatique est contenu dans :|Le petit épiploon|Le grand épiploon|Le mésocolon|Le mésentère
+m|La manœuvre de Pringle consiste à :|Clamper le pédicule hépatique|Ouvrir le cholédoque|Ligaturer la veine porte seule|Drainer la vésicule
+m|D'avant en arrière, l'ordre des éléments du pédicule est :|Biliaire, Artère, Veine|Veine, Artère, Biliaire|Artère, Veine, Biliaire|Veine, Biliaire, Artère
+m|Le canal cholédoque naît de l'union du canal cystique et du :|Canal hépatique commun|Canal de Wirsung|Canal de Santorini|Canal déférent
+d|Le foramen épiploïque est aussi appelé :|Hiatus de Winslow|Hiatus de Treitz|Hiatus de Hesselbach|Hiatus de Retzius
+d|L'incarcération d'anses dans le hiatus de Winslow est la hernie de :|Blandin|Spiegel|Richter|Littré
+d|L'ampoule hépato-pancréatique est celle de :|Vater|Wirsung|Santorini|Kehr
+d|Le sphincter qui entoure l'ampoule est celui d' :|Oddi|Vater|Houston|Morgagni
+d|Le drain de Kehr est placé sur :|La voie biliaire principale|La veine porte|L'artère hépatique|Le pancréas
+d|Le ganglion de Quenu est situé :|À droite du pédicule|À gauche du pédicule|Dans le foie|Dans le hile gauche
+d|Le triangle des voies biliaires est capital dans :|La cholécystectomie|L'appendicectomie|La gastrectomie|La splénectomie
+d|Les branches collatérales de l'artère hépatique propre sont :|La gastrique droite et la cystique|La splénique et la rénale|Les mésentériques|Les phréniques
+d|Tout obstacle sur les voies biliaires entraîne :|Une cholestase|Une hémorragie|Une ischémie|Une pancréatite
+d|La veine porte naît de l'union du tronc spléno-mésaraïque et de :|La veine mésentérique supérieure|La veine rénale|La VCI|La veine cave
+`,
+        "Estomac": `
+f|L'estomac est intercalé entre :|L'œsophage et le duodénum|Le duodénum et le jéjunum|Le pharynx et l'œsophage|Le jéjunum et le côlon
+f|Classiquement, l'estomac a la forme d'un :|J|O|S|L
+m|Le cardia est à hauteur de :|T11|L1|T6|L4
+m|Le pylore est à hauteur de :|L1|T11|L4|T8
+m|La capacité de l'estomac est d'environ :|1,5 L|0,5 L|5 L|10 L
+m|La grande courbure mesure environ :|40 cm|15 cm|100 cm|5 cm
+m|La petite courbure mesure environ :|15 cm|40 cm|60 cm|5 cm
+m|Combien de couches musculaires possède l'estomac ?|3|2|4|1
+m|Quelle est la poche à air gastrique radiologique ?|Le fundus|L'antre|Le pylore|Le corps
+m|Quel examen explore l'estomac ?|La FOGD|La rectoscopie|L'UIV|La cystoscopie
+d|La valvule du cardia est celle de :|Gubarow|Bauhin|Houston|Kerckring
+d|L'artère gastrique gauche naît du :|Tronc cœliaque|L'artère splénique|L'hépatique propre|La gastroduodénale
+d|L'artère gastrique droite naît de :|L'artère hépatique propre|Le tronc cœliaque|L'artère splénique|L'artère mésentérique
+d|L'artère gastro-épiploïque gauche naît de :|L'artère splénique|L'artère gastroduodénale|L'artère hépatique|Le tronc cœliaque
+d|L'artère gastro-épiploïque droite naît de :|L'artère gastroduodénale|L'artère splénique|Le tronc cœliaque|L'artère gastrique gauche
+d|Les ganglions de Troisier sont :|Sus-claviculaires gauches|Inguinaux|Axillaires|Cœliaques
+d|Le nerf vague gauche est :|Antérieur|Postérieur|Latéral|Absent
+d|La sténose du pylore est traitée par :|Une pylorotomie extra-muqueuse|Une gastrectomie totale|Une splénectomie|Une vagotomie seule
+d|En cas d'HTP, les varices cardio-œsophagiennes sont dues à l'anastomose entre :|Veines gastriques courtes et veines œsophagiennes|Veines rénales et surrénales|Veines iliaques|Veines hépatiques et rénales
+d|La muqueuse du fundus et du corps est :|Acide|Alcaline|Neutre|Non sécrétante
+d|La muqueuse de l'antre est :|Alcaline|Acide|Malpighienne|Ciliée
+d|L'estomac est presque entièrement situé :|À gauche de la ligne médiane|À droite de la ligne médiane|Derrière le rein|Dans le pelvis
+`,
+        "Duodéno-pancréas": `
+f|Le duodénum est le segment initial de :|L'intestin grêle|Le côlon|L'estomac|Le rectum
+f|Le duodénum a la forme d'un :|C|S|O|J
+m|Combien de parties a le duodénum ?|4|3|5|2
+m|La longueur du duodénum est d'environ :|25 cm|10 cm|50 cm|1 m
+m|Quel segment est le siège le plus fréquent des ulcères duodénaux ?|D1|D2|D3|D4
+m|L'angle de Treitz sépare :|Les hémorragies digestives hautes et basses|L'estomac et le duodénum|Le pancréas et la rate|Le côlon et le rectum
+m|La papille duodénale majeure se trouve sur :|D2|D1|D3|D4
+m|Le pancréas est une glande :|Amphicrine|Exocrine seule|Endocrine seule|Salivaire
+m|Les cellules bêta des îlots de Langerhans sécrètent :|L'insuline|Le glucagon|La somatostatine|La gastrine
+m|Les cellules alpha des îlots de Langerhans sécrètent :|Le glucagon|L'insuline|La somatostatine|L'adrénaline
+d|Les cellules delta des îlots de Langerhans sécrètent :|La somatostatine|L'insuline|Le glucagon|La sécrétine
+d|Le canal pancréatique principal est celui de :|Wirsung|Santorini|Vater|Oddi
+d|Le canal pancréatique accessoire est celui de :|Santorini|Wirsung|Vater|Kehr
+d|La longueur du pancréas est d'environ :|15 cm|30 cm|5 cm|50 cm
+d|Le poids du pancréas est d'environ :|80 g|10 g|300 g|500 g
+d|L'uncus est aussi appelé :|Petit pancréas de Winslow|Pancréas de Santorini|Isthme|Col
+d|Les glandes de Brunner se trouvent dans :|Le duodénum|L'estomac|Le côlon|Le pancréas
+d|Le bloc duodéno-pancréatique comprend la tête du pancréas et :|Le cadre duodénal D1, D2, D3|Le jéjunum|La rate|Le côlon
+d|La queue du pancréas est irriguée par :|L'artère splénique|L'artère mésentérique supérieure|L'artère gastroduodénale|L'artère rénale
+d|La section des nerfs splanchniques sert à :|Traiter la douleur des cancers du pancréas|Réduire l'acidité gastrique|Traiter le diabète|Enlever la rate
+d|Quel examen explore le pancréas ?|La CPRE|La rectoscopie|L'UIV|La cystoscopie
+`,
+        "Côlon": `
+f|Le côlon est situé entre :|La valvule iléo-caecale et le rectum|L'estomac et le duodénum|Le pharynx et l'œsophage|Le rectum et l'anus
+m|La longueur du côlon est d'environ :|1,5 m|50 cm|5 m|10 m
+m|Le calibre du côlon au niveau du caecum est d'environ :|8 cm|4 cm|2 cm|15 cm
+m|Combien de bandelettes (tænia) le côlon possède-t-il ?|3, sauf au sigmoïde (2)|1|4|6
+m|Le côlon droit est vascularisé par :|L'artère mésentérique supérieure|L'artère mésentérique inférieure|Le tronc cœliaque|L'artère rénale
+m|Le côlon gauche est vascularisé par :|L'artère mésentérique inférieure|L'artère mésentérique supérieure|Le tronc cœliaque|L'artère iliaque interne
+m|Quelle arcade anastomose les 2 systèmes mésentériques ?|L'arcade de Riolan|Le cercle de Willis|L'arcade de Treitz|La boucle de Wirsung
+m|L'artère mésentérique supérieure naît à hauteur de :|L1|L3|T12|S1
+m|L'artère mésentérique inférieure naît à hauteur de :|L3|L1|L5|T10
+d|Les branches coliques de l'AMS sont :|Colique droite, iléo-colique, colique moyenne|Colique gauche, sigmoïdiennes|Rectale supérieure|Gastrique
+d|L'AMI irrigue le côlon par :|La colique gauche, les sigmoïdiennes et la rectale supérieure|L'iléo-colique|La colique droite|La colique moyenne
+d|Les cryptes de la muqueuse colique sont celles de :|Lieberkühn|Brunner|Houston|Morgagni
+d|Quel est le segment le plus fixe du côlon ?|L'angle colique gauche|Le caecum|Le sigmoïde|Le transverse
+d|Le fascia de Toldt droit fixe :|Le côlon ascendant|Le sigmoïde|Le transverse|Le caecum
+d|Les colotomies transversales sont :|Moins hémorragiques que les longitudinales|Plus hémorragiques|Impossibles|Interdites
+d|Le siège électif des colotomies est :|Les bandelettes|Les haustrations|Les franges épiploïques|Les angles coliques
+d|La VMI s'unit à la veine splénique pour former :|Le tronc spléno-mésaraïque|La veine porte directement|La VCI|La veine rénale
+d|Le côlon sigmoïde est :|Mobile|Fixe|Rétropéritonéal|Fixé par le fascia de Toldt
+d|La muqueuse colique est dépourvue de :|Villosités|Cryptes|Glandes|Cellules caliciformes
+`,
+        "Rate": `
+f|La rate est le plus volumineux organe :|Lymphoïde secondaire|Endocrine|Digestif|Respiratoire
+m|La rate est située dans :|L'hypochondre gauche|L'hypochondre droit|La fosse iliaque|Le pelvis
+m|Quelle côte est la « côte splénique » ?|La 11ème|La 5ème|La 7ème|La 3ème
+m|Le poids de la rate est d'environ :|200 g|50 g|1 kg|20 g
+m|La rate est de couleur :|Rouge violacée|Jaune|Blanche|Verte
+m|La pulpe blanche contient :|Des follicules lymphoïdes|Des globules rouges seulement|Des hépatocytes|Du cartilage
+m|La pulpe rouge est :|Périphérique|Centrale|Capsulaire|Absente
+m|La rate normale est :|Non palpable|Toujours palpable|Palpable à droite|Sous-cutanée
+m|Le grand axe de la rate est parallèle à la :|10ème côte|5ème côte|12ème côte|3ème côte
+d|La vascularisation de la rate est de type :|Terminal|Anastomotique|Mixte|Collatéral
+d|L'artère splénique naît du :|Tronc cœliaque|AMS|Aorte directement|Artère rénale
+d|La veine splénique s'unit à la VMI pour former :|Le tronc spléno-mésaraïque|La veine porte|La VCI|La veine rénale
+d|La splénomégalie peut être due à :|L'HTP|L'anémie seule|La grippe|L'asthme
+d|L'artère splénique comprend combien de segments ?|3|2|4|5
+d|La rate a la forme d'un :|Tétraèdre irrégulier|Cube|Sphère|Cylindre
+d|Le bord antérieur de la rate est :|Crénelé|Mousse|Lisse|Aplati
+d|La splénectomie partielle est possible grâce à :|La vascularisation terminale|La mobilité de la rate|La petite taille|L'absence de capsule
+d|La fixité de la rate est assurée surtout par :|L'étroitesse de sa loge|Ses ligaments|Ses vaisseaux|Le diaphragme
+d|La rate est en rapport avec la queue du :|Pancréas|Duodénum|Foie|Rein droit
+d|Les nerfs de la rate viennent du plexus :|Cœliaque|Brachial|Lombaire|Sacré
+`,
+        "Œsophage": `
+f|L'œsophage fait suite au :|Pharynx|Larynx|Estomac|Trachée
+m|L'œsophage commence à hauteur de :|C6|T4|C1|T11
+m|L'œsophage se termine à hauteur de :|T11|C6|L1|T4
+m|La longueur de l'œsophage est de :|25 cm|10 cm|50 cm|5 cm
+m|Combien de segments l'œsophage possède-t-il ?|3|2|4|5
+m|Combien de rétrécissements l'œsophage possède-t-il ?|4|2|3|5
+m|Le rétrécissement aortique est à hauteur de :|T4|C6|T11|L1
+m|La longueur de l'œsophage abdominal est de :|2 cm|6 cm|17 cm|10 cm
+m|L'œsophage commence à distance de l'arcade dentaire inférieure de :|15 cm|5 cm|30 cm|40 cm
+d|La longueur du segment thoracique est de :|17 cm|6 cm|2 cm|25 cm
+d|La muqueuse œsophagienne est de type :|Malpighien|Glandulaire|Cylindrique|Cilié
+d|L'œsophage n'a pas de :|Séreuse|Muqueuse|Musculeuse|Sous-muqueuse
+d|La jonction muqueuse œsophage-estomac est :|La ligne Z|La ligne pectinée|L'angle de His|Le cardia seulement
+d|L'angle de His sépare :|L'œsophage et le fundus|L'œsophage et le pharynx|L'estomac et le duodénum|Le cardia et le pylore
+d|Le nerf vague gauche passe au hiatus œsophagien :|En avant|En arrière|À droite|Il est absent
+d|Le segment cervical est irrigué par :|L'artère thyroïdienne inférieure|L'aorte|La gastrique gauche|La splénique
+d|Le segment abdominal est irrigué par :|La phrénique inférieure gauche et la gastrique gauche|La thyroïdienne inférieure|Les artères bronchiques|La splénique
+d|Le segment thoracique est irrigué par :|Les artères bronchiques et des rameaux de l'aorte|La gastrique droite|La rénale|La carotide
+d|Les varices œsophagiennes surviennent en cas de :|HTP|HTA|Diabète|Asthme
+d|Le segment thoracique est dans le médiastin :|Postérieur|Antérieur|Moyen|Supérieur
+d|Les plexus nerveux intrinsèques sont ceux de :|Meissner et Auerbach|Latarjet|Bleicher|Santorini
+d|La valvule cardio-œsophagienne est celle de :|Gubarow|Houston|Bauhin|Morgagni
+d|L'œsophage descend en arrière de :|La trachée|Le sternum|Le larynx|Le foie
+`,
+      };
+      for (const [titre, texte] of Object.entries(cours))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Anatomie");
+        });
+      const physiologie = {
+        "Physiologie du pancréas exocrine": `
+f|Le pancréas exocrine sécrète :|Le suc pancréatique|L'insuline|La bile|Le glucagon
+f|Quelle est la fonction principale du suc pancréatique ?|Digérer protides, lipides et glucides|Produire l'insuline|Stocker la bile|Absorber l'eau
+f|Le pancréas exocrine représente environ quel pourcentage du parenchyme pancréatique ?|90%|50%|10%|70%
+m|Les cellules du pancréas exocrine sont regroupées en :|Acini|Îlots de Langerhans|Néphrons|Villosités
+m|Où sont stockés les grains de zymogène ?|Dans l'appareil de Golgi|Dans le noyau|Dans les mitochondries|Dans les lysosomes
+m|Le suc pancréatique est un liquide :|Alcalin|Acide|Très acide|Hypo-osmotique
+m|La quantité de suc pancréatique est de :|1,5 à 2,5 L par 24 h|0,1 L par 24 h|5 L par 24 h|10 L par 24 h
+m|Le suc pancréatique contient environ quel pourcentage d'eau ?|98%|50%|80%|20%
+m|La sécrétion hydro-électrolytique sert surtout à neutraliser :|L'acidité gastrique|Les graisses|Les protéines|Le glucose
+m|Quel ion neutralise les chymes acides ?|HCO3-|Cl-|K+|Ca++
+m|La concentration en HCO3- est inversement proportionnelle à celle de :|Cl-|Na+|K+|Ca++
+m|Le trypsinogène est activé par :|L'entérokinase|La sécrétine|La CCK-PZ|La pepsine
+m|La trypsine active :|Les autres zymogènes pancréatiques|Uniquement la lipase|La gastrine|La sécrétine
+m|La trypsine hydrolyse les liaisons dont le COOH est porté par :|L'arginine ou la lysine|Les acides aminés aromatiques|La leucine|La valine
+m|La chymotrypsine agit sur les acides aminés :|Aromatiques|Aliphatiques|Basiques seulement|Soufrés
+m|L'amylase pancréatique agit sur :|L'amidon|Les triglycérides|Les protéines|Le cholestérol
+m|La lipase hydrolyse :|Les triglycérides|Les protéines|L'amidon|Les acides nucléiques
+m|La sécrétine stimule la sécrétion pancréatique :|Hydrélatique|Enzymatique|Endocrine|Acide gastrique
+m|La CCK-PZ stimule la sécrétion pancréatique :|Enzymatique (ecbolique)|Hydrélatique|Mucineuse|Endocrine
+m|Quelles hormones inhibent la sécrétion pancréatique ?|Somatostatine et glucagon|Sécrétine et CCK-PZ|Gastrine et VIP|Insuline et GIP
+m|Quel système stimule la sécrétion pancréatique ?|Le parasympathique (nerf vague)|Le sympathique|Le nerf phrénique|Le nerf splanchnique
+d|Le sympathique agit sur le pancréas par le nerf :|Splanchnique|Vague|Phrénique|Fémoral
+d|La chymotrypsine est activée à partir du chymotrypsinogène par :|La trypsine|L'entérokinase|La pepsine|La sécrétine
+d|Quels sont les acides aminés aromatiques ?|Tyrosine, tryptophane, phénylalanine|Leucine, alanine, valine|Arginine, lysine|Glycine, sérine
+d|L'élastase agit sur les acides aminés :|Aliphatiques (leucine, alanine, valine)|Aromatiques|Basiques|Acides
+d|Les carboxypeptidases sont des :|Exopeptidases|Endopeptidases|Lipases|Amylases
+d|La carboxypeptidase B hydrolyse les peptides dont le COOH est porté par :|La lysine ou l'arginine|Un acide aminé aromatique|La leucine|La valine
+d|La carboxypeptidase A hydrolyse les peptides dont le COOH appartient à :|Un acide aminé aromatique|La lysine|L'arginine|La valine
+d|L'amylase agit sur les liaisons :|α (1-4) glucosidiques|β (1-4) glucosidiques|Peptidiques|Phospho-diester
+d|L'amylase hydrolyse l'amidon en :|Dextrine et maltose|Glucose seul|Galactose|Fructose
+d|La lipase agit en présence de :|Colipase|Ca++ seul|Sécrétine|Entérokinase
+d|La phospholipase A2 est activée par :|La trypsine|L'entérokinase|La sécrétine|La bile
+d|La phospholipase A2 agit en présence de :|Ca++|Mg++|Na+|Colipase
+d|Les nucléases pancréatiques sont :|DNase et RNase|Lipase et amylase|Trypsine et élastase|Pepsine et rennine
+d|Quelle phase de la sécrétion pancréatique est quantitativement la plus importante ?|La phase duodénale|La phase céphalique|La phase gastrique|La phase basale
+d|Dans la phase céphalique, la sécrétion pancréatique est transmise par :|Le nerf vague|La sécrétine|La CCK-PZ|Le splanchnique
+d|La phase gastrique de la sécrétion pancréatique met en jeu un réflexe :|Vago-vagal|Entéro-gastrique|Sympathique|Spinal
+d|L'insuffisance pancréatique exocrine entraîne :|Une maldigestion avec malabsorption|Une hypoglycémie|Une constipation|Une hypertension
+d|La pancréatite aiguë est due à :|L'activation précoce des enzymes pancréatiques|Un manque d'enzymes|Un excès de bile|Une carence en vitamine K
+d|Le pancréas sécrète environ :|6 à 20 g d'enzymes|1 à 2 g d'enzymes|100 g d'enzymes|500 g d'enzymes
+d|La fistule pancréatique externe est une méthode d'étude chez :|L'animal|L'homme|La femme|L'enfant
+`,
+        "Digestion intestinale": `
+f|La digestion s'effectue essentiellement dans :|L'intestin grêle|L'estomac|Le côlon|L'œsophage
+m|La longueur de l'intestin grêle est d'environ :|3 m|1,2 m|10 m|50 cm
+m|Le diamètre de l'intestin grêle est d'environ :|4 cm|6 cm|1 cm|10 cm
+m|La longueur du jéjunum est d'environ :|1 m|25 cm|1,75 m|3 m
+m|La longueur de l'iléon est d'environ :|1,75 m|1 m|25 cm|3 m
+m|Le plexus d'Auerbach se situe :|Entre les 2 couches de la musculeuse|Dans la sous-muqueuse|Dans la muqueuse|Dans la séreuse
+m|Le plexus de Meissner se situe dans :|La sous-muqueuse|La musculeuse|La séreuse|La muqueuse
+m|Les mouvements pendulaires sont dus à la contraction des fibres :|Longitudinales|Circulaires|Obliques|Striées
+m|Les mouvements segmentaires sont dus aux fibres :|Circulaires|Longitudinales|Obliques|Striées
+m|Quels mouvements assurent la progression du bol alimentaire ?|Les mouvements péristaltiques|Les mouvements pendulaires|Les mouvements segmentaires|Les haustrations
+m|La stimulation du sympathique :|Inhibe la motricité intestinale|Stimule la motricité intestinale|N'a pas d'effet|Provoque la sécrétion biliaire
+m|Quelles hormones inhibent la motricité intestinale ?|Sécrétine et glucagon|Gastrine et CCK-PZ|Insuline et sérotonine|Histamine
+m|Quelles glandes sécrètent le suc duodénal ?|Les glandes de Brunner|Les glandes de Lieberkühn|Le plexus de Meissner|Le plexus d'Auerbach
+m|Quelles glandes produisent le suc jéjuno-iléal ?|Les glandes de Lieberkühn|Les glandes de Brunner|Le plexus de Meissner|Le plexus d'Auerbach
+m|Le duodénum sécrète :|Gastrine, sécrétine et CCK-PZ|Insuline|Glucagon|Amylase seule
+m|Les sels biliaires sont indispensables à la digestion des :|Graisses|Protéines|Sucres|Vitamines hydrosolubles
+m|La bile est stockée dans :|La vésicule biliaire|Le pancréas|Le duodénum|La rate
+m|Le sucrose est dégradé en :|Glucose + fructose|Glucose + glucose|Glucose + galactose|Fructose + galactose
+m|Le lactose est dégradé en :|Glucose + galactose|Glucose + fructose|Glucose + glucose|Fructose + galactose
+m|Le maltose est dégradé en :|Glucose + glucose|Glucose + fructose|Glucose + galactose|Galactose + fructose
+m|Quelle enzyme digère le lactose ?|La lactase|La sucrase|La maltase|L'amylase
+m|Quelle enzyme digère le sucrose ?|La sucrase|La lactase|La maltase|La lipase
+m|L'émulsification des graisses se fait sous l'action de :|Sels biliaires|Amylase|Pepsine|Sécrétine
+m|Les haustrations ont pour rôle :|Mélanger le contenu colique|Digérer les graisses|Absorber le glucose|Sécréter des enzymes
+d|Les mouvements segmentaires pincent le chyme jusqu'à :|8 à 12 fois par minute|1 à 2 fois par minute|50 fois par minute|100 fois par minute
+d|Les mouvements de brassage sont :|Indépendants du système nerveux intrinsèque|Dépendants du plexus d'Auerbach|Hormonaux|Abolis par vagotomie
+d|Le péristaltisme se déplace dans le sens :|Oral-aboral|Aboral-oral|Latéral|Circulaire
+d|La vitesse des ondes péristaltiques est de :|0,5 à 2 cm/s|10 cm/s|1 m/s|0,1 mm/s
+d|Le chyme est propulsé à une vitesse moyenne de :|1 cm/min|10 cm/min|1 m/min|1 mm/min
+d|Pendant le péristaltisme, les fibres circulaires en aval du bol :|Se relâchent|Se contractent|Se rompent|Restent inchangées
+d|Le péristaltisme nécessite :|L'intégrité du système nerveux intrinsèque|Un chyme acide|L'ablation du plexus d'Auerbach|Une hormone seule
+d|La sécrétion pancréatique hydrélatique est stimulée par :|La sécrétine|La CCK-PZ|La gastrine|La somatostatine
+d|La sécrétine est libérée à l'arrivée de :|Chyme gastrique acide|Graisses|Eau|Sucre
+d|La CCK-PZ est libérée par la présence de :|Acides gras et acides aminés|Eau seule|Acide chlorhydrique|Glucose seul
+d|L'effet cholérétique correspond à :|La stimulation de la sécrétion biliaire par le foie|La contraction de la vésicule|L'absorption de la bile|La sécrétion d'enzymes
+d|L'effet cholagogue correspond à :|La contraction de la vésicule biliaire|La sécrétion biliaire du foie|La digestion des lipides|L'absorption des sels biliaires
+d|Quelle hormone provoque la contraction de la vésicule biliaire ?|La CCK-PZ|La sécrétine|La gastrine|La somatostatine
+d|Le cycle entéro-hépatique concerne :|Les sels biliaires|Le glucose|Le fer|Les protéines
+d|Où se trouvent les disaccharidases ?|Sur la bordure en brosse|Dans le foie|Dans la lumière gastrique|Dans la bile
+d|Dans la lumière intestinale, les protéines sont transformées en :|Oligopeptides|Glucose|Acides gras|Dipeptides seulement
+d|Dans l'entérocyte, les di et tripeptides sont hydrolysés en acides aminés par :|La peptidase cytoplasmique|La trypsine|La pepsine|L'élastase
+d|Les produits de digestion des lipides sont transportés vers l'entérocyte par :|Des micelles|Des chylomicrons|L'albumine|Des lysosomes
+d|Les mouvements de masse du côlon surviennent :|1 à 3 fois par jour|Toutes les minutes|10 fois par heure|Une fois par semaine
+d|La sécrétion colique est :|Peu abondante, alcaline, sans enzymes|Abondante et riche en enzymes|Acide|Riche en bile
+d|Le complexe moteur de migration part de :|La partie inférieure de l'estomac|Le duodénum|L'iléon|Le côlon
+`,
+        "Digestion gastrique": `
+f|L'estomac transforme le bol alimentaire en :|Chyme|Chyle|Bile|Mucus
+f|Les vomissements sont :|Le rejet brutal du contenu gastrique par la bouche|Une absorption|Une sécrétion|Un transit lent
+m|Les cellules principales sécrètent :|Le pepsinogène|L'HCl|Le mucus|La gastrine
+m|Les cellules pariétales sécrètent :|L'HCl et le facteur intrinsèque|Le pepsinogène|La gastrine|Le mucus
+m|Les cellules G sécrètent :|La gastrine|La somatostatine|L'histamine|Le mucus
+m|Les cellules D sécrètent :|La somatostatine|La gastrine|L'histamine|La mucine
+m|Les mastocytes libèrent :|L'histamine|La gastrine|La sérotonine|La mucine
+m|Les cellules du collet sécrètent :|La mucine|Le pepsinogène|L'HCl|La gastrine
+m|Le facteur intrinsèque est aussi appelé facteur de :|Castle|Pavlov|Heidenhain|Biermer
+m|Le facteur intrinsèque permet l'absorption de :|La vitamine B12|La vitamine C|Le fer|Le calcium
+m|Le défaut de facteur intrinsèque cause :|L'anémie de Biermer|L'anémie ferriprive|L'hémophilie|La drépanocytose
+m|La « relaxation de réception » est un réflexe :|Vago-vagal|Sympathique|Hormonal|Spinal
+m|Les ondes de brassage gastriques sont de :|3 à 5 par minute|1 par heure|20 par minute|60 par minute
+m|L'estomac se remplit en :|20 minutes|4 heures|6 heures|1 minute
+m|L'estomac se vide en :|4 à 6 heures|20 minutes|1 heure|24 heures
+m|L'estomac sécrète jusqu'à :|3,5 à 4,5 L de suc gastrique par jour|0,5 L par jour|10 L par jour|100 ml par jour
+m|Le chyme a l'aspect :|Opaque, laiteux, semi-liquide|Clair|Solide|Vert
+m|Les entérogastrones sont libérées par :|Les cellules duodénales|Les cellules pariétales|Le foie|La rate
+m|Les entérogastrones :|Inhibent la motricité et la sécrétion gastriques|Stimulent la sécrétion d'HCl|Activent la pepsine|Stimulent la vidange
+m|L'HCl active :|Le pepsinogène en pepsine|La trypsine|La lipase|L'amylase
+m|L'HCl réduit :|Le fer ferrique en fer ferreux|Le calcium en phosphate|La vitamine B12|Le glucose
+m|L'HCl transforme le calcium insoluble en :|Calcium soluble|Phosphate|Fer|Glucose
+m|La pepsine est :|Une endopeptidase|Une lipase|Une amylase|Une exopeptidase
+m|Le mucus gastrique protège contre :|L'autodigestion|Les infections|L'anémie|L'obésité
+d|L'anémie de Biermer est une anémie :|Mégaloblastique|Microcytaire|Hémolytique|Aplasique
+d|La poche gastrique de Pavlov conserve :|L'innervation|La bile|La paroi musculaire seule|Les vaisseaux seuls
+d|La poche gastrique de Heidenhain est :|Sans innervation vagale|Avec innervation vagale|Sans muqueuse|Sans vaisseaux
+d|Le repas fictif de Pavlov démontre la phase :|Céphalique|Gastrique|Intestinale|Duodénale
+d|L'expérience de Heidenhain montre la nature hormonale de la phase :|Gastrique|Céphalique|Intestinale|Basale
+d|La paroi de l'estomac peut se distendre de :|50 ml à 1,5 L|10 ml à 100 ml|1 L à 10 L|200 ml à 500 ml
+d|La relaxation de réception est abolie par :|La double vagotomie|La gastrectomie|La sympathectomie|Les antiacides
+d|L'onde péristaltique d'évacuation est plus puissante que l'onde de brassage d'un facteur :|6|2|10|20
+d|La « pompe pylorique » correspond à :|Le passage de quelques ml de chyme dans le duodénum|L'ouverture du cardia|L'absorption du fer|La sécrétion de gastrine
+d|Les entérogastrones comprennent :|CCK-PZ, sécrétine, GIP|Gastrine seule|Histamine|Insuline
+d|La gastrine stimule :|Modestement la motricité gastrique|Fortement la vidange gastrique|La sécrétion de bile|L'amylase
+d|L'HCl est sécrété dans la lumière par transport actif en échange de :|K+|Na+|Cl-|Ca++
+d|Quelle enzyme catalyse la réaction H2O + CO2 ⇌ H2CO3 ?|L'anhydrase carbonique|La pepsine|La lipase|L'amylase
+d|La « vague alcaline postprandiale » est due à :|Les bicarbonates passant dans le sang veineux|La bile|Le suc pancréatique|La salive
+d|La phase céphalique de la sécrétion gastrique est de nature :|Nerveuse|Hormonale|Mécanique|Immunitaire
+d|La phase gastrique de la sécrétion gastrique est essentiellement de nature :|Hormonale|Nerveuse|Mécanique|Osmotique
+d|La phase gastrique commence environ :|30 minutes après le repas|5 minutes après le repas|3 heures après le repas|12 heures après le repas
+d|La phase intestinale de la sécrétion gastrique survient environ :|1 à 2 heures après la prise d'aliment|5 minutes après|12 heures après|30 secondes après
+d|L'hyperchlorhydrie expose au risque de :|Ulcère gastro-duodénal|Anémie de Biermer|Diarrhée chronique|Constipation
+d|La gastroparésie est :|Un retard de vidange sans obstacle mécanique|Une obstruction du pylore|Une inflammation|Une sécrétion acide excessive
+d|Le plexus d'Auerbach a un rôle :|Moteur|Sensitif|Sécrétoire|Immunitaire
+d|Le plexus de Meissner a un rôle :|Sensitif|Moteur|Hormonal|Vasculaire
+d|L'innervation sympathique de l'estomac passe par :|Les nerfs splanchniques|Les nerfs vagues|Le nerf phrénique|Les nerfs sacrés
+d|L'estomac sécrète environ 2 litres par jour de :|HCl|Pepsine|Mucus|Bile
+`,
+        "Absorption intestinale": `
+f|L'absorption se fait essentiellement dans :|L'intestin grêle|L'estomac|L'œsophage|Le rectum
+m|La surface d'absorption de l'intestin grêle est d'environ :|200 m²|2 m²|20 m²|2000 m²
+m|Quelle est l'unité fonctionnelle d'absorption ?|Le complexe villosité-crypte|Le néphron|L'acinus|Le lobule
+m|La bordure en brosse est formée par :|Les microvillosités|Les cils|Les villosités|Les cryptes
+m|Les vaisseaux lymphatiques des villosités sont les :|Chylifères|Sinusoïdes|Capillaires artériels|Alvéoles
+m|Le gros intestin absorbe surtout :|L'eau et les électrolytes|Les graisses|Les protéines|Le glucose
+m|La stéatorrhée est :|Une quantité anormale de graisse dans les selles|Du sang dans les selles|Une diarrhée infectieuse|Une absence de selles
+m|Quel dosage explore l'absorption des glucides ?|Le D-xylose urinaire|La stéatorrhée|L'azote fécal|La bilirubine
+m|Quel dosage explore l'absorption des protides ?|L'azote fécal|Le D-xylose|Les graisses fécales|La bilirubine
+m|L'osmose concerne :|L'eau|Le glucose|Les protéines|Le fer
+m|Les protides sont absorbés sous forme de :|Acides aminés, di- et tripeptides|Polypeptides|Protéines entières|Glycérol
+m|Les protides sont absorbés dans :|Le duodénum et le jéjunum|L'iléon seul|Le côlon|L'estomac
+m|Les glucides absorbés sont :|Glucose, fructose, galactose|Amidon|Saccharose|Lactose
+m|Les glucides sont absorbés surtout dans :|Le jéjunum|L'iléon|Le côlon|Le duodénum seul
+m|Les lipides absorbés sont :|Triglycérides, phospholipides et cholestérol|Le cholestérol seul|Les acides aminés|L'amidon
+m|Les lipides sont absorbés dans :|Le jéjunum et l'iléon|L'estomac|Le côlon|Le duodénum seul
+m|Quel pourcentage de l'eau du tube digestif est réabsorbé ?|98 à 99%|10%|50%|75%
+m|Le fer est absorbé sous forme de :|Fer ferreux|Fer ferrique|Ferritine|Transferrine
+m|Le complexe vitamine B12-facteur intrinsèque est absorbé dans :|L'iléon|Le duodénum|L'estomac|Le côlon
+m|Quelles sont les vitamines liposolubles ?|A, D, E, K|B1, B2, C|B6, B12|C, K
+d|La diffusion facilitée est :|Plus rapide que la diffusion simple et saturable|Consommatrice d'énergie|Contre le gradient|Unidirectionnelle
+d|Le transport actif :|Consomme de l'énergie, contre un gradient|Est passif|Suit le gradient|N'est pas saturable
+d|La filtration-absorption se fait selon :|Un gradient de pression|Un gradient de concentration|Un gradient électrique|Un transporteur
+d|Quelle pompe crée le gradient de Na+ dans l'entérocyte ?|Na+/K+ ATPase|Na+/H+|H+/peptide|SGLT1
+d|Les di et tripeptides entrent par le cotransporteur :|H+/peptide|SGLT1|GLUT 5|GLUT 2
+d|Glucose et galactose entrent par le transporteur :|SGLT1|GLUT 5|GLUT 2|GLUT 4
+d|Le fructose entre par :|GLUT 5 (diffusion facilitée)|SGLT1|GLUT 2|Na+/K+ ATPase
+d|La sortie basolatérale des monosaccharides se fait par :|GLUT 2|SGLT1|GLUT 5|Na+/H+
+d|Les lipides entrent dans l'entérocyte par :|Diffusion passive|Transport actif|Cotransport Na+|GLUT 5
+d|Les lipides sont incorporés dans :|Les chylomicrons|Les micelles|Les lysosomes|Les hémoglobines
+d|Les chylomicrons gagnent :|La circulation lymphatique|La veine porte|L'artère hépatique|Le canal cholédoque
+d|Les acides gras à chaîne courte et moyenne passent dans :|La veine porte|La lymphe|La bile|Les chylifères
+d|La quantité d'eau restant dans les selles est de :|100 à 200 mL|1 L|2 L|50 mL
+d|Le volume d'eau présent dans le tube digestif est de :|9 à 10 L|1 L|20 L|50 L
+d|Le sodium est massivement absorbé dans :|Le duodénum|Le côlon|L'iléon|L'estomac
+d|Dans le jéjunum, le sodium est absorbé par :|Des symports glucose/Na+ et acides aminés/Na+|Une pompe K+/H+|Une diffusion simple|Une filtration
+d|L'absorption du potassium est :|Passive dans le grêle, active dans le côlon sigmoïde et le rectum|Active dans le grêle|Absente|Passive dans le côlon
+d|Le calcium est surtout absorbé dans :|Le duodénum|Le côlon|L'iléon|Le rectum
+d|L'absorption du calcium est favorisée par :|La PTH et la vitamine D|L'insuline|La sécrétine|La gastrine
+d|Les vitamines B1 et B2 sont absorbées par :|Transport actif|Diffusion passive|Filtration|Osmose
+d|La vitamine B6 est absorbée par :|Diffusion passive|Transport actif|Symport Na+|Micelles
+d|La vitamine C est absorbée par :|Symport Na+/vitamine C|Diffusion passive|Micelles|Chylomicrons
+d|Les vitamines liposolubles sont absorbées avec :|Les triglycérides et les sels biliaires|L'eau|Le glucose|Les protéines
+d|Le bicarbonate est absorbé par :|Une pompe Cl-/HCO3- de l'intestin distal|Diffusion dans l'estomac|SGLT1|GLUT 5
+d|L'absorption du chlore est passive dans :|L'intestin proximal|L'intestin distal|Le côlon sigmoïde|Le rectum
+`,
+      };
+      for (const [titre, texte] of Object.entries(physiologie))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Physiologie");
+        });
+      const cardiologie = {
+        "Rétrécissement mitral": `
+f|Le rétrécissement mitral est une sténose de l'orifice :|Auriculo-ventriculaire gauche|Auriculo-ventriculaire droit|Aortique|Pulmonaire
+f|Quelle est la principale étiologie du rétrécissement mitral ?|Le rhumatisme articulaire aigu|L'endocardite|L'infarctus|L'hypertension
+f|Quel est le maître symptôme du rétrécissement mitral ?|La dyspnée|La douleur thoracique|La syncope|Les œdèmes
+m|Dans le rétrécissement mitral, la surface de l'orifice est réduite à moins de :|2,5 cm²|4 cm²|6 cm²|0,5 cm²
+m|Quel examen est clé pour le diagnostic du rétrécissement mitral ?|L'échocardiographie-Doppler|La radiographie|Le scanner|La coronarographie
+m|Le rétrécissement mitral prédomine chez :|La femme|L'homme|Le nourrisson|Le vieillard seulement
+m|Le fasciès mitral associe :|Érythrose et cyanose des pommettes|Pâleur|Ictère|Œdème du visage
+m|Le frémissement diastolique apexien est appelé :|Frémissement cataire|Frémissement de Harzer|Frémissement systolique|Signe de Carvalho
+m|Le rythme à 3 temps du rétrécissement mitral est dit de :|Durozier|Harzer|Ortner|Kerley
+m|Le claquement d'ouverture de la mitrale est situé :|Après B2|Avant B1|Pendant la systole|Avant B2
+m|Le roulement diastolique du RM est :|Apexien et irradie vers l'aisselle gauche|Basal|Systolique|Au foyer aortique
+m|L'éclat de B1 correspond à la fermeture :|Du foyer mitral|Du foyer aortique|Du foyer pulmonaire|Du foyer tricuspidien
+m|Le rétrécissement mitral respecte :|La systole et le ventricule gauche|La diastole|L'oreillette gauche|La valve mitrale
+m|Quel signe électrique traduit l'hypertrophie de l'oreillette gauche ?|L'onde P mitrale (large)|L'onde Q|Le sus-décalage de ST|L'onde T géante
+m|La silhouette cardiaque radiologique du RM est :|Triangulaire (mitrale)|En sabot|Globuleuse en carafe|Normale
+m|Le roulement de Flint est lié à :|L'insuffisance aortique|L'insuffisance mitrale|La sténose aortique|La CIA
+m|Le RM œdémateux touche surtout :|La femme|L'homme|Le nouveau-né|Le sujet âgé
+m|Quel antibiotique prévient les récidives de RAA ?|La pénicilline|La gentamicine|La ciprofloxacine|La vancomycine
+m|La commissurotomie mitrale percutanée utilise :|Le ballon d'Inoué|Un stent|Un laser|Un défibrillateur
+m|La prévention du RAA repose sur le traitement des angines par :|La pénicilline|Les corticoïdes|Les diurétiques|Les bêtabloquants
+d|Sur la radiographie de face, l'arc moyen gauche du RM est :|Saillant et convexe|Concave|Absent|Calcifié
+d|Au profil, l'œsophage baryté est refoulé :|Vers l'arrière|Vers l'avant|À gauche|Vers le bas
+d|En mode TM, la grande valve mitrale a l'aspect :|En créneau (borne kilométrique)|En dôme|En cloche|En zigzag
+d|En échographie bidimensionnelle, l'orifice mitral rétréci a l'aspect :|En gueule de requin|En œil de chat|En anneau|En fente en croix
+d|En bidimensionnelle, la grande valve mitrale a l'aspect :|En genou fléchi (battoir)|En dôme|En bouton|En fuseau
+d|La surface mitrale se mesure en 2D par :|Planimétrie|Manométrie|Spirométrie|Oscillométrie
+d|L'échographie transœsophagienne recherche notamment :|Les thromboses de l'oreillette|Les calcifications osseuses|Les varices|Les fractures
+d|Le syndrome d'Ortner est :|Une paralysie laryngée par compression du récurrent gauche|Une fibrillation auriculaire|Un œdème pulmonaire|Une embolie cérébrale
+d|La complication rythmique la plus fréquente du RM est :|La fibrillation auriculaire|La tachycardie ventriculaire|Le bloc de branche|La bradycardie sinusale
+d|Quelle est l'embolie systémique la plus fréquente du RM ?|Cérébrale (AVC ischémique)|Pulmonaire|Rénale|Mésentérique
+d|Quel est le stade terminal du RM ?|L'insuffisance cardiaque droite|L'OAP|La fibrillation auriculaire|L'AVC
+d|La broncho-pneumopathie mitrale associe RM, HTAP et :|Dyspnée permanente et bronchites à répétition|Hémoptysie unique|Angor|Syncope
+d|Le RM avec HTAP touche surtout :|L'enfant|La femme enceinte|L'homme âgé|L'adulte jeune
+d|Le stade 2 de l'hypertension veineuse pulmonaire montre :|Des stries de Kerley B|Des ailes de papillon|Une redistribution apicale|Un pneumothorax
+d|L'œdème alvéolaire radiologique a l'aspect en :|Ailes de papillon|Verre dépoli seul|Nid d'abeille|Doigt de gant
+d|Le syndrome de Lutembacher associe :|CIA et RM rhumatismal|CIV et IM|CIA et IA|Canal artériel et RM
+d|Le retard staturo-pondéral du RM de l'enfant s'appelle :|Nanisme mitral|Rachitisme|Gigantisme|Hypotrophie fœtale
+d|Chez la femme enceinte, le RM expose à :|Un risque d'avortement et de prématurité|Aucun risque|Une hypertension gravidique seule|Une hémorragie du post-partum seule
+d|Quelle affection est un diagnostic différentiel du RM ?|Le myxome de l'oreillette gauche|L'infarctus du myocarde|L'angor stable|La BPCO
+d|Quel est l'agent du RAA ?|Le streptocoque bêta-hémolytique du groupe A|Le staphylocoque doré|Le pneumocoque|Le gonocoque
+d|Un RM serré a une surface mitrale :|< 1,1 cm²|Entre 1,1 et 1,5 cm²|Entre 1,5 et 2,5 cm²|> 2,5 cm²
+d|Un RM lâche a une surface mitrale :|Entre 1,5 et 2,5 cm²|< 1,1 cm²|Entre 1,1 et 1,5 cm²|> 3 cm²
+d|Un RM moyennement serré a une surface mitrale :|Entre 1,1 et 1,5 cm²|< 1,1 cm²|Entre 1,5 et 2,5 cm²|> 2,5 cm²
+d|Pour des valves scléro-calcifiées, on réalise :|Un remplacement valvulaire mitral|Une commissurotomie|Une simple surveillance|Un pontage
+d|Pour des valves souples, on réalise :|Une valvuloplastie ou commissurotomie|Un remplacement valvulaire|Une transplantation|Un pontage
+d|Quels anticoagulants sont utilisés dans le RM ?|AVK et HBPM|Aspirine seule|Statines|Diurétiques
+`,
+        "Hypertension artérielle": `
+f|Selon l'OMS, l'HTA de l'adulte est définie par une PAS ≥ :|140 mmHg|120 mmHg|160 mmHg|180 mmHg
+f|Selon l'OMS, l'HTA de l'adulte est définie par une PAD ≥ :|90 mmHg|80 mmHg|100 mmHg|110 mmHg
+f|Quelle est la cause la plus fréquente d'HTA ?|L'HTA essentielle|Le phéochromocytome|La sténose de l'artère rénale|La coarctation de l'aorte
+f|L'HTA est :|La 1ère affection chronique dans le monde|Une maladie rare|Toujours symptomatique|Toujours secondaire
+m|Le diagnostic d'HTA nécessite des mesures lors d'au moins :|2 consultations espacées d'une semaine|Une seule consultation|3 mois de suivi|1 an de suivi
+m|Avant la mesure de la TA, le patient doit être au repos pendant :|10 minutes|1 minute|1 heure|30 secondes
+m|Le brassard est gonflé à combien au-dessus du pouls huméral ?|20 mmHg|5 mmHg|50 mmHg|100 mmHg
+m|Le 1er bruit entendu lors de la mesure correspond à :|La PAS|La PAD|La PA moyenne|La pression pulsée
+m|Le dernier bruit entendu correspond à :|La PAD|La PAS|La PA moyenne|La pression pulsée
+m|La MAPA est aussi appelée :|Holter tensionnel|Auto-mesure|Fond d'œil|Scanner
+m|Les signes de Dieulafoy sont :|Céphalées, vertiges, acouphènes, flou visuel|Douleur thoracique|Dyspnée|Œdèmes
+m|L'HTA grade 1 correspond à une PAS entre :|140 et 159 mmHg|160 et 179 mmHg|180 et 199 mmHg|120 et 139 mmHg
+m|L'HTA grade 2 correspond à une PAS entre :|160 et 179 mmHg|140 et 159 mmHg|180 et 199 mmHg|120 et 139 mmHg
+m|L'HTA grade 3 correspond à une PAS ≥ :|180 mmHg|160 mmHg|140 mmHg|200 mmHg
+m|L'HTA grade 3 correspond à une PAD ≥ :|110 mmHg|100 mmHg|90 mmHg|120 mmHg
+m|Quel examen pose le diagnostic d'AVC ?|Le scanner (TDM)|La radiographie|L'ECG|L'échographie abdominale
+m|Quel est le retentissement cardiaque direct de l'HTA ?|L'hypertrophie ventriculaire gauche|Le rétrécissement mitral|La CIA|La péricardite
+m|La coarctation de l'aorte donne une HTA :|Aux membres supérieurs avec pouls fémoraux diminués|Aux membres inférieurs|Pulmonaire|Portale
+m|Le syndrome de Cushing est un excès de :|Cortisol|Aldostérone|Adrénaline|Thyroxine
+m|Quel est le but tensionnel du traitement ?|< 140/90 mmHg|< 180/110 mmHg|< 100/60 mmHg|< 160/100 mmHg
+m|Quelle mesure non pharmacologique fait partie du traitement ?|Un régime désodé|Un régime riche en sel|Un repos permanent|Un tabagisme modéré
+d|Une urgence hypertensive associe une TA ≥ 180/110 et :|Une souffrance viscérale|Des céphalées seules|Du stress|Une prise de poids
+d|La poussée hypertensive est :|Une élévation rapide et transitoire de la TA sans souffrance viscérale|Une HTA sévère avec encéphalopathie|Une HTA maligne|Une HTA secondaire
+d|Quel médicament IV est cité dans les urgences hypertensives ?|La nicardipine (Loxen)|L'aspirine|Le furosémide oral|Le captopril
+d|L'HTA maligne associe une PAD ≥ :|130 mmHg|110 mmHg|90 mmHg|150 mmHg
+d|L'HTA maligne comprend une rétinopathie de stade :|III ou IV|I|II|0
+d|La rétinopathie hypertensive est classée selon :|Kirkendall|Killip|La NYHA|Durozier
+d|Au stade III de la rétinopathie, on observe un engainement artériel et :|Une thrombose veineuse|Des hémorragies seules|Un rétrécissement artériel seul|Une papille normale
+d|L'encéphalopathie hypertensive comprend une rétinopathie de stade :|IV|I|II|0
+d|Quelle est l'atteinte rénale de l'HTA ?|La néphro-angiosclérose|La glomérulonéphrite|Le syndrome néphrotique|La polykystose
+d|L'HTA blouse blanche est :|Une élévation de la PA seulement en consultation|Une HTA sévère|Une HTA secondaire|Une HTA nocturne
+d|Une bradycardie sévère augmente la :|PAS|PAD|Fréquence cardiaque|Diurèse
+d|L'insuffisance aortique donne une HTA avec :|Un élargissement de la différentielle|Un pincement de la différentielle|Une PAS basse|Une bradycardie
+d|La maladie de Takayasu est la maladie de :|La femme sans pouls|L'homme jeune|L'enfant|Le vieillard
+d|Le syndrome de Conn est :|Un hyperaldostéronisme primaire|Un hypercorticisme|Un phéochromocytome|Une hyperthyroïdie
+d|Quelles causes médicamenteuses d'HTA sont citées ?|Œstroprogestatifs, AINS, corticoïdes|Pénicilline|Paracétamol|Vitamine C
+d|Quel type d'obésité est le plus lié à l'HTA essentielle ?|L'obésité androïde|L'obésité gynoïde|La maigreur|Aucune
+d|Quels médicaments sont privilégiés chez le sujet âgé ?|Les diurétiques et les inhibiteurs calciques|Les alpha-bloquants|Les vasodilatateurs directs|Les bêtabloquants seuls
+d|IEC et ARA II sont privilégiés dans :|La néphropathie diabétique et l'insuffisance cardiaque|L'angor seul|L'asthme|La grossesse
+d|Les bêtabloquants sont privilégiés dans :|L'angor, l'infarctus, l'arythmie et l'insuffisance cardiaque|L'asthme|La bradycardie|Le bloc auriculo-ventriculaire
+d|Le traitement de l'HTA essentielle est :|À vie|De 3 mois|D'1 an|Ponctuel
+d|L'HTA secondaire nécessite un traitement :|Étiologique|À vie uniquement|Symptomatique seul|Aucun
+d|L'auto-mesure de la PA permet :|De répéter les mesures dans la journée|Une mesure unique|De remplacer l'ECG|D'éviter le médecin
+`,
+        "Syndrome coronarien aigu": `
+f|Le SCA résulte d'une occlusion brutale :|Partielle ou complète d'une artère coronaire|Des veines pulmonaires|De l'aorte|Des artères rénales
+f|Quelle est la cause principale du SCA ?|L'athérosclérose|La syphilis|Le traumatisme|La vascularite
+f|Quel est le maître symptôme du SCA ?|La douleur thoracique|La dyspnée|La toux|La fièvre
+f|L'infarctus du myocarde est une nécrose de nature :|Ischémique|Infectieuse|Tumorale|Traumatique
+f|Quelle prévention est la plus efficace ?|La lutte contre les facteurs de risque cardio-vasculaires|Le repos au lit permanent|Le jeûne|Les antibiotiques
+m|La douleur du SCA est :|Rétrosternale, constrictive, résistante à la trinitrine|Brève et calmée par la trinitrine|Positionnelle|Pleurale
+m|La douleur du SCA cède sous :|Les morphiniques|La trinitrine|Le repos seul|Les antalgiques simples
+m|Le SCA ST+ se caractérise par :|Un sus-décalage persistant du segment ST|Un sous-décalage de ST|Une onde P large|Un bloc complet
+m|Quel est le marqueur biologique clé du SCA ?|La troponine|La CRP|La créatinine|La glycémie
+m|L'ECG du SCA doit être fait :|En urgence, avec 18 dérivations|Après 24 heures|Après la coronarographie|Seulement au repos
+m|Le territoire inférieur correspond aux dérivations :|DII, DIII, aVF|V1, V2|V7, V8, V9|D1, aVL
+m|Le territoire postérieur correspond aux dérivations :|V7, V8, V9|DII, DIII, aVF|V1, V2|V5, V6
+m|Le territoire septal correspond à :|V3|V1-V2|V4|V7
+m|Le territoire apical correspond à :|V4|V3|V1|V9
+m|Le territoire latéral haut correspond à :|D1, aVL|V5, V6|DII, DIII|V7, V8
+m|Le territoire latéral bas correspond à :|V5, V6|D1, aVL|DII, DIII|V1, V2
+m|Le territoire antérieur correspond à :|V1, V2|V5, V6|DII, DIII|V7, V8
+m|L'angor de novo est un angor apparu depuis moins de :|6 semaines|1 an|6 mois|2 jours
+m|Dans l'angor instable, la troponine est :|Normale|Élevée|Effondrée|Non mesurable
+m|Un infarctus sans onde Q associe douleur et :|Élévation de la troponine sans sus-décalage ST|Sus-décalage ST|Onde Q|Troponine normale
+m|L'angor stable est une douleur :|À l'effort, cédant à l'arrêt et à la trinitrine|Au repos prolongée|Résistante à la trinitrine|Fébrile
+m|Quelle part des SCA est due à l'athérosclérose ?|95%|50%|20%|5%
+m|Quel est un facteur de risque non modifiable ?|L'âge > 45 ans chez l'homme|Le tabac|L'HTA|La sédentarité
+m|Quel est un facteur de risque modifiable ?|Le diabète|Le sexe masculin|L'hérédité|L'âge
+m|Quel est le but principal du traitement du SCA ?|Reperméabiliser l'artère rapidement|Calmer la toux|Faire baisser la fièvre|Réduire le poids
+m|La mise en condition du SCA comprend l'hospitalisation en :|USIC|Médecine générale|Consultation|Pédiatrie
+d|Au stade I (H1) de l'ECG, on observe :|Une onde T géante positive|Une onde Q|Un sus-décalage de ST|Une onde T négative
+d|L'onde monophasique de Pardee apparaît au stade :|II (H24-H48)|I|III|IV
+d|Au stade III (S1), on observe :|Une onde T négative et l'apparition d'une onde Q|Une onde T géante|Un ST normal|Un bloc de branche
+d|Au stade IV (S3-S4), on observe :|Onde Q et ischémie sous-épicardique maximales|Une onde T géante|L'onde de Pardee|Un ECG normal
+d|Quelle classification évalue l'insuffisance cardiaque aiguë de l'IDM ?|La classification de Killip|La classification NYHA|La classification de Kirkendall|La classification de Kerley
+d|Une CIV post-infarctus est due à :|La rupture du septum interventriculaire|La rupture de cordage|La rupture de la paroi libre|La péricardite
+d|Une dissociation électromécanique est due à :|La rupture de la paroi libre du VG|La rupture du septum|La rupture de cordage|Un anévrisme
+d|Une IM aiguë post-infarctus est due à :|La rupture de cordage|La rupture du septum|La rupture de la paroi libre|La péricardite
+d|Le syndrome de Dressler est :|Une péricardite tardive|Une IM aiguë|Un anévrisme du VG|Une fibrillation ventriculaire
+d|Le syndrome épaule-main est :|Une neuro-algodystrophie du membre supérieur|Une paralysie du bras|Une luxation|Une fracture
+d|L'angor post-infarctus survient :|2 semaines après un IDM|2 ans après un IDM|2 jours avant un IDM|Jamais
+d|L'angor de Prinzmetal est dû à :|Un spasme coronaire|Une thrombose|Une embolie|Une dissection
+d|Dans la péricardite aiguë, la douleur est calmée par :|L'antéflexion|La trinitrine|Le décubitus|La morphine seule
+d|Dans l'embolie pulmonaire, l'examen de référence est :|L'angio-TDM thoracique|L'ECG seul|La radiographie|L'échographie abdominale
+d|Dans la dissection aortique, on observe :|Une asymétrie des pouls|Un pouls symétrique|Une bradycardie|Un souffle systolique
+d|Les « urgences de Mondor » comprennent :|La pancréatite aiguë et la crise ulcéreuse hyperalgique|L'embolie pulmonaire|La péricardite|Le pneumothorax
+d|La lipasémie dans la pancréatite aiguë est :|> 3 fois la normale|Normale|< 1 fois la normale|Indosable
+d|L'âge de risque chez la femme est :|> 55 ans|> 30 ans|> 70 ans|> 18 ans
+d|Les dissections coronaires surviennent notamment dans :|Les maladies de Marfan et d'Ehlers-Danlos|La grippe|L'asthme|Le diabète
+d|Les thrombolytiques sont efficaces dans les :|12 heures|48 heures|1 semaine|5 minutes
+d|Quelles molécules sont des thrombolytiques ?|Streptokinase, altéplase, ténectéplase|Aspirine, clopidogrel|Bisoprolol, aténolol|Captopril, ramipril
+d|Quels sont les antiagrégants plaquettaires cités ?|Aspirine et clopidogrel|HNF et HBPM|Pravastatine|Captopril
+d|La morphine en IV se donne à la dose de :|4 à 8 mg, renouvelable|50 mg|100 mg|1 mg
+d|L'angioplastie primaire est indiquée si le délai estimé est :|< 120 minutes|< 24 heures|< 5 minutes|> 12 heures
+d|La thrombolyse est indiquée si l'angioplastie n'est pas réalisable dans les :|2 heures|12 heures|24 heures|7 jours
+d|Dans le SCA sans sus-décalage de ST, la thrombolyse est :|Sans indication|Systématique|Indiquée en 1ère intention|Facultative
+d|La double antiagrégation plaquettaire associe :|Aspirine + clopidogrel|Aspirine + HNF|Clopidogrel + statine|Aspirine + AVK
+d|La surveillance d'une thrombolyse comprend :|Le fibrinogène et le TCA|La glycémie|Le NT-proBNP|Le potassium
+d|Quelles statines sont citées ?|Pravastatine, simvastatine|Furosémide|Bisoprolol|Fondaparinux
+d|Quels bêtabloquants sont cités dans le SCA ?|Aténolol, bisoprolol|Captopril|Nicardipine|Amiodarone
+d|Quels IEC sont cités dans le SCA ?|Captopril, ramipril|Losartan|Atorvastatine|Furosémide
+`,
+        "Insuffisance cardiaque": `
+f|L'insuffisance cardiaque est l'incapacité du cœur à assurer :|Un débit cardiaque suffisant aux besoins de l'organisme|Une fréquence normale|Une pression nulle|Un rythme sinusal
+f|Quel est le symptôme majeur de l'IC gauche ?|La dyspnée|La douleur|Les palpitations|Les syncopes
+f|Quel dosage biologique aide au diagnostic de l'IC ?|Le BNP ou NT-proBNP|La troponine|La CRP|La glycémie
+f|Quel régime est conseillé dans l'IC ?|Hyposodé|Hypersodé|Riche en graisses|Sans protéines
+m|L'orthopnée est une dyspnée :|De décubitus|D'effort|De repos seulement|Nocturne seulement
+m|Le stade I de la NYHA correspond à :|Une cardiopathie asymptomatique|Une gêne pour efforts importants|Une gêne aux efforts minimes|Une gêne au repos
+m|Le stade II de la NYHA correspond à :|Une gêne pour efforts importants et inhabituels|Aucune gêne|Une gêne aux efforts minimes|Une gêne permanente
+m|Le stade III de la NYHA correspond à :|Une gêne aux efforts minimes de la vie courante|Une gêne au repos|Aucune gêne|Une gêne seulement aux efforts importants
+m|Le stade IV de la NYHA correspond à :|Une gêne permanente au repos ou au moindre effort|Aucune gêne|Une gêne aux efforts importants|Une gêne aux efforts habituels
+m|Le bruit de galop gauche est un bruit :|Surajouté (B3 ou B4)|Systolique|Continu|Absent
+m|Le B3 est :|Protodiastolique|Télédiastolique|Systolique|Continu
+m|Le B4 est :|Télédiastolique|Protodiastolique|Systolique|Continu
+m|Le BNP est élevé au-delà de :|200 pg/ml|20 pg/ml|2000 pg/ml|5 pg/ml
+m|Le BNP a une excellente valeur prédictive :|Négative|Positive|Diagnostique unique|Nulle
+m|L'ICT radiologique de cardiomégalie est :|> 0,50|< 0,50|= 0,30|< 0,20
+m|L'écho-Doppler confirme l'IC systolique par une FE :|< 45%|> 55%|> 70%|= 60%
+m|Le signe de Harzer est :|Un battement du VD dans le creux épigastrique|Un frémissement cataire|Un claquement mitral|Un bruit de galop gauche
+m|Le reflux hépato-jugulaire est un signe d'IC :|Droite|Gauche|Systolique seulement|Diastolique seulement
+m|Les OMI de l'IC droite sont :|Mous, prenant le godet, bilatéraux|Durs|Unilatéraux|Douloureux
+m|Quelle affection cause un œdème avec protéinurie > 3 g/24 h ?|Le syndrome néphrotique|La cirrhose|La malnutrition|L'insuffisance cardiaque
+m|Devant une dyspnée chronique avec tabagisme chronique, on évoque :|La BPCO|L'asthme|L'embolie pulmonaire|Le pneumothorax
+m|Quel est un facteur de décompensation de l'IC ?|L'écart de régime ou de traitement|Le repos|Le régime hyposodé|Les diurétiques
+m|Quel diurétique de l'anse est cité ?|Le furosémide|La spironolactone|L'hydrochlorothiazide|Le losartan
+m|Quel inhibiteur de l'aldostérone est cité ?|La spironolactone|Le furosémide|Le captopril|Le bisoprolol
+m|Quelle classe est majeure et indiquée à tous les stades de l'IC ?|Les IEC|Les dérivés nitrés|Les inhibiteurs calciques|Les digitaliques
+m|Quels bêtabloquants sont indiqués dans l'IC ?|Bisoprolol, carvedilol, métoprolol, nébivolol|Aténolol seul|Propranolol seul|Aucun
+m|Quelle est la prévention primaire de l'IC ?|Corriger les facteurs de risque cardio-vasculaires|Opérer tous les patients|Donner des antibiotiques|Éviter les efforts
+d|L'hépatalgie de l'IC droite est due à :|Un foie de stase|Une hépatite|Une cirrhose biliaire|Une lithiase
+d|Le signe de Carvalho est :|Un souffle d'IT augmenté en inspiration profonde|Un frémissement mitral|Un bruit de galop|Un souffle d'IM
+d|Le TAPSE explore la fonction :|Ventriculaire droite|Ventriculaire gauche|Auriculaire gauche|Valvulaire aortique
+d|Le TAPSE est pathologique quand il est :|< 15 mm|> 25 mm|= 20 mm|> 30 mm
+d|L'état d'anasarque associe :|OMI en poteau, ascite et pleurésie bilatérale|Dyspnée seule|OAP|Syncope
+d|La grande crise d'OAP est :|Une urgence médicale|Un signe bénin|Une forme chronique|Un signe d'IC droite
+d|Le pseudo-asthme cardiaque est une dyspnée :|Expiratoire et sifflante|Inspiratoire|Absente|Positionnelle seule
+d|L'IC diastolique correspond à :|Une fonction systolique conservée avec défaut de remplissage|Une FE < 30%|Une IC droite pure|Une IC aiguë
+d|L'IC de l'enfant est dominée par :|Les cardiopathies congénitales|L'HTA|Les coronaropathies|Les valvulopathies rhumatismales
+d|La triade de l'IC de l'enfant associe hépatomégalie, tachycardie et :|Cardiomégalie|Cyanose|Souffle diastolique|Œdèmes
+d|Chez le sujet âgé, la classification NYHA est :|Difficilement utilisable|Plus précise|Inutile|Obligatoire
+d|Les crachats perlés de Laennec évoquent :|L'asthme|La BPCO|L'embolie pulmonaire|L'OAP
+d|Quelle est une étiologie fréquente de l'IC gauche ?|L'infarctus du myocarde|L'embolie pulmonaire|La BPCO|La bronchite
+d|Quelle cause entraîne une IC droite ?|L'HTAP|L'asthme seul|Le diabète|La grippe
+d|La constriction péricardique est une cause d'IC :|Droite|Gauche seule|Aiguë uniquement|Aucune
+d|Quel traitement est une alternative aux IEC en cas d'intolérance ?|Les ARA II (losartan)|Les AVK|Les statines|La digoxine
+d|Quels inotropes positifs sont cités ?|Dobutamine, dopamine, adrénaline|Furosémide|Captopril|Aspirine
+d|Le traitement de l'OAP associe position semi-assise, oxygène et :|Furosémide IV et dérivés nitrés|Bêtabloquants|AVK|Corticoïdes
+d|Les dérivés nitrés IV dans l'OAP nécessitent :|L'absence d'hypotension|Une hypotension|Un jeûne|Un bloc auriculo-ventriculaire
+d|Quels traitements interventionnels sont cités ?|Défibrillateur implantable et resynchronisation cardiaque|Pontage seul|Lithotritie|Dialyse
+d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardiaque|La splénectomie|L'appendicectomie|La cholécystectomie
+`,
+      };
+      for (const [titre, texte] of Object.entries(cardiologie))
+        texte.trim().split("\n").forEach(ligne => {
+          const [n, q, bonne, ...faux] = ligne.split("|");
+          ajouter("medecine", niveaux[n], q, bonne, [bonne, ...faux], `Bonne réponse : ${bonne}. (Cours : ${titre})`, "Cardiologie");
+        });
+    questionsMedQuiz.forEach(q => { if (!q.theme) q.theme = q.categorie === "medecine" ? "Médecine générale" : "Autres"; });
+    })();
+
+    let sonUrgenceActif = true;
+    // ---------- Badge PREMIUM visible par tous (statut vérifié côté Supabase) ----------
+    const BADGE_TTL = 5 * 60 * 1000, cacheBadges = new Map();
+    const estPremiumNom = n => { const c = cacheBadges.get(n); return !!c && c.p && Date.now() - c.t < BADGE_TTL; };
+    async function chargerBadges(noms) {
+      const aVerifier = [...new Set((noms || []).filter(Boolean))].filter(n => { const c = cacheBadges.get(n); return !c || Date.now() - c.t >= BADGE_TTL; });
+      if (!aVerifier.length) return false;
+      const { data, error } = await supabase.rpc("premium_pseudonymes", { p_names: aVerifier });
+      if (error) console.warn("Badges Premium indisponibles :", error.message);
+      const premiums = new Set(Array.isArray(data) ? data : []);
+      aVerifier.forEach(n => cacheBadges.set(n, { p: premiums.has(n), t: Date.now() }));
+      return true;
+    }
+    function nomJoueur(nom) {
+      const s = el("strong", "", nom || "Joueur");
+      if (estPremiumNom(nom) || (nom && nom === pseudoActuel && premium.actif)) s.append(el("span", "badge-pseudo", "👑 PREMIUM"));
+      return s;
+    }
+
+    const LIMITE_QUIZ = 5, LIMITE_DIFFICILE = 10;
+    const NOMS_PLANS = { mensuel: "Mensuel", trimestriel: "Trimestriel", annuel: "Annuel" };
+    let premium = { actif: false, plan: null, fin: null }, historiqueCache = [];
+    function majOptionsNombre() {
+      const cat = $("categorieQuiz").value, niv = $("niveauQuiz").value;
+      const base = questionsMedQuiz.filter(q => q.categorie === cat && q.niveau === niv);
+      const themes = [...new Set(base.map(q => q.theme))];
+      const selTheme = $("themeQuiz"), ancienTheme = selTheme.value;
+      selTheme.replaceChildren(new Option("Tous les thèmes", ""), ...themes.map(t => new Option(t, t)));
+      selTheme.value = themes.includes(ancienTheme) ? ancienTheme : "";
+      const dispo = selTheme.value ? base.filter(q => q.theme === selTheme.value).length : base.length;
+      const select = $("nombreQuiz");
+      const ancien = select.value;
+      const valeurs = [5, 10, 20, 30].filter(n => n <= dispo && (premium.actif || niv !== "difficile" || n <= LIMITE_DIFFICILE));
+      if (!valeurs.length || (valeurs[valeurs.length - 1] < dispo && (premium.actif || niv !== "difficile"))) valeurs.push(Math.min(dispo, premium.actif || niv !== "difficile" ? dispo : LIMITE_DIFFICILE));
+      select.replaceChildren();
+      valeurs.forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = String(n);
+        opt.textContent = n === dispo && ![5, 10, 20, 30].includes(n) ? `Toutes (${n} questions)` : `${n} questions`;
+        select.append(opt);
+      });
+      select.value = valeurs.map(String).includes(ancien) ? ancien : String(valeurs[0]);
+    }
+    $("themeQuiz").addEventListener("change", majOptionsNombre);
+    $("categorieQuiz").addEventListener("change", majOptionsNombre);
+    $("niveauQuiz").addEventListener("change", majOptionsNombre);
+    majOptionsNombre();
+
+    // ---------- Barème : facile = 1 point, moyen = 5 points, difficile = 10 points ----------
+    const POINTS_NIVEAU = { facile: 1, moyen: 5, difficile: 10 };
+    const pointsQuestion = q => POINTS_NIVEAU[q.niveau] ?? 10;
+    const totalPoints = liste => liste.reduce((t, q) => t + pointsQuestion(q), 0);
+
+    // ---------- Badges et niveaux ----------
+    const NIVEAUX = [["Étudiant", 0], ["Interne", 100], ["Docteur", 300], ["Professeur", 800]];
+    const BADGES = [
+      ["🎯", "Premier quiz", h => h.length >= 1],
+      ["🔁", "10 quiz terminés", h => h.length >= 10],
+      ["💯", "Score parfait", h => h.some(x => x.nombre_questions >= 5 && x.score === (x.score_max ?? x.nombre_questions * 10))],
+      ["⭐", "100 points", (h, t) => t >= 100],
+      ["🏅", "500 points", (h, t) => t >= 500],
+      ["👑", "1000 points", (h, t) => t >= 1000]
+    ];
+    function afficherBadges(historique, total) {
+      const niveau = $("niveauJoueur");
+      const zone = $("badgesListe");
+      if (!niveau || !zone) return;
+      niveau.textContent = [...NIVEAUX].reverse().find(n => total >= n[1])[0];
+      zone.replaceChildren();
+      BADGES.forEach(([icone, nom, test]) => {
+        const b = el("div", "badge" + (test(historique, total) ? "" : " locked"));
+        b.append(el("span", "", icone), document.createTextNode(nom));
+        zone.append(b);
+      });
+    }
+
+    // ---------- Quiz : tirage reproductible (défi du jour, duels) ----------
+    function prng(graine) {
+      let a = graine >>> 0;
+      return () => {
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function choisirQuestions(pool, n, graine) {
+      const r = prng(graine);
+      return pool.map(q => ({ q, k: r() })).sort((x, y) => x.k - y.k).slice(0, n).map(x => x.q);
+    }
+    const filtrer = (c, n, t) => questionsMedQuiz.filter(q => q.categorie === c && q.niveau === n && (!t || q.theme === t));
+    const cleDefi = () => "medquiz_defi_" + new Date().toISOString().slice(0, 10);
+    const lireLocal = k => { try { return localStorage.getItem(k); } catch { return null; } };
+    const ecrireLocal = (k, v) => { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } };
+    const urlSite = () => window.location.href.split(/[?#]/)[0];
+    function lienDuel(cfg, score) {
+      const p = new URLSearchParams({ duel: "1", s: cfg.seed, c: cfg.categorie, n: cfg.niveau, t: cfg.theme || "", q: cfg.selection.length, p: score, u: pseudoActuel });
+      return urlSite() + "?" + p;
+    }
+
+    // ---------- Sons (générés par le navigateur, aucun fichier) ----------
+    let contexteAudio = null;
+    let sonActif = lireLocal("medquiz_son") !== "off";
+    function jouerNote(freq, debut, duree, type = "sine", volume = 0.15) {
+      const ctx = contexteAudio, osc = ctx.createOscillator(), gain = ctx.createGain();
+      const t = ctx.currentTime + debut;
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(volume, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + duree + 0.05);
+    }
+    function son(nom) {
+      if (!sonActif) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        contexteAudio = contexteAudio || new AC();
+        if (contexteAudio.state === "suspended") contexteAudio.resume();
+        if (nom === "bon") { jouerNote(660, 0, 0.12); jouerNote(880, 0.1, 0.2); }
+        else if (nom === "mauvais") { jouerNote(220, 0, 0.18, "sawtooth", 0.08); jouerNote(165, 0.15, 0.3, "sawtooth", 0.08); }
+        else if (nom === "tic") jouerNote(1000, 0, 0.05, "square", 0.04);
+        else if (nom === "demarrer") jouerNote(523, 0, 0.1);
+        else if (nom === "victoire") [523, 659, 784, 1047].forEach((f, i) => jouerNote(f, i * 0.12, 0.25, "triangle"));
+        else if (nom === "fin") { jouerNote(392, 0, 0.2, "triangle"); jouerNote(330, 0.2, 0.35, "triangle"); }
+      } catch { /* audio indisponible */ }
+    }
+    $("btnSon").textContent = sonActif ? "🔊" : "🔇";
+    $("btnSon").addEventListener("click", () => {
+      sonActif = !sonActif;
+      sonUrgenceActif = sonActif;
+      ecrireLocal("medquiz_son", sonActif ? "on" : "off");
+      $("btnSon").textContent = sonActif ? "🔊" : "🔇";
+      if(sonActif)activerEtTesterSonUrgence();
+    });
+
+    // ---------- Réponses ouvertes : comparaison tolérante ----------
+    function normaliser(t) {
+      return String(t).toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ").trim().replace(/^(le|la|les|l|un|une|the) /, "");
+    }
+    function distanceEdition(a, b) {
+      const m = [...Array(b.length + 1).keys()];
+      for (let i = 1; i <= a.length; i++) {
+        let prev = m[0]; m[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+          const tmp = m[j];
+          m[j] = Math.min(m[j] + 1, m[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+          prev = tmp;
+        }
+      }
+      return m[b.length];
+    }
+    function reponseOuverteCorrecte(saisie, acceptees) {
+      const s = normaliser(saisie);
+      if (!s) return false;
+      return acceptees.some(r => {
+        const n = normaliser(r);
+        if (!n) return false;
+        if (s === n) return true;
+        const tolerance = n.length >= 12 ? 2 : n.length >= 6 ? 1 : 0;
+        return tolerance > 0 && distanceEdition(s, n) <= tolerance;
+      });
+    }
+
+    // Mélange uniforme (Fisher-Yates) sur une copie : la bonne réponse n'est plus toujours au même endroit
+    function melangerChoix(liste) {
+      const a = [...liste];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // ---------- Écran de quiz immersif : aucune navigation ni autre salle visible ----------
+    let mqQuizOverlay = null;
+    let mqQuizCloseHandler = null;
+    function ouvrirEcranQuiz(titre) {
+      mqQuizOverlay = $("mqQuizFocus");
+      mqQuizOverlay.classList.add("is-open");
+      mqQuizOverlay.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      $("mqQuizKicker").textContent = titre || "Session en cours";
+      $("mqQuizProgress").style.width = "0%";
+      $("mqQuizZone").replaceChildren();
+      return $("mqQuizZone");
+    }
+    function fermerEcranQuiz() {
+      compteurQuiz++;
+      if (mqQuizCloseHandler) mqQuizCloseHandler();
+      mqQuizCloseHandler = null;
+      if (mqQuizOverlay) {
+        mqQuizOverlay.classList.remove("is-open");
+        mqQuizOverlay.setAttribute("aria-hidden", "true");
+      }
+      document.body.style.overflow = "";
+      afficherPage("accueil");
+    }
+    const ouvrirConfirmQuitter = () => { $("mqQuitDialog").classList.add("is-open"); $("mqQuitContinue").focus(); };
+    const fermerConfirmQuitter = () => $("mqQuitDialog").classList.remove("is-open");
+    $("mqQuizExit").addEventListener("click", ouvrirConfirmQuitter);
+    $("mqQuitContinue").addEventListener("click", fermerConfirmQuitter);
+    $("mqQuitConfirm").addEventListener("click", () => { fermerConfirmQuitter(); fermerEcranQuiz(); });
+    $("mqQuitDialog").addEventListener("click", e => { if (e.target.id === "mqQuitDialog") fermerConfirmQuitter(); });
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape" || !$("mqQuizFocus").classList.contains("is-open")) return;
+      if ($("mqQuitDialog").classList.contains("is-open")) fermerConfirmQuitter(); else ouvrirConfirmQuitter();
+    });
+
+    function lancerQuiz(cfg) {
+      const zone = cfg.zone || ouvrirEcranQuiz(cfg.titre), selection = cfg.selection, jeton = ++compteurQuiz;
+      let index = 0, score = 0, bonnes = 0, minuteur = null, debut = 0, tempsTotal = 0;
+      zone.scrollIntoView({ behavior: "smooth", block: "start" });
+      son("demarrer");
+      afficherQuestion();
+
+      function arreter() { clearInterval(minuteur); minuteur = null; }
+      mqQuizCloseHandler = arreter;
+
+      function afficherQuestion() {
+        if (index >= selection.length) { afficherFin(); return; }
+        const q = selection[index];
+        const progress = $("mqQuizProgress");
+        if (progress) progress.style.width = `${Math.round(index / selection.length * 100)}%`;
+        const kicker = $("mqQuizKicker");
+        if (kicker) kicker.textContent = `${cfg.titre} · QUESTION ${index + 1} / ${selection.length}`;
+        debut = Date.now();
+        zone.replaceChildren(el("h3", "", `${cfg.titre} — Question ${index + 1} / ${selection.length}`));
+        let barre, texte;
+        if (cfg.chrono > 0) {
+          texte = el("p", "chrono-text", `⏱ ${cfg.chrono} s`);
+          const piste = el("div", "chrono");
+          barre = el("i");
+          barre.style.width = "100%";
+          piste.append(barre);
+          zone.append(texte, piste);
+        }
+        const question = el("p", "", q.question);
+        question.style.marginBottom = "15px";
+        zone.append(question);
+        if (q.type === "ouverte") {
+          const champ = el("input", "reponse-libre");
+          champ.type = "text"; champ.maxLength = 100; champ.placeholder = "Tape ta réponse"; champ.autocomplete = "off";
+          const valider = el("button", "btn btn-primary valider", "Valider");
+          valider.type = "button";
+          valider.style.marginTop = "12px";
+          const envoyer = () => { if (champ.value.trim()) repondre(champ.value, q); };
+          valider.addEventListener("click", envoyer);
+          champ.addEventListener("keydown", e => { if (e.key === "Enter") envoyer(); });
+          zone.append(champ, valider);
+          champ.focus();
+        } else melangerChoix(q.choix).forEach(choix => {
+          const b = el("button", "quiz-answer", choix);
+          b.type = "button";
+          b.addEventListener("click", () => repondre(choix, q));
+          zone.append(b);
+        });
+        if (cfg.chrono > 0) {
+          let reste = cfg.chrono;
+          minuteur = setInterval(() => {
+            if (jeton !== compteurQuiz) { arreter(); return; }
+            reste--;
+            if (reste <= 5 && reste > 0) son("tic");
+            texte.textContent = `⏱ ${reste} s`;
+            texte.classList.toggle("urgent", reste <= 5);
+            barre.style.width = (reste / cfg.chrono * 100) + "%";
+            if (reste <= 0) repondre(null, q);
+          }, 1000);
+        }
+      }
+
+      function repondre(choix, q) {
+        if (zone.querySelector(".quiz-feedback")) return;
+        arreter();
+        const ecoule = choix === null ? cfg.chrono * 1000 : Date.now() - debut;
+        tempsTotal += ecoule;
+        const correct = choix !== null && (q.type === "ouverte" ? reponseOuverteCorrecte(choix, q.reponses) : choix === q.reponse);
+        son(correct ? "bon" : "mauvais");
+        const rapide = cfg.mode === "partie" && cfg.chrono > 0;
+        const gain = !correct ? 0 : rapide ? Math.max(5, Math.round(10 * (1 - 0.5 * Math.min(1, ecoule / (cfg.chrono * 1000))))) : pointsQuestion(q);
+        score += gain;
+        if (correct) bonnes++;
+        zone.querySelectorAll(".quiz-answer, .reponse-libre, .valider").forEach(b => { b.disabled = true; });
+        zone.querySelectorAll(".quiz-answer").forEach(b => {
+          if (b.textContent === q.reponse) b.classList.add("correct");
+          else if (b.textContent === choix) b.classList.add("wrong");
+        });
+        const detail = cfg.mode === "partie" ? ` (${(ecoule / 1000).toFixed(1)} s${correct ? `, +${gain} pts` : ""})` : "";
+        const debutMsg = correct ? `Bonne réponse !${detail} ` : choix === null ? `Temps écoulé ! La bonne réponse est : ${q.reponse}. ` : `Mauvaise réponse. La bonne réponse est : ${q.reponse}. `;
+        const finSurvie = cfg.mode === "survie" && !correct;
+        const suivant = el("button", "btn btn-primary", finSurvie || index === selection.length - 1 ? "Voir mon résultat" : "Question suivante →");
+        suivant.type = "button";
+        suivant.style.marginTop = "14px";
+        suivant.addEventListener("click", () => { index = finSurvie ? selection.length : index + 1; afficherQuestion(); });
+        const expl = premium.actif ? q.explication : String(q.explication).split(/(?<=[.!?])\s/)[0] + " 🔒 Explication complète avec Premium.";
+        zone.append(el("p", "quiz-feedback", debutMsg + expl), suivant);
+      }
+
+      async function afficherFin() {
+        arreter();
+        const max = totalPoints(selection);
+        const progress = $("mqQuizProgress"); if (progress) progress.style.width = "100%";
+        const kicker = $("mqQuizKicker"); if (kicker) kicker.textContent = "SESSION TERMINÉE";
+        son(score >= max / 2 ? "victoire" : "fin");
+        const resultat = el("p", "", `Ton score : ${score} / ${max} points`);
+        resultat.style.cssText = "font-size:1.2rem;margin:10px 0";
+        zone.replaceChildren(el("h3", "", cfg.mode === "survie" ? "Fin de partie ☠️" : "Quiz terminé ! 🎉"), resultat, el("p", "muted", cfg.mode === "survie" ? `Tu as survécu à ${bonnes} question(s) sur ${selection.length}. ${bonnes === selection.length ? "Incroyable : aucune erreur !" : "Une mauvaise réponse a mis fin à ta série."}` : `${bonnes} bonne(s) réponse(s) sur ${selection.length}`));
+        const retour = el("button", "btn btn-secondary", "← Retour à MedQuiz");
+        retour.type = "button";
+        retour.style.marginTop = "8px";
+        retour.addEventListener("click", () => {
+          if (mqQuizOverlay) { mqQuizOverlay.classList.remove("is-open"); mqQuizOverlay.setAttribute("aria-hidden", "true"); }
+          document.body.style.overflow = "";
+          afficherPage("accueil");
+        });
+        zone.append(retour);
+        if (cfg.mode === "partie") { await cfg.surFin(score, zone, tempsTotal); return; }
+        if (cfg.mode === "duel") {
+          const d = cfg.duel;
+          if (d.challengeOnly) {
+            zone.append(el("p", "notice", `⚔️ Ton défi pour ${d.pseudo} est prêt ! Partage le lien pour qu'il réponde aux mêmes questions.`));
+          } else {
+            zone.append(el("p", "notice", score > d.score ? `🏆 Tu as battu ${d.pseudo} (${d.score} pts) !` : score < d.score ? `${d.pseudo} gagne avec ${d.score} pts. Demande une revanche !` : `🤝 Égalité avec ${d.pseudo} (${d.score} pts) !`));
+          }
+        }
+        if (cfg.mode === "defi") ecrireLocal(cleDefi(), String(score));
+
+        const lien = cfg.mode === "defi" ? urlSite() : lienDuel(cfg, score);
+        const message = cfg.mode === "survie"
+          ? `☠️ J'ai survécu à ${bonnes} question(s) sur MedQuiz ! Mon score : ${score} points. À toi de tenter le Mode Survie ! ${urlSite()}`
+          : cfg.mode === "defi"
+            ? `🔥 J'ai fait ${score}/${max} au défi du jour MedQuiz ! Fais mieux : ${lien}`
+            : cfg.mode === "duel" && cfg.duel?.challengeOnly
+              ? `⚔️ ${cfg.duel.pseudo}, je te défie sur MedQuiz ! J'ai fait ${score}/${max} points. Réponds exactement aux mêmes questions et essaie de me battre : ${lien}`
+              : `⚔️ Je te défie sur MedQuiz ! J'ai fait ${score}/${max}. Essaie de me battre : ${lien}`;
+        const actions = el("div", "actions");
+        actions.style.margin = "14px 0";
+        const wa = el("a", "btn btn-gold", cfg.mode === "defi" ? "Partager sur WhatsApp" : "⚔️ Défier un ami");
+        wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+        wa.target = "_blank";
+        wa.rel = "noopener";
+        const copier = el("button", "btn btn-secondary", "Copier le message");
+        copier.type = "button";
+        copier.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+          catch { window.prompt("Copie ce message :", message); }
+        });
+        actions.append(wa, copier);
+        actions.append(boutonCarte({ score, max, bonnes, total: selection.length, titre: cfg.titre }));
+        zone.append(actions);
+
+        const info = el("p", "muted");
+        zone.append(info);
+        if (!utilisateurActuel) {
+          info.className = "notice";
+          info.textContent = "Connecte-toi pour enregistrer ton score dans ton historique.";
+          const lienCompte = el("a", "btn btn-primary", "Me connecter");
+          lienCompte.href = "#compte";
+          lienCompte.addEventListener("click", e => { e.preventDefault(); afficherPage("compte"); });
+          zone.append(lienCompte);
+          return;
+        }
+        info.textContent = "Enregistrement de ton score...";
+        const ligneHisto = { user_id: utilisateurActuel.id, score, nombre_questions: selection.length, bonnes_reponses: bonnes, score_max: max, niveau: cfg.niveau || (cfg.mode === "defi" ? "mixte" : null) };
+        let { error } = navigator.onLine ? await supabase.from("quiz_history").insert(ligneHisto) : { error: { message: "offline" } };
+        // Si le script points.sql n'a pas encore été exécuté, on enregistre au format simple
+        if (error && navigator.onLine) ({ error } = await supabase.from("quiz_history").insert({ user_id: utilisateurActuel.id, score, nombre_questions: selection.length }));
+        if (error && (!navigator.onLine || /fetch|network|offline/i.test(error.message)) && window.MQ?.queueHistory) {
+          window.MQ.queueHistory(ligneHisto);
+          info.className = "notice";
+          info.textContent = "Hors ligne : ton score sera enregistré automatiquement dès que tu seras reconnecté.";
+          return;
+        }
+        if (error) {
+          console.error("Erreur d'enregistrement :", error.message);
+          info.textContent = "Ton résultat est affiché, mais son enregistrement a échoué.";
+          info.classList.add("error");
+        } else {
+          info.className = "notice";
+          info.textContent = "Ton score a été enregistré dans ton historique !";
+          const histo = el("button", "btn btn-secondary", "Voir mon historique et mes badges");
+          histo.type = "button";
+          histo.addEventListener("click", () => afficherPage("member"));
+          zone.append(histo);
+          const inviter = el("button", "btn btn-gold", "🎁 Inviter un ami (7 jours Premium)");
+          inviter.type = "button";
+          inviter.style.marginLeft = "8px";
+          inviter.addEventListener("click", () => { afficherPage("member"); setTimeout(() => $("referralPanel")?.scrollIntoView({ behavior: "smooth" }), 400); });
+          zone.append(inviter);
+          await chargerHistorique();
+        }
+      }
+    }
+
+    $("demarrerQuiz").addEventListener("click", async () => {
+      const categorie = $("categorieQuiz").value, niveau = $("niveauQuiz").value, theme = $("themeQuiz").value;
+      const n = Number($("nombreQuiz").value), chrono = Number($("chronoQuiz").value);
+      const pool = filtrer(categorie, niveau, theme);
+      if (!pool.length) { $("zoneQuiz").textContent = "Aucune question disponible pour ce choix."; return; }
+      if (!premium.actif) {
+        let serveurOk = false;
+        if (utilisateurActuel) {
+          const { data, error } = await supabase.rpc("consume_quiz_quota");
+          if (!error && typeof data === "number") {
+            serveurOk = true;
+            if (data < 0) { quotaServeur = 0; majUIPremium(); afficherLimite(); return; }
+            quotaServeur = data; majUIPremium();
+          } else if (error) console.warn("Quota serveur indisponible (repli local) :", error.message);
+        }
+        if (!serveurOk) {
+          if (quizRestants() === 0) { afficherLimite(); return; }
+          ecrireLocal(cleQuota(), String(LIMITE_QUIZ - quizRestants() + 1));
+          majUIPremium();
+        }
+      }
+      const seed = Math.floor(Math.random() * 1e9);
+      lancerQuiz({ titre: "Quiz", mode: "normal", categorie, niveau, theme, seed, chrono, selection: choisirQuestions(pool, premium.actif || niveau !== "difficile" ? n : Math.min(n, LIMITE_DIFFICILE), seed) });
+    });
+
+    // ---------- Défi du jour ----------
+    // ---------- Mode Survie : gratuit, une seule erreur met fin à la partie ----------
+    function lancerSurvie() {
+      const categorie = $("categorieQuiz").value, niveau = $("niveauQuiz").value, theme = $("themeQuiz").value;
+      const pool = filtrer(categorie, niveau, theme);
+      if (!pool.length) { alert("Aucune question disponible pour ces filtres. Choisis un autre thème."); return; }
+      const n = Math.min(20, pool.length);
+      const seed = Math.floor(Math.random() * 1e9);
+      lancerQuiz({ titre: "☠️ Mode Survie", mode: "survie", categorie, niveau, theme, seed, chrono: 15, selection: choisirQuestions(pool, n, seed) });
+    }
+    $("demarrerSurvie")?.addEventListener("click", lancerSurvie);
+
+    function lancerDefi() {
+      const zone = $("zoneQuiz"), fait = lireLocal(cleDefi());
+      const maxDefi = totalPoints(choisirQuestions(questionsMedQuiz, 5, Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""))));
+      if (fait !== null) {
+        zone.replaceChildren(el("h3", "", "Défi du jour déjà relevé ✅"), el("p", "muted", `Ton score aujourd'hui : ${Math.min(Number(fait), maxDefi)} / ${maxDefi}. Reviens demain pour un nouveau défi !`));
+        zone.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const seed = Number(new Date().toISOString().slice(0, 10).replaceAll("-", ""));
+      lancerQuiz({ titre: "🔥 Défi du jour", mode: "defi", seed, chrono: 20, selection: choisirQuestions(questionsMedQuiz, 5, seed) });
+    }
+    $("defiJour")?.addEventListener("click", lancerDefi);
+    $("defiAccueil")?.addEventListener("click", lancerDefi);
+
+    // ---------- Duel : défi reçu par lien ----------
+    function afficherDuelEntrant() {
+      const u = new URLSearchParams(window.location.search);
+      if (u.get("duel") !== "1") return false;
+      const nb = Math.min(Math.max(Number(u.get("q")) || 5, 1), 30);
+      const cfg = {
+        titre: "⚔️ Duel", mode: "duel", seed: Number(u.get("s")), categorie: u.get("c"), niveau: u.get("n"), theme: u.get("t") || "", chrono: 0,
+        duel: { pseudo: (u.get("u") || "Un ami").slice(0, 30), score: Math.min(Math.max(Math.round(Number(u.get("p"))) || 0, 0), nb * 10) }
+      };
+      const pool = filtrer(cfg.categorie, cfg.niveau, cfg.theme);
+      if (!pool.length || !Number.isFinite(cfg.seed)) return false;
+      cfg.selection = choisirQuestions(pool, nb, cfg.seed);
+      const bouton = el("button", "btn btn-primary", "Relever le défi →");
+      bouton.type = "button";
+      bouton.style.marginTop = "14px";
+      bouton.addEventListener("click", () => lancerQuiz(cfg));
+      $("zoneQuiz").replaceChildren(el("h3", "", `⚔️ ${cfg.duel.pseudo} te défie !`), el("p", "muted", `Il a fait ${cfg.duel.score} points sur ${totalPoints(cfg.selection)}. Réponds aux mêmes ${cfg.selection.length} questions pour le battre.`), bouton);
+      return true;
+    }
+
+    // ---------- Parties entre amis (code + questions de l'organisateur) ----------
+    let pollPartie = null, compteurBloc = 0;
+    const melangerListe = a => [...a].sort(() => Math.random() - 0.5);
+
+    function majPageParties() {
+      $("partiesAuth").classList.toggle("hidden", !!utilisateurActuel);
+      $("partiesContenu").classList.toggle("hidden", !utilisateurActuel);
+    }
+
+    function ajouterBlocQuestion() {
+      const conteneur = $("blocsQuestions");
+      if (conteneur.children.length >= 50) return;
+      const id = ++compteurBloc;
+      const bloc = el("div", "qbloc");
+      const tete = el("div", "qhead");
+      const type = el("select", "q-type");
+      type.append(new Option("Choix multiples", "qcm"), new Option("Question ouverte", "ouverte"));
+      const supprimer = el("button", "btn btn-secondary btn-small", "Supprimer");
+      supprimer.type = "button";
+      supprimer.addEventListener("click", () => { bloc.remove(); numeroterBlocs(); });
+      const droite = el("div");
+      droite.append(type, supprimer);
+      tete.append(el("strong", "", "Question"), droite);
+      const texte = el("input", "q-texte");
+      texte.type = "text"; texte.maxLength = 500; texte.placeholder = "Ta question";
+      const qcm = el("div", "q-qcm");
+      for (let i = 0; i < 4; i++) {
+        const ligne = el("div", "opt");
+        const radio = el("input"); radio.type = "radio"; radio.name = "bonne-" + id; radio.value = String(i); radio.title = "Bonne réponse";
+        if (i === 0) radio.checked = true;
+        const champ = el("input", "q-choix"); champ.type = "text"; champ.maxLength = 200; champ.placeholder = `Réponse ${"ABCD"[i]}` + (i === 0 ? " (coche la bonne)" : "");
+        ligne.append(radio, champ);
+        qcm.append(ligne);
+      }
+      const ouvert = el("div", "q-ouvert hidden");
+      const attendue = el("textarea", "q-attendue");
+      attendue.maxLength = 1000; attendue.rows = 2; attendue.placeholder = "Réponse attendue (obligatoire)";
+      const reps = el("input", "q-reponses");
+      reps.type = "text"; reps.maxLength = 300; reps.placeholder = "Autres réponses acceptées (facultatif), séparées par ;";
+      const verifLigne = el("div", "opt");
+      const verif = el("input", "q-verif"); verif.type = "checkbox";
+      verifLigne.append(verif, el("span", "", "Je vérifie moi-même si la réponse du joueur est différente de la réponse attendue"));
+      const aide = el("p", "muted", "Sans cette case, une réponse différente est comptée fausse. Les accents, majuscules et petites fautes de frappe restent tolérés.");
+      aide.style.fontSize = ".85rem";
+      ouvert.append(attendue, reps, verifLigne, aide);
+      type.addEventListener("change", () => {
+        qcm.classList.toggle("hidden", type.value === "ouverte");
+        ouvert.classList.toggle("hidden", type.value !== "ouverte");
+      });
+      bloc.append(tete, texte, qcm, ouvert);
+      conteneur.append(bloc);
+      numeroterBlocs();
+    }
+    function numeroterBlocs() {
+      [...$("blocsQuestions").children].forEach((b, i) => { b.querySelector("strong").textContent = `Question ${i + 1}`; });
+    }
+    for (let i = 0; i < 3; i++) ajouterBlocQuestion();
+    $("ajouterQuestion").addEventListener("click", ajouterBlocQuestion);
+
+    function lireQuestionsFormulaire() {
+      const questions = [];
+      for (const [i, bloc] of [...$("blocsQuestions").children].entries()) {
+        const texte = bloc.querySelector(".q-texte").value.trim();
+        if (!texte) throw new Error(`Question ${i + 1} : écris la question.`);
+        if (texte.length > 500) throw new Error(`Question ${i + 1} : énoncé trop long (500 caractères maximum).`);
+        if (bloc.querySelector(".q-type").value === "ouverte") {
+          const attendue = bloc.querySelector(".q-attendue").value.trim();
+          const variantes = bloc.querySelector(".q-reponses").value.split(";").map(r => r.trim()).filter(Boolean).slice(0, 10);
+          const reponse = attendue || variantes[0] || "";
+          if (!reponse) throw new Error(`Question ${i + 1} : indique la réponse attendue.`);
+          const q = { type: "ouverte", question: texte, reponse, reponses: variantes, choix: [] };
+          if (bloc.querySelector(".q-verif").checked) q.verif = "organisateur";
+          questions.push(q);
+          continue;
+        }
+        const choix = [...bloc.querySelectorAll(".q-choix")].map(c => c.value.trim());
+        const coche = bloc.querySelector('input[type="radio"]:checked');
+        if (!coche && bloc.dataset.import) throw new Error(`Question ${i + 1} : choisis toi-même la bonne réponse (case à gauche de la proposition).`);
+        const idx = Number(coche?.value ?? 0);
+        if (choix.some(c => !c)) throw new Error(`Question ${i + 1} : remplis les 4 réponses.`);
+        if (new Set(choix.map(c => c.toLowerCase())).size < 4) throw new Error(`Question ${i + 1} : les 4 réponses doivent être différentes.`);
+        questions.push({ type: "qcm", question: texte, choix, reponse: choix[idx] });
+      }
+      if (!questions.length) throw new Error("Ajoute au moins une question.");
+      return questions;
+    }
+
+    // ---------- Importer mes questions : lecture dans le navigateur (gratuit, sans IA, rien n'est envoyé) ----------
+    const IMPORT_MAX = 50;
+const nettoyerOption = t => t.replace(/\s*(?:\*+|✓|✔|✅|☑|\((?:bonne r[ée]ponse|correcte?|vrai|juste|x)\))\s*$/i, "").trim();
+
+function analyserQuestions(texte) {
+  const res = { questions: [], detectees: 0, tronque: false, ignorees: 0 };
+  const lignes = String(texte || "").replace(/\r/g, "\n").replace(/[\u00a0\u2007\u202f]/g, " ").replace(/[\u200b\ufeff]/g, "")
+    .split("\n").map(l => l.replace(/[\t ]+/g, " ").trim().replace(/^[^\p{L}\p{N}(]+/u, "").replace(/[‘’“”|~_]+$/u, "").trim());
+  const RE_Q = /^(?:(?:question|quest\.?|q)\s*)?(\d{1,3})\s*(?:[.):\-–—]|\s-\s)\s*(\S.*)$/i;
+  const RE_QSEUL = /^(?:question|quest\.?|q)\s*(\d{1,3})\s*[.):\-–—]?\s*$/i;
+  const RE_OPT = /^\(?([A-Da-d])\s*[.):\-–—,;]\s*(\S.*)$/;
+  const RE_EXTRA = /^\(?[E-He-h]\s*[.):\-–—]\s*\S/;
+  const RE_REP = /^(?:r[ée]ponses?|bonnes?\s+r[ée]ponses?|corrig[ée]s?|correction|solutions?|justifications?|explications?|commentaires?|remarques?|r[ée]p|answers?)\s*(?:[:：\-–—]|$)/i;
+  const RE_FIN = /^(?:corrig[ée]s?|correction|solutions?|bar[èe]me|cl[ée]s? de correction)(?:\s+(?:du|des|de la|de l')?\s*\w+){0,3}\s*:?$/i;
+  const RE_CLE = /^(?:(?:question\s*)?\d{1,3}\s*[-:.)=]?\s*[A-Da-d](?:\s*[,/]\s*[A-Da-d])*\s*[;,.]?\s*)+$/i;
+  const RE_CLE_COURTE = /^[A-Da-d](?:\s*[,/]\s*[A-Da-d])*\.?$/;
+  const RE_PAGE = /^(?:page\s*)?\d{1,3}(?:\s*\/\s*\d{1,3})?$|^[-–—]\s*\d{1,3}\s*[-–—]$/i;
+  const nbOpts = c => ["A", "B", "C", "D"].filter(k => c.opts[k] !== undefined).length;
+  const dedup = new Set();
+
+  const ajouter = c => {
+    let q = c.stem.replace(/^[•·▪\-–—*\s]+/, "").replace(/\s+/g, " ").trim();
+    if (q.length < 3) return;
+    const cle = q.toLowerCase().replace(/[^a-z0-9à-ÿ]/g, "");
+    if (dedup.has(cle)) { res.ignorees++; return; }
+    dedup.add(cle);
+    const n = nbOpts(c), avert = [];
+    if (c.extra) avert.push("Plus de 4 propositions : seules A à D ont été gardées.");
+    if (n >= 2) {
+      if (n < 4) avert.push(`Il manque ${4 - n} proposition(s) : complète-les.`);
+      res.questions.push({ type: "qcm", question: q, choix: ["A", "B", "C", "D"].map(k => c.opts[k] || ""), avert });
+    } else {
+      if (n === 1) q += " " + c.opts.A;
+      res.questions.push({ type: "ouverte", question: q, choix: [], avert });
+    }
+  };
+
+  // Propositions A, B, C, D (éventuellement plusieurs sur la même ligne). Renvoie true si la ligne a été utilisée.
+  const lireOption = (c, ligne) => {
+    const m0 = RE_OPT.exec(ligne);
+    if (!m0 || m0[1].toUpperCase() !== "ABCD"[nbOpts(c)]) return false;
+    let reste = ligne;
+    for (;;) {
+      const mm = RE_OPT.exec(reste), k = nbOpts(c);
+      if (!mm || k > 3 || mm[1].toUpperCase() !== "ABCD"[k]) break;
+      const texte = mm[2], suivante = "ABCD"[k + 1];
+      let coupe = -1;
+      if (suivante) { const f = new RegExp("\\s\\(?" + suivante + "\\s*[.):\\-–—,;]\\s*\\S", "i").exec(texte); if (f) coupe = f.index; }
+      c.opts["ABCD"[k]] = nettoyerOption(coupe > 0 ? texte.slice(0, coupe) : texte);
+      c.last = "ABCD"[k];
+      if (coupe > 0) reste = texte.slice(coupe + 1).trim(); else break;
+    }
+    return true;
+  };
+  const suite = (c, ligne, apresVide) => {
+    if (lireOption(c, ligne)) return;
+    if (nbOpts(c) === 4 && RE_EXTRA.test(ligne)) { c.extra = true; c.last = "extra"; return; }
+    if (c.last === "extra") return;
+    if (c.last !== "stem" && apresVide) return;               // titre de section après une question : on l'ignore
+    if (c.last === "stem") c.stem += " " + ligne;
+    else if (/^[a-zà-ÿ0-9(,;]/.test(ligne)) c.opts[c.last] += " " + ligne;   // un titre en majuscule n'est pas collé à la proposition
+  };
+  const stemAvecOptions = c => {                               // "1. Question ? A) x B) y C) z D) w" sur une seule ligne
+    const f = /\s\(?A\s*[.):\-–—]\s*\S/.exec(c.stem);
+    if (f) { const reste = c.stem.slice(f.index + 1).trim(); c.stem = c.stem.slice(0, f.index); lireOption(c, reste); }
+  };
+
+  let cur = null, last = 0, fin = false, ignorer = false, vide = false;
+  for (const ligne of lignes) {
+    if (!ligne) { vide = true; continue; }
+    const apresVide = vide; vide = false;
+    if (fin) break;
+    if (RE_FIN.test(ligne) && (cur || res.questions.length)) { if (cur) { ajouter(cur); cur = null; } fin = true; continue; }
+    if (RE_CLE.test(ligne) || RE_PAGE.test(ligne)) continue;
+    const mq = RE_Q.exec(ligne), ms = RE_QSEUL.exec(ligne);
+    if (mq || ms) {
+      const n = parseInt((mq || ms)[1], 10), reste = mq ? mq[2] : "";
+      const sequence = last === 0 || n === last + 1 || (n > last && n <= last + 3) ||
+        (n === 1 && cur && (nbOpts(cur) >= 2 || /\?\s*$/.test(cur.stem)));
+      if (RE_CLE_COURTE.test(reste)) continue;                 // ligne de corrigé du type « 3. B »
+      if (cur && nbOpts(cur) < 2 && ((cur.sousListe && n === cur.sub + 1) || (n === 1 && /[:;]\s*$/.test(cur.stem)))) {
+        cur.sousListe = true; cur.sub = n; cur.stem += " " + ligne; continue;   // élément de liste dans l'énoncé
+      }
+      if (sequence) {
+        if (cur) ajouter(cur);
+        cur = { n, stem: reste, opts: {}, last: "stem", extra: false };
+        last = n; ignorer = false; stemAvecOptions(cur);
+        continue;
+      }
+    }
+    if (RE_REP.test(ligne)) { ignorer = true; continue; }       // « Réponse : B », « Explication : … » : jamais récupérés
+    if (ignorer || !cur) continue;
+    suite(cur, ligne, apresVide);
   }
-  majTimer(); draw();
+  if (cur) ajouter(cur);
+
+  if (!res.questions.length) {                                  // document sans numérotation : blocs séparés par des lignes vides
+    const blocs = []; let b = [];
+    for (const l of lignes) { if (!l) { if (b.length) blocs.push(b); b = []; } else b.push(l); }
+    if (b.length) blocs.push(b);
+    for (const bloc of blocs) {
+      if (RE_REP.test(bloc[0]) || RE_FIN.test(bloc[0])) continue;
+      const c = { n: 0, stem: "", opts: {}, last: "stem", extra: false };
+      for (const l of bloc) {
+        if (RE_REP.test(l)) break;
+        if (!c.stem) { c.stem = l; stemAvecOptions(c); } else suite(c, l, false);
+      }
+      if (c.stem.length >= 8 && (nbOpts(c) >= 2 || /\?\s*$/.test(c.stem))) ajouter(c);
+    }
+  }
+  res.detectees = res.questions.length;
+  if (res.questions.length > IMPORT_MAX) { res.questions.length = IMPORT_MAX; res.tronque = true; }
+  return res;
 }
 
-// ====================== GÉNÉRATEUR DE QCM ======================
-const DECKS = "mqx_decks_v1";
-const MAX_FILE = 5 * 1024 * 1024;
-async function lireFichier(f) {
-  if (f.size > MAX_FILE) throw new Error("Fichier trop volumineux (5 Mo max).");
-  if (/\.pdf$/i.test(f.name)) {
-    const pdfjs = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
-    pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
-    const pdf = await pdfjs.getDocument({ data: await f.arrayBuffer() }).promise;
-    let t = "";
-    for (let p = 1; p <= Math.min(pdf.numPages, 40) && t.length < 20000; p++) t += (await (await pdf.getPage(p)).getTextContent()).items.map((i) => i.str).join(" ") + "\n";
-    return t;
+// Reconstruit les lignes d'une page PDF à partir des morceaux de texte fournis par PDF.js
+function lignesDePage(items) {
+  const m = items.filter(i => typeof i.str === "string" && i.str !== "").map(i => ({ s: i.str, x: i.transform[4], y: i.transform[5], w: i.width || 0 }));
+  m.sort((a, b) => (Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x));
+  const lignes = []; let cur = null;
+  for (const it of m) {
+    if (!cur || Math.abs(cur.y - it.y) > 3) { cur = { y: it.y, parts: [] }; lignes.push(cur); }
+    cur.parts.push(it);
   }
-  if (/\.(txt|md|csv)$/i.test(f.name) || f.type.startsWith("text/")) return await f.text();
-  throw new Error("Format non pris en charge : utilise un PDF, .txt ou .md, ou colle le texte.");
-}
-function validQ(q) {
-  return q && typeof q.question === "string" && Array.isArray(q.choix) && q.choix.length === 4 && q.choix.every((c) => typeof c === "string") && q.choix.includes(q.reponse);
-}
-function renderGenerator() {
-  gnBody.replaceChildren();
-  const user = MQ.getUser();
-  if (!user) { gnBody.append(el("p", "notice", "Connecte-toi pour générer des QCM depuis tes cours.")); const b = el("button", "btn btn-primary", "Me connecter"); b.type = "button"; b.addEventListener("click", () => MQ.afficherPage("compte")); gnBody.append(b); }
-  else {
-    const f = (l, n) => { const x = el("label", "mqx-field", l); x.append(n); return x; };
-    const titre = el("input"); titre.placeholder = "Ex. Cardiologie – insuffisance cardiaque"; titre.maxLength = 60;
-    const txt = el("textarea"); txt.placeholder = "Colle ici ton cours (min. 200 caractères, 12 000 utilisés au maximum)…";
-    const file = el("input"); file.type = "file"; file.accept = ".pdf,.txt,.md,text/plain,application/pdf";
-    const nb = el("select"); [5, 10, 15].forEach((n) => { const o = el("option", "", `${n} questions`); o.value = n; if (n === 10) o.selected = true; nb.append(o); });
-    const niv = el("select"); ["facile", "moyen", "difficile"].forEach((n) => { const o = el("option", "", n); o.value = n; if (n === "moyen") o.selected = true; niv.append(o); });
-    const info = el("p", "muted");
-    const privacy = el("p", "muted", "🔒 Le texte de ton cours est envoyé à un service d'IA pour générer les questions. N'y mets pas de données de patients ni de contenu que tu n'as pas le droit de partager.");
-    file.addEventListener("change", async () => {
-      if (!file.files[0]) return;
-      info.textContent = "Lecture du fichier…";
-      try { txt.value = (await lireFichier(file.files[0])).replace(/[ \t]+/g, " ").trim().slice(0, 12000); info.textContent = `${txt.value.length} caractères importés.`; if (!titre.value) titre.value = file.files[0].name.replace(/\.[^.]+$/, "").slice(0, 60); }
-      catch (e) { info.textContent = e.message; }
-    });
-    const gen = el("button", "btn btn-primary", "Générer mes QCM"); gen.type = "button";
-    gen.addEventListener("click", async () => {
-      if (!navigator.onLine) { info.textContent = "Tu es hors ligne : la génération nécessite une connexion."; return; }
-      if (txt.value.trim().length < 200) { info.textContent = "Ajoute au moins 200 caractères de cours."; return; }
-      gen.disabled = true; info.textContent = "Génération en cours (10 à 30 s)…";
-      const { data, error } = await supabase.functions.invoke("generate-qcm", { body: { text: txt.value, count: +nb.value, niveau: niv.value, titre: titre.value || "Mon cours" } });
-      gen.disabled = false;
-      let code = data?.error;
-      if (error && !code) { try { code = (await error.context?.json?.())?.error; } catch { /* ignore */ } }
-      if (code === "quota_exceeded") { info.textContent = "Limite quotidienne atteinte. Reviens demain, ou passe Premium pour plus de générations."; return; }
-      if (error || code || !Array.isArray(data?.questions)) { info.textContent = "La génération a échoué. Réessaie avec un texte plus clair."; return; }
-      const qs = data.questions.filter(validQ);
-      if (!qs.length) { info.textContent = "Aucune question exploitable n'a été produite."; return; }
-      const decks = lsGet(DECKS, []); decks.unshift({ id: Date.now(), titre: titre.value || "Mon cours", date: Date.now(), questions: qs });
-      lsSet(DECKS, decks.slice(0, 20)); info.textContent = `${qs.length} question(s) créée(s) ✓`; renderGenerator();
-    });
-    gnBody.append(f("Titre du cours", titre), f("Importer un fichier (PDF, TXT, MD)", file), f("Ou colle ton texte", txt));
-    const g = el("div", "mqx-grid"); g.append(f("Nombre", nb), f("Niveau", niv)); gnBody.append(g, gen, info, privacy);
-  }
-  const decks = lsGet(DECKS, []);
-  if (decks.length) {
-    const h = el("div"); h.style.marginTop = "24px"; h.append(el("h3", "", "Mes quiz (enregistrés sur cet appareil, disponibles hors ligne)"));
-    decks.forEach((d) => {
-      const row = el("div", "actions"); row.style.cssText = "align-items:center;margin:8px 0";
-      row.append(el("span", "", `${d.titre} — ${d.questions.length} q. · ${new Date(d.date).toLocaleDateString("fr-FR")}`));
-      const play = el("button", "btn btn-primary", "Jouer"); play.type = "button";
-      play.addEventListener("click", () => MQ.lancerQuiz({
-        mode: "partie", titre: d.titre, chrono: 0, selection: shuffle(d.questions).map((q) => ({ ...q, niveau: q.niveau || "moyen" })),
-        surFin: async (score, zone) => { zone.append(el("p", "notice", "Quiz personnel : il ne rapporte pas de points au classement.")); },
-      }));
-      const del = el("button", "btn btn-secondary", "Supprimer"); del.type = "button";
-      del.addEventListener("click", () => { if (confirm("Supprimer ce quiz ?")) { lsSet(DECKS, lsGet(DECKS, []).filter((x) => x.id !== d.id)); renderGenerator(); } });
-      row.append(play, del); h.append(row);
-    });
-    gnBody.append(h);
-  }
+  return lignes.map(l => {
+    l.parts.sort((a, b) => a.x - b.x);
+    let t = "", fin = null;
+    for (const p of l.parts) { if (fin !== null && p.x - fin > 1.5 && !/^\s/.test(p.s) && !/\s$/.test(t)) t += " "; t += p.s; fin = p.x + p.w; }
+    return t.trim();
+  }).filter(Boolean);
 }
 
-// ====================== PARRAINAGE ======================
-const REF_KEY = "mqx_ref_pending";
-try { const r = new URLSearchParams(location.search).get("ref"); if (r && /^[A-Za-z0-9]{4,16}$/.test(r)) localStorage.setItem(REF_KEY, r.toUpperCase()); } catch { /* ignore */ }
-async function claimPending() {
-  if (!MQ.getUser()) return;
-  let code; try { code = localStorage.getItem(REF_KEY); } catch { return; }
-  if (!code) return;
-  const { data, error } = await supabase.rpc("claim_referral", { p_code: code });
-  if (!error) { try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ } }
-  return data;
+    class ErreurImport extends Error {}
+    const IMPORT_TAILLE_MAX = 10 * 1024 * 1024, IMPORT_PAGES_MAX = 100;
+    let importActif = false, importAnnule = false, importWorker = null;
+    const BIBLIOS = {
+      mammoth: { url: "https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js", pret: () => window.mammoth },
+      pdfjs: { url: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", pret: () => window.pdfjsLib },
+      tesseract: { url: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js", pret: () => window.Tesseract }
+    };
+    const chargerBiblio = nom => new Promise((resoudre, refuser) => {
+      if (BIBLIOS[nom].pret()) { resoudre(); return; }
+      const sc = document.createElement("script");
+      sc.src = BIBLIOS[nom].url;
+      sc.onload = () => resoudre();
+      sc.onerror = () => refuser(new ErreurImport("Impossible de charger l'outil de lecture. Vérifie ta connexion Internet et réessaie."));
+      document.head.append(sc);
+    });
+    const progresImport = (pct, texte) => {
+      $("importBarre").style.width = Math.max(0, Math.min(100, pct)) + "%";
+      if (texte) $("importEtat").textContent = texte;
+    };
+    const verifierAnnulation = () => { if (importAnnule) throw new ErreurImport("__annule__"); };
+
+    async function typeReel(f) {                       // on lit les premiers octets : un fichier renommé est refusé
+      const h = [...new Uint8Array(await f.slice(0, 8).arrayBuffer())].map(x => x.toString(16).padStart(2, "0")).join("");
+      const ext = f.name.split(".").pop().toLowerCase();
+      if (h.startsWith("504b0304") && ext === "docx") return "docx";
+      if (h.startsWith("25504446") && ext === "pdf") return "pdf";
+      if ((h.startsWith("89504e47") && ext === "png") || (h.startsWith("ffd8ff") && ["jpg", "jpeg"].includes(ext))) return "image";
+      return null;
+    }
+    async function preparerImage(blob) {                // gris + contraste, taille adaptée : aide la lecture du texte
+      let bmp;
+      try { bmp = await createImageBitmap(blob, { imageOrientation: "from-image" }); } catch { bmp = await createImageBitmap(blob); }
+      const largeur = Math.min(2400, Math.max(1500, bmp.width)), k = largeur / bmp.width;
+      const c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext("2d");
+      g.filter = "grayscale(1) contrast(1.3)";
+      g.drawImage(bmp, 0, 0, c.width, c.height);
+      if (bmp.close) bmp.close();
+      return c;
+    }
+    async function ocrCanvas(canvas, surProgres) {
+      await chargerBiblio("tesseract");
+      if (!importWorker) {
+        surProgres(0, "Préparation de la lecture (la 1re fois, la langue française se télécharge)...");
+        importWorker = await window.Tesseract.createWorker("fra", 1, {
+          logger: m => { if (m.status === "recognizing text") surProgres(m.progress); }
+        });
+      }
+      verifierAnnulation();
+      const { data } = await importWorker.recognize(canvas);
+      return data.text;
+    }
+    async function lireWord(f) {
+      await chargerBiblio("mammoth");
+      progresImport(40, "Lecture du document Word...");
+      const r = await window.mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+      return r.value;
+    }
+    async function lirePdf(f) {
+      await chargerBiblio("pdfjs");
+      const lib = window.pdfjsLib;
+      lib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const pdf = await lib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      if (pdf.numPages > IMPORT_PAGES_MAX) throw new ErreurImport(`Ce PDF a ${pdf.numPages} pages ; le maximum est ${IMPORT_PAGES_MAX}. Découpe-le en plusieurs fichiers.`);
+      const pages = [], sansTexte = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        verifierAnnulation();
+        progresImport(p / pdf.numPages * 40, `Lecture de la page ${p} / ${pdf.numPages}...`);
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        pages[p - 1] = lignesDePage(tc.items).join("\n");
+        if (pages[p - 1].replace(/\s/g, "").length < 25) sansTexte.push(p);
+      }
+      for (const [i, p] of sansTexte.entries()) {          // pages scannées (sans texte) : lecture par OCR
+        verifierAnnulation();
+        const page = await pdf.getPage(p), vp = page.getViewport({ scale: 2 });
+        const c = document.createElement("canvas");
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        pages[p - 1] = await ocrCanvas(c, (pct, txt) => progresImport(40 + (i + (pct || 0)) / sansTexte.length * 60, txt || `Lecture de la page scannée ${p} (${i + 1}/${sansTexte.length})...`));
+      }
+      return pages.join("\n");
+    }
+    async function lireImages(liste) {
+      let texte = "";
+      for (const [i, f] of liste.entries()) {
+        verifierAnnulation();
+        const c = await preparerImage(f);
+        texte += await ocrCanvas(c, (pct, txt) => progresImport((i + (pct || 0)) / liste.length * 100, txt || `Lecture de la photo ${i + 1} / ${liste.length}...`)) + "\n";
+      }
+      return texte;
+    }
+
+    function blocVide(b) {
+      return !b.querySelector(".q-texte").value.trim() && ![...b.querySelectorAll(".q-choix")].some(c => c.value.trim()) && !b.querySelector(".q-attendue").value.trim();
+    }
+    function remplirBloc(bloc, q) {
+      bloc.dataset.import = "1";
+      bloc.querySelector(".q-texte").value = q.question;
+      const type = bloc.querySelector(".q-type");
+      type.value = q.type;
+      type.dispatchEvent(new Event("change"));
+      const notes = [...q.avert];
+      if (q.type === "qcm") {
+        bloc.querySelectorAll(".q-choix").forEach((c, i) => { c.value = q.choix[i] || ""; });
+        bloc.querySelectorAll('input[type="radio"]').forEach(r => { r.checked = false; });   // la bonne réponse n'est JAMAIS reprise du document
+        notes.push("Choisis toi-même la bonne réponse.");
+      } else {
+        bloc.querySelector(".q-verif").checked = true;
+        notes.push("Écris la réponse attendue.");
+      }
+      const note = el("p", "error", "⚠️ " + notes.join(" "));
+      note.style.fontSize = ".85rem";
+      bloc.querySelector(".q-texte").after(note);
+    }
+    function injecterQuestions(analyse) {
+      const conteneur = $("blocsQuestions");
+      [...conteneur.children].forEach(b => { if (blocVide(b)) b.remove(); });
+      let n = 0;
+      for (const q of analyse.questions) {
+        if (conteneur.children.length >= IMPORT_MAX) break;
+        ajouterBlocQuestion();
+        remplirBloc(conteneur.lastElementChild, q);
+        n++;
+      }
+      numeroterBlocs();
+      importActif = true;
+      return n;
+    }
+
+    async function importerFichiers(fichiers) {
+      const liste = [...fichiers], msg = $("importMsg");
+      if (!liste.length) return;
+      msg.className = "muted"; msg.textContent = "";
+      importAnnule = false;
+      $("importProgres").classList.remove("hidden");
+      progresImport(2, "Vérification du fichier...");
+      try {
+        if (liste.length > IMPORT_PAGES_MAX) throw new ErreurImport(`Maximum ${IMPORT_PAGES_MAX} photos à la fois.`);
+        const types = [];
+        for (const f of liste) {
+          if (f.size > IMPORT_TAILLE_MAX) throw new ErreurImport(`« ${f.name} » dépasse 10 Mo.`);
+          const t = await typeReel(f);
+          if (!t) throw new ErreurImport(`« ${f.name} » n'est pas un fichier accepté (Word .docx, PDF, JPG ou PNG).`);
+          types.push(t);
+        }
+        if (liste.length > 1 && types.some(t => t !== "image")) throw new ErreurImport("Pour importer plusieurs fichiers, choisis uniquement des photos (JPG ou PNG).");
+        const texte = types[0] === "docx" ? await lireWord(liste[0]) : types[0] === "pdf" ? await lirePdf(liste[0]) : await lireImages(liste);
+        progresImport(100, "Analyse du texte...");
+        const analyse = analyserQuestions(texte);
+        if (!analyse.questions.length) throw new ErreurImport("Aucune question n'a été reconnue. Vérifie que chaque question est numérotée (1. 2. 3. …) et que les propositions commencent par A. B. C. D. Pour une photo, prends-la bien à plat, bien éclairée et nette.");
+        const n = injecterQuestions(analyse);
+        const nQcm = analyse.questions.filter(q => q.type === "qcm").length;
+        const incomplets = analyse.questions.filter(q => q.avert.length).length;
+        let resume = `✅ ${n} question(s) importée(s) (${nQcm} QCM, ${analyse.questions.length - nQcm} ouvertes). Vérifie chaque question et choisis toi-même les bonnes réponses.`;
+        if (analyse.tronque) resume += ` ${analyse.detectees} questions détectées : seules les ${IMPORT_MAX} premières sont gardées.`;
+        if (incomplets) resume += ` ${incomplets} question(s) à compléter (⚠️).`;
+        msg.textContent = resume;
+        $("blocsQuestions").scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {
+        if (e.message === "__annule__") msg.textContent = "Import annulé.";
+        else {
+          console.error("Import :", e);
+          msg.className = "error";
+          msg.textContent = e instanceof ErreurImport ? e.message : "Ce document n'a pas pu être lu. Essaie un autre fichier ou une photo plus nette.";
+        }
+      } finally {
+        if (importWorker) { try { await importWorker.terminate(); } catch { /* déjà arrêté */ } importWorker = null; }
+        $("importProgres").classList.add("hidden");
+        $("importFichier").value = "";
+      }
+    }
+    $("ouvrirImport").addEventListener("click", () => $("importPanel").classList.toggle("hidden"));
+    $("importFichier").addEventListener("change", e => importerFichiers(e.target.files));
+    $("importAnnuler").addEventListener("click", () => { importAnnule = true; if (importWorker) importWorker.terminate().catch(() => {}); });
+    ["dragenter", "dragover"].forEach(ev => $("importZone").addEventListener(ev, e => { e.preventDefault(); $("importZone").classList.add("survol"); }));
+    ["dragleave", "drop"].forEach(ev => $("importZone").addEventListener(ev, e => { e.preventDefault(); $("importZone").classList.remove("survol"); }));
+    $("importZone").addEventListener("drop", e => importerFichiers(e.dataTransfer.files));
+
+    // ---------- Création de la partie (avec récapitulatif quand des questions ont été importées) ----------
+    async function envoyerCreation(titre, questions) {
+      const msg = $("msgPartie");
+      msg.className = "muted";
+      msg.textContent = "Création de la partie...";
+      const args = { p_title: titre, p_chrono: Number($("partieChrono").value), p_questions: questions };
+      if (importActif) args.p_source = "import";
+      const { data, error } = await supabase.rpc("create_room", args);
+      if (error) {
+        console.error("Erreur création partie :", error.message);
+        msg.textContent = "Impossible de créer la partie : " + error.message;
+        msg.className = "error";
+        return;
+      }
+      msg.textContent = "";
+      $("recapPartie").classList.add("hidden");
+      importActif = false;
+      ouvrirSalle(data);
+    }
+    function afficherRecap(titre, questions) {
+      const r = $("recapPartie"), chrono = Number($("partieChrono").value);
+      const nQcm = questions.filter(q => q.type === "qcm").length, nOuv = questions.length - nQcm;
+      const nVerif = questions.filter(q => q.verif === "organisateur").length;
+      const champ = el("input");
+      champ.type = "number"; champ.min = 1; champ.max = questions.length; champ.value = questions.length; champ.id = "recapNombre";
+      const duree = el("p", "muted");
+      const maj = () => { const n = Math.min(Math.max(parseInt(champ.value, 10) || 1, 1), questions.length); duree.textContent = `Durée estimée : ${Math.ceil(n * (chrono + 8) / 60)} min environ.` + (n < questions.length ? ` ${n} questions seront tirées au hasard parmi tes ${questions.length}.` : ""); };
+      champ.addEventListener("input", maj); maj();
+      const confirmer = el("button", "btn btn-primary", "✅ Créer la partie");
+      confirmer.type = "button";
+      confirmer.addEventListener("click", () => {
+        const n = Math.min(Math.max(parseInt(champ.value, 10) || questions.length, 1), questions.length);
+        envoyerCreation(titre, n < questions.length ? melangerListe(questions).slice(0, n) : questions);
+      });
+      const modifier = el("button", "btn btn-secondary", "Modifier mes questions");
+      modifier.type = "button";
+      modifier.addEventListener("click", () => r.classList.add("hidden"));
+      const actions = el("div", "actions");
+      actions.append(modifier, confirmer);
+      r.replaceChildren(
+        el("h3", "", "📋 Récapitulatif avant le lancement"),
+        el("p", "", `« ${titre} » : ${questions.length} question(s) — ${nQcm} QCM, ${nOuv} question(s) ouverte(s)` + (nVerif ? ` (dont ${nVerif} que tu vérifieras toi-même)` : "") + `, ${chrono} s par question.`),
+        el("label", "", "Nombre de questions à jouer"), champ, duree,
+        el("p", "muted", "🔒 Ces questions restent privées à cette partie : elles ne sont jamais ajoutées à la banque de questions de MedQuiz."),
+        actions);
+      r.classList.remove("hidden");
+      r.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    $("creerPartie").addEventListener("click", async () => {
+      const msg = $("msgPartie");
+      msg.className = "muted";
+      if (!utilisateurActuel) { msg.textContent = "Connecte-toi d'abord."; return; }
+      let questions;
+      try { questions = lireQuestionsFormulaire(); }
+      catch (e) { msg.textContent = e.message; msg.className = "error"; return; }
+      msg.textContent = "";
+      const titre = $("partieTitre").value.trim() || `Partie de ${pseudoActuel}`;
+      if (importActif) afficherRecap(titre, questions); else await envoyerCreation(titre, questions);
+    });
+
+    function afficherPartieCreee(code, titre) {
+      const zone = $("zonePartie");
+      const lien = `${urlSite()}?partie=${code}`;
+      const message = `🎮 Rejoins ma partie MedQuiz « ${titre} » ! Code : ${code}\n${lien}`;
+      const wa = el("a", "btn btn-gold", "Inviter sur WhatsApp");
+      wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+      wa.target = "_blank"; wa.rel = "noopener";
+      const copier = el("button", "btn btn-secondary", "Copier l'invitation");
+      copier.type = "button";
+      copier.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+        catch { window.prompt("Copie ce message :", message); }
+      });
+      const classement = el("button", "btn btn-primary", "Voir le classement");
+      classement.type = "button";
+      classement.addEventListener("click", () => { zone.replaceChildren(el("h3", "", titre)); afficherClassementPartie(code, zone); });
+      const actions = el("div", "actions");
+      actions.append(wa, copier, classement);
+      zone.replaceChildren(el("h3", "", "Partie créée ! 🎉"), el("p", "muted", "Donne ce code à tes amis :"), el("div", "code-partie", code), actions);
+      zone.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    async function afficherClassementPartie(code, zone) {
+      const boite = el("div");
+      const actualiser = el("button", "btn btn-secondary btn-small", "Actualiser");
+      actualiser.type = "button";
+      zone.append(el("h4", "", "🏆 Classement"), boite, actualiser);
+      async function charger() {
+        const { data, error } = await supabase.rpc("get_room_leaderboard", { p_code: code });
+        if (error) { boite.textContent = "Impossible de charger le classement."; return; }
+        if (!data || !data.length) { boite.replaceChildren(el("p", "muted", "Personne n'a encore joué. Partage le code !")); return; }
+        await chargerBadges(data.map(j => j.pseudonyme));
+        boite.replaceChildren(...data.map((j, i) => {
+          const ligne = el("div", "rank-item");
+          const gauche = el("div", "rank-left");
+          gauche.append(el("span", "rank-number", String(i + 1)), nomJoueur(j.pseudonyme));
+          ligne.append(gauche, el("span", "rank-points", `${j.score} / ${j.nombre_questions * 10} pts · ${((j.total_time_ms || 0) / 1000).toFixed(1)} s`));
+          return ligne;
+        }));
+      }
+      actualiser.addEventListener("click", charger);
+      await charger();
+      clearInterval(pollPartie);
+      pollPartie = setInterval(() => { if (!boite.isConnected) clearInterval(pollPartie); else charger(); }, 10000);
+    }
+
+    async function rejoindrePartie(codeBrut) {
+      const zone = $("zonePartie"), code = codeBrut.trim().toUpperCase();
+      if (!utilisateurActuel) { zone.replaceChildren(el("p", "error", "Connecte-toi pour rejoindre une partie.")); return; }
+      if (!/^[A-Z0-9]{4,10}$/.test(code)) { zone.replaceChildren(el("p", "error", "Entre un code valide (6 caractères).")); return; }
+      zone.replaceChildren(el("p", "muted", "Recherche de la partie..."));
+      const { error } = await supabase.rpc("join_room", { p_code: code });
+      if (error) {
+        console.error("Erreur partie :", error.message);
+        zone.replaceChildren(el("p", "error", /Aucune partie|terminée/.test(error.message) ? error.message : "Impossible de rejoindre la partie. Vérifie que le script parties_v3.sql a été exécuté dans Supabase."));
+        return;
+      }
+      ouvrirSalle(code);
+    }
+
+    // ---------- Salle de jeu en direct ----------
+    let salleSig = "", salleRevueN = -1, salleCode = null, salleJeton = 0, salleCle = "", salleEtat = null, salleFin = 0, salleTotal = 1, salleRepondu = -1, sallePoll = null, salleTick = null;
+
+    function ouvrirSalle(code) {
+      salleCode = code; salleJeton++; salleCle = ""; salleEtat = null; salleRepondu = -1; salleSig = ""; salleRevueN = -1;
+      document.body.classList.add("mode-jeu");
+      afficherPage("salle");
+      $("salleTitre").textContent = "Partie";
+      $("salleCodeBarre").textContent = "· Code " + code;
+      $("salleContenu").replaceChildren(el("p", "muted", "Connexion à la partie..."));
+      clearTimeout(sallePoll); clearInterval(salleTick);
+      salleTick = setInterval(tickSalle, 250);
+      sondageSalle(salleJeton);
+    }
+    function quitterSalle() {
+      salleJeton++; clearTimeout(sallePoll); clearInterval(salleTick);
+      document.body.classList.remove("mode-jeu");
+      afficherPage("parties");
+    }
+    $("quitterSalle").addEventListener("click", quitterSalle);
+
+    async function sondageSalle(jeton) {
+      if (jeton !== salleJeton) return;
+      const { data, error } = await supabase.rpc("get_room_state", { p_code: salleCode });
+      if (jeton !== salleJeton) return;
+      if (error) {
+        console.error("Erreur salle :", error.message);
+        $("salleContenu").replaceChildren(el("p", "error", "Connexion perdue, nouvelle tentative..."));
+        salleCle = "";
+      } else if (!data) {
+        $("salleContenu").replaceChildren(el("p", "error", "Partie introuvable."));
+        return;
+      } else {
+        salleEtat = data;
+        salleFin = performance.now() + (data.remaining || 0) * 1000;
+        rendreSalle();
+        if (data.phase === "closed") return;
+        if (data.chat) await chargerMessages(jeton);
+      }
+      sallePoll = setTimeout(() => sondageSalle(jeton), 1000);
+    }
+
+    function tickSalle() {
+      const t = $("salleTemps"), b = $("salleBarre");
+      if (!t || !salleEtat) return;
+      const reste = Math.max(0, (salleFin - performance.now()) / 1000);
+      t.textContent = Math.ceil(reste) + " s";
+      t.classList.toggle("urgent", salleEtat.phase === "question" && reste <= 5);
+      if (b) b.style.width = Math.min(100, reste / salleTotal * 100) + "%";
+    }
+
+    function rendreSalle() {
+      const e = salleEtat;
+      $("salleTitre").textContent = e.title;
+      const repondu = !!(e.my && e.my.answered) || salleRepondu === e.idx;
+      const cle = [e.status, e.phase, e.idx, repondu, e.is_host].join("|");
+      const sig = JSON.stringify([e.my && e.my.verdict, e.leaderboard, e.to_review]);
+      if (cle === salleCle) {
+        if ($("salleJoueurs")) $("salleJoueurs").textContent = texteJoueurs(e);
+        if ($("salleRepondu")) $("salleRepondu").textContent = `${e.answered_count} / ${e.players.length} joueur(s) ont répondu`;
+        if (sig !== salleSig) { salleSig = sig; majResultatSalle(e); }   // décision de l'organisateur : on met à jour sans recréer l'écran (le chat reste intact)
+        return;
+      }
+      salleCle = cle; salleSig = sig;
+      salleTotal = e.phase === "question" ? e.chrono : e.phase === "reveal" ? 8 : e.phase === "countdown" ? 5 : 1;
+      const c = $("salleContenu");
+      if (e.phase === "closed") vueSalleFermee(c);
+      else if (e.status === "lobby") vueSalleAttente(c, e);
+      else if (e.phase === "countdown") vueSalleDecompte(c);
+      else if (e.phase === "question") vueSalleQuestion(c, e, repondu);
+      else vueSalleClassement(c, e);
+    }
+
+    const texteJoueurs = e => e.players.length ? `👥 ${e.players.length} joueur(s) : ${e.players.map(j => j.pseudonyme).join(", ")}` : "👥 Aucun joueur pour le moment";
+
+    function vueSalleAttente(c, e) {
+      const lien = `${urlSite()}?partie=${salleCode}`;
+      const message = `🎮 Rejoins ma partie MedQuiz « ${e.title} » ! Code : ${salleCode}\n${lien}`;
+      const joueurs = el("p", "", texteJoueurs(e));
+      joueurs.id = "salleJoueurs";
+      c.replaceChildren(
+        el("p", "muted", e.is_host ? "Partage ce code avec tes amis, puis lance la partie quand ils sont là." : `Organisée par ${e.host}. En attente du lancement...`),
+        el("div", "code-partie", salleCode),
+        el("p", "muted", `${e.n} question(s) · ${e.chrono} s par question`),
+        joueurs);
+      if (!e.is_host) { c.append(panneauChat()); return; }
+      const wa = el("a", "btn btn-gold", "Inviter sur WhatsApp");
+      wa.href = "https://wa.me/?text=" + encodeURIComponent(message);
+      wa.target = "_blank"; wa.rel = "noopener";
+      const copier = el("button", "btn btn-secondary", "Copier l'invitation");
+      copier.type = "button";
+      copier.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(message); copier.textContent = "Copié ✓"; }
+        catch { window.prompt("Copie ce message :", message); }
+      });
+      const lancer = el("button", "btn btn-primary", "▶ Lancer la partie");
+      lancer.type = "button";
+      lancer.addEventListener("click", async () => {
+        lancer.disabled = true;
+        const { error } = await supabase.rpc("start_room", { p_code: salleCode });
+        if (error) { lancer.disabled = false; lancer.textContent = "Erreur : " + error.message; }
+      });
+      const actions = el("div", "actions");
+      actions.style.marginTop = "14px";
+      actions.append(wa, copier, lancer);
+      c.append(actions, panneauChat());
+    }
+
+    function vueSalleDecompte(c) {
+      const t = el("div", "gros-chiffre", "5 s");
+      t.id = "salleTemps";
+      c.replaceChildren(el("p", "muted", "La partie commence dans"), t, el("p", "muted", "Prépare-toi ! 💬 Le chat est fermé jusqu'à la fin de la partie."));
+      son("demarrer");
+    }
+
+    function vueSalleQuestion(c, e, repondu) {
+      const q = e.question;
+      const temps = el("strong", "chrono-text", e.remaining + " s");
+      temps.id = "salleTemps";
+      const entete = el("div", "salle-entete");
+      entete.append(el("span", "", `Question ${e.idx + 1} / ${e.n}`), temps);
+      const barre = el("i");
+      barre.id = "salleBarre";
+      barre.style.width = "100%";
+      const piste = el("div", "chrono");
+      piste.append(barre);
+      c.replaceChildren(entete, piste, el("h2", "salle-question", q.question));
+      if (e.is_host) {
+        const r = el("p", "notice", `${e.answered_count} / ${e.players.length} joueur(s) ont répondu`);
+        r.id = "salleRepondu";
+        c.append(r);
+        return;
+      }
+      if (repondu) { c.append(el("p", "notice", "✅ Réponse envoyée ! Résultat à la fin du temps...")); return; }
+      if (q.type === "ouverte") {
+        const champ = el("input", "reponse-libre");
+        champ.type = "text"; champ.maxLength = 100; champ.placeholder = "Tape ta réponse"; champ.autocomplete = "off";
+        const valider = el("button", "btn btn-primary", "Valider");
+        valider.type = "button";
+        valider.style.marginTop = "12px";
+        const envoyer = () => { if (champ.value.trim()) envoyerReponse(champ.value, e.idx); };
+        valider.addEventListener("click", envoyer);
+        champ.addEventListener("keydown", ev => { if (ev.key === "Enter") envoyer(); });
+        c.append(champ, valider);
+        champ.focus();
+      } else {
+        q.choix.forEach(choix => {
+          const b = el("button", "quiz-answer", choix);
+          b.type = "button";
+          b.addEventListener("click", () => envoyerReponse(choix, e.idx));
+          c.append(b);
+        });
+      }
+    }
+
+    async function envoyerReponse(reponse, idx) {
+      salleRepondu = idx; salleCle = "";
+      rendreSalle();
+      const { error } = await supabase.rpc("submit_room_answer", { p_code: salleCode, p_q: idx, p_ans: reponse });
+      if (error) {
+        console.error("Erreur réponse :", error.message);
+        salleRepondu = -1; salleCle = "";
+        const msg = el("p", "error", "Réponse non enregistrée : " + error.message);
+        $("salleContenu").append(msg);
+      }
+    }
+
+    let chatDernier = 0;
+    function panneauChat() {
+      chatDernier = 0;
+      const boite = el("div", "chat");
+      boite.append(el("h3", "", "💬 Discussion"));
+      const liste = el("div", "chat-liste");
+      liste.id = "chatListe";
+      const champ = el("input");
+      champ.type = "text"; champ.maxLength = 300; champ.placeholder = "Écris un message..."; champ.autocomplete = "off";
+      const envoyer = el("button", "btn btn-primary btn-small", "Envoyer");
+      envoyer.type = "button";
+      const erreur = el("p", "error");
+      erreur.style.fontSize = ".85rem";
+      const aller = async () => {
+        const texte = champ.value.trim();
+        if (!texte) return;
+        champ.value = ""; erreur.textContent = "";
+        const { error } = await supabase.rpc("send_room_message", { p_code: salleCode, p_body: texte });
+        if (error) { champ.value = texte; erreur.textContent = error.message; return; }
+        chargerMessages(salleJeton);
+      };
+      envoyer.addEventListener("click", aller);
+      champ.addEventListener("keydown", ev => { if (ev.key === "Enter") aller(); });
+      const saisie = el("div", "chat-saisie");
+      saisie.append(champ, envoyer);
+      const emojis = el("div", "chat-emojis");
+      ["😀", "😂", "😍", "👏", "🔥", "💪", "🤔", "😅", "😢", "👍", "🎉", "🏆"].forEach(em => {
+        const b = el("button", "emoji-btn", em);
+        b.type = "button";
+        b.addEventListener("click", () => { champ.value += em; champ.focus(); });
+        emojis.append(b);
+      });
+      boite.append(liste, saisie, emojis, erreur);
+      return boite;
+    }
+    async function chargerMessages(jeton) {
+      if (!$("chatListe")) return;
+      const { data, error } = await supabase.rpc("get_room_messages", { p_code: salleCode, p_after: chatDernier });
+      const liste = $("chatListe");
+      if (error || !data || !liste || jeton !== salleJeton) return;
+      const enBas = liste.scrollHeight - liste.scrollTop - liste.clientHeight < 40;
+      data.forEach(m => {
+        chatDernier = Math.max(chatDernier, m.id);
+        const ligne = el("div", "chat-msg" + (m.is_me ? " moi" : ""));
+        ligne.append(el("strong", "", m.pseudonyme + " "), document.createTextNode(m.body));
+        liste.append(ligne);
+      });
+      if (data.length && enBas) liste.scrollTop = liste.scrollHeight;
+    }
+    function vueSalleFermee(c) {
+      const q = el("button", "btn btn-primary", "Quitter");
+      q.type = "button";
+      q.style.marginTop = "14px";
+      q.addEventListener("click", quitterSalle);
+      c.replaceChildren(el("h3", "", "🔒 Salle fermée"), el("p", "muted", "La discussion a été supprimée. Merci d'avoir joué !"), q);
+    }
+
+    function texteResultat(e) {
+      const m = e.my || {};
+      if (m.verdict === "a_verifier") return "⏳ À vérifier par l'organisateur : tes points seront ajoutés après sa décision";
+      if (m.verdict === "partiel") return `🟡 Réponse partielle ! +${m.points} pts`;
+      if (m.answered && m.correct) return `✅ Bonne réponse ! +${m.points} pts`;
+      return m.answered ? "❌ Mauvaise réponse" : "⏱ Pas de réponse";
+    }
+    function dessinerClassement(zone, e) {
+      zone.replaceChildren();
+      const lb = e.leaderboard || [];
+      if (!lb.length) zone.append(el("p", "muted", "Aucun joueur pour le moment."));
+      chargerBadges(lb.map(j => j.pseudonyme)).then(maj => { if (maj && zone.isConnected) dessinerClassement(zone, e); });
+      lb.forEach((j, i) => {
+        const ligne = el("div", "rank-item" + (j.pseudonyme === e.me && !e.is_host ? " moi" : ""));
+        const gauche = el("div", "rank-left");
+        gauche.append(el("span", "rank-number", ["🥇", "🥈", "🥉"][i] || String(i + 1)), nomJoueur(j.pseudonyme));
+        ligne.append(gauche, el("span", "rank-points", `${j.score} pts · ${(j.temps / 1000).toFixed(1)} s`));
+        zone.append(ligne);
+      });
+    }
+    function majResultatSalle(e) {
+      const r = $("salleResultat"), z = $("salleClassement");
+      if (r) r.textContent = texteResultat(e);
+      if (z) dessinerClassement(z, e);
+      if (e.is_host && $("salleRevue") && e.to_review !== salleRevueN) chargerRevue();
+    }
+    // Réponses « à vérifier » : l'organisateur décide (correct, partiel à 50 %, incorrect)
+    async function chargerRevue() {
+      const zone = $("salleRevue");
+      if (!zone) return;
+      const { data, error } = await supabase.rpc("get_review_queue", { p_code: salleCode });
+      if (error || !data || !$("salleRevue")) return;
+      salleRevueN = data.length;
+      zone.replaceChildren();
+      if (!data.length) return;
+      zone.append(el("h3", "", `🔎 ${data.length} réponse(s) à vérifier`),
+        el("p", "muted", "Compare avec la réponse attendue, puis décide. Le comptage de mots n'est qu'une aide : ce n'est pas une correction."));
+      data.forEach(rv => {
+        const carte = el("div", "qbloc");
+        const actions = el("div", "actions");
+        const info = el("p", "error");
+        [["✅ Correct", "correct"], ["🟡 Partiel (50 %)", "partiel"], ["❌ Incorrect", "incorrect"]].forEach(([texte, verdict]) => {
+          const b = el("button", "btn btn-secondary btn-small", texte);
+          b.type = "button";
+          b.addEventListener("click", async () => {
+            actions.querySelectorAll("button").forEach(x => { x.disabled = true; });
+            const { error: err } = await supabase.rpc("resolve_review", { p_code: salleCode, p_answer_id: rv.answer_id, p_verdict: verdict });
+            if (err) { info.textContent = err.message; actions.querySelectorAll("button").forEach(x => { x.disabled = false; }); return; }
+            chargerRevue();
+          });
+          actions.append(b);
+        });
+        carte.append(el("strong", "", `Question ${rv.q_index + 1} — ${rv.pseudonyme}`), el("p", "", rv.question),
+          el("p", "notice", `Réponse attendue : ${rv.expected}`), el("p", "", `Réponse du joueur : ${rv.answer_text}`),
+          el("p", "muted", `Mots importants retrouvés : ${rv.mots_cles}`), actions, info);
+        zone.append(carte);
+      });
+    }
+
+    function vueSalleClassement(c, e) {
+      const fin = e.phase === "finished";
+      c.replaceChildren();
+      if (!e.is_host && !fin) {
+        const h = el("h3", "", texteResultat(e));
+        h.id = "salleResultat";
+        c.append(h);
+        const v = e.my && e.my.verdict;
+        if (v === "a_verifier") { /* pas de son : le résultat n'est pas encore connu */ }
+        else son(e.my && (e.my.correct || v === "partiel") ? "bon" : "mauvais");
+      }
+      if (e.reveal && !fin) c.append(el("p", "notice", `Bonne réponse : ${e.reveal.reponse}`));
+      c.append(el("h3", "", fin ? "🏁 Partie terminée !" : `🏆 Classement après la question ${e.idx + 1}`));
+      const zoneClassement = el("div");
+      zoneClassement.id = "salleClassement";
+      dessinerClassement(zoneClassement, e);
+      c.append(zoneClassement);
+      if (e.is_host) {
+        const revue = el("div");
+        revue.id = "salleRevue";
+        revue.style.marginTop = "16px";
+        c.append(revue);
+        chargerRevue();
+      }
+      if (fin) {
+        son("victoire");
+        const q = el("button", "btn btn-primary", "Quitter la partie");
+        q.type = "button";
+        q.style.marginTop = "16px";
+        q.addEventListener("click", quitterSalle);
+        c.append(q);
+        if (e.is_host) {
+          const f = el("button", "btn btn-secondary", "🔒 Fermer la salle (supprime le chat)");
+          f.type = "button";
+          f.style.marginLeft = "10px";
+          f.addEventListener("click", async () => { await supabase.rpc("close_room", { p_code: salleCode }); quitterSalle(); });
+          c.append(f);
+        }
+        c.append(el("p", "muted", "La salle se ferme automatiquement 30 minutes après la fin de la partie."), panneauChat());
+      } else {
+        c.append(el("p", "muted", "💬 Le chat est fermé pendant la partie, il rouvre à la fin."));
+        const t = el("strong", "chrono-text", e.remaining + " s");
+        t.id = "salleTemps";
+        const p = el("p", "muted", e.idx + 1 >= e.n ? "Résultat final dans " : "Prochaine question dans ");
+        p.style.marginTop = "14px";
+        p.append(t);
+        c.append(p);
+      }
+    }
+    $("rejoindrePartie").addEventListener("click", () => rejoindrePartie($("codePartie").value));
+
+    if ("serviceWorker" in navigator && /^https?:$/.test(window.location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+
+    // ---------- Simulateur hospitalier : 50 scénarios, décisions et évolution du patient ----------
+    // Les scénarios sont pédagogiques. Les conduites réelles suivent les protocoles locaux et l'équipe médicale.
+    const modelesSimulation = [
+      {titre:"Prééclampsie avec signes de gravité",spec:"Gynécologie-obstétrique",niveau:"Urgence",patient:"Patiente enceinte de 32 semaines, céphalées intenses, phosphènes et pression artérielle à 165/110 mmHg.",
+       urgence:"La patiente présente une hypertension sévère et des symptômes neurologiques. Elle doit être évaluée sans délai.",
+       etapes:[
+        ["Accueil et triage","Quelle est ta toute première décision ?",["Installer en secteur obstétrical surveillé, alerter l'équipe et réévaluer immédiatement la mère et le fœtus","La laisser patienter en salle d'attente","La renvoyer avec un antalgique","Attendre le prochain rendez-vous"],0,"L'hypertension sévère avec signes neurologiques est une urgence obstétricale. La surveillance et l'alerte doivent être immédiates."],
+        ["Interrogatoire ciblé","Quelle information recherches-tu en priorité ?",["Antécédents hypertensifs, début des symptômes, douleur épigastrique, mouvements fœtaux et antécédents obstétricaux","Sa couleur préférée","Son dernier repas uniquement","Son groupe sanguin sans autre question"],0,"L'interrogatoire recherche les signes de gravité, les antécédents et le retentissement fœtal."],
+        ["Examen clinique","Quel examen clinique est essentiel ?",["Confirmer la pression artérielle avec brassard adapté, évaluer conscience, réflexes, douleur épigastrique et état respiratoire","Examiner uniquement les oreilles","Mesurer seulement la taille","Ne faire aucun examen"],0,"Il faut confirmer et surveiller la tension, rechercher des signes neurologiques, hépatiques ou respiratoires et apprécier l'état général."],
+        ["Examens complémentaires","Quel bilan demandes-tu ?",["NFS-plaquettes, créatinine, ASAT/ALAT, protéinurie et évaluation fœtale","Bilan lipidique seul","Radiographie du genou","Aucun bilan"],0,"Le bilan recherche une atteinte hématologique, rénale ou hépatique et évalue le bien-être fœtal."],
+        ["Décision diagnostique","Quelle conclusion est la plus probable ?",["Prééclampsie avec signes de gravité jusqu'à preuve du contraire","Hypertension bénigne sans risque","Diabète gestationnel isolé","Migraine simple certaine"],0,"Le tableau impose de considérer une prééclampsie avec signes de gravité. Il ne faut pas banaliser les symptômes."],
+        ["Prise en charge et surveillance","Quelle stratégie est adaptée ?",["Stabilisation en milieu obstétrical, traitement urgent de l'HTA sévère, prévention des convulsions si indiquée et décision obstétricale spécialisée","Retour à domicile sans contrôle","Attendre plusieurs jours","Antalgique seul"],0,"La stabilisation maternelle, la prévention de l'éclampsie selon protocole, la surveillance fœtale et la décision du moment de naissance relèvent de l'équipe obstétricale." ]
+       ]},
+      {titre:"Syndrome coronarien aigu",spec:"Cardiologie",niveau:"Urgence",patient:"Homme de 58 ans, fumeur et hypertendu, douleur thoracique constrictive depuis 45 minutes, irradiation au bras gauche et sueurs.",urgence:"Une douleur thoracique prolongée avec signes végétatifs peut correspondre à un infarctus. Chaque retard compte.",etapes:[
+       ["Accueil et triage","Quelle action immédiate choisis-tu ?",["Évaluation ABC, monitorage, alerte de l'équipe et ECG 12 dérivations sans délai","Faire marcher le patient","Le laisser seul","Programmer une consultation dans un mois"],0,"Le patient doit être évalué et monitoré immédiatement. L'ECG précoce guide la stratégie."],
+       ["Interrogatoire ciblé","Quelle précision est déterminante ?",["Heure de début, durée, irradiation, symptômes associés, facteurs de risque et traitements","Son dernier voyage uniquement","Son niveau scolaire","Son alimentation de la semaine passée seulement"],0,"L'heure de début, les caractéristiques de la douleur et les facteurs de risque orientent la prise en charge."],
+       ["Examen clinique","Que recherches-tu ?",["Constantes, signes d'insuffisance cardiaque, état hémodynamique et signes de mauvaise perfusion","Une douleur du genou uniquement","La vision des couleurs","Aucun signe clinique"],0,"L'examen recherche notamment instabilité, choc, congestion pulmonaire ou complications."],
+       ["Examens complémentaires","Quel examen est prioritaire ?",["ECG 12 dérivations immédiatement, puis troponines et bilan adapté sans retarder la stratégie urgente","EEG","Radiographie du poignet","Dosage de TSH seul"],0,"L'ECG est prioritaire. Les troponines sont interprétées selon leur cinétique et le contexte."],
+       ["Décision diagnostique","Quel diagnostic faut-il retenir en priorité ?",["Syndrome coronarien aigu jusqu'à exclusion","Reflux simple certain","Crise d'angoisse certaine","Douleur musculaire bénigne certaine"],0,"La présentation est hautement évocatrice d'un syndrome coronarien aigu."],
+       ["Prise en charge","Quelle conduite est correcte ?",["Prise en charge urgente monitorée et stratégie de reperfusion/traitement selon ECG, délai et protocole","Retour à domicile","Attendre les résultats plusieurs jours sans surveillance","Antiacide seul"],0,"La stratégie dépend de l'ECG, du délai et du contexte. Il faut activer rapidement la filière adaptée." ]
+      ]},
+      {titre:"Détresse respiratoire fébrile chez l'enfant",spec:"Pédiatrie",niveau:"Urgence",patient:"Enfant de 2 ans, fièvre et toux depuis deux jours, respiration rapide, tirage sous-costal et boit moins.",urgence:"Le tirage et la baisse des apports sont des signes d'alerte. Il faut évaluer rapidement l'oxygénation et l'état général.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Évaluer immédiatement la respiration, la conscience et la circulation, mesurer la SpO₂ et alerter si détresse","Faire attendre l'enfant","Donner un sirop et le renvoyer","Lui demander de courir"],0,"La priorité est la recherche d'une détresse respiratoire et d'une hypoxémie."],
+       ["Interrogatoire","Quelle question est importante ?",["Début et évolution, difficulté à boire, diurèse, vaccination, antécédents et signes associés","Son dessin animé préféré","Sa pointure","Son jeu favori"],0,"Les apports, la diurèse, la durée de la fièvre et les antécédents aident à évaluer gravité et cause."],
+       ["Examen clinique","Que dois-tu mesurer/observer ?",["Fréquence respiratoire, SpO₂, tirage, geignement, état de conscience, hydratation et auscultation","Poids seul","Taille des cheveux","Aucun examen"],0,"L'évaluation clinique complète détermine le niveau de gravité et l'orientation."],
+       ["Examens","Quelle démarche est adaptée ?",["Examens guidés par la gravité et le contexte; ne pas retarder la stabilisation pour une radiographie","Scanner systématique de tout le corps","Aucun contrôle de saturation","Bilan lipidique"],0,"Les examens sont ciblés. L'oxygénation et la prise en charge des signes de gravité priment."],
+       ["Hypothèse","Quelle hypothèse principale faut-il explorer ?",["Pneumonie ou infection respiratoire basse avec signes de gravité à évaluer","Rhinite allergique certaine","Fracture costale certaine","Migraine"],0,"La fièvre, la toux et la difficulté respiratoire évoquent une infection respiratoire basse, sans exclure d'autres causes."],
+       ["Prise en charge","Quelle conduite est la plus sûre ?",["Prise en charge adaptée à la gravité, oxygène si hypoxémie, hydratation et traitement selon évaluation/protocole","Antitussif seul et retour immédiat","Arrêter les boissons","Attendre une semaine"],0,"Le niveau de soins et les traitements dépendent de la gravité, de l'oxygénation et de l'évaluation clinique." ]
+      ]},
+      {titre:"Acidocétose diabétique",spec:"Endocrinologie / Urgences",niveau:"Urgence",patient:"Patiente de 21 ans avec diabète de type 1, polyurie, soif, vomissements, douleurs abdominales et respiration ample.",urgence:"Une acidocétose est possible. Il faut évaluer immédiatement l'état hémodynamique, la glycémie, les cétones et le potassium.",etapes:[
+       ["Accueil et triage","Quelle est ta priorité ?",["Évaluer ABC et constantes, glycémie et cétones au point de soins, accès veineux et prise en charge urgente","La laisser repartir","Donner un repas sucré sans mesure","Attendre le lendemain"],0,"Le tableau évoque une urgence métabolique qui nécessite évaluation et surveillance rapprochées."],
+       ["Interrogatoire","Quelle information recherches-tu ?",["Oubli d'insuline, infection récente, vomissements, prise alimentaire et évolution des symptômes","Sa couleur préférée","Son dernier cours","Son sport favori"],0,"Il faut identifier un facteur déclenchant, notamment infection ou interruption d'insuline."],
+       ["Examen clinique","Quels éléments sont essentiels ?",["Conscience, déshydratation, fréquence respiratoire, perfusion, constantes et recherche d'infection","Examen des cheveux uniquement","Acuité visuelle seule","Aucun examen"],0,"La gravité dépend notamment de l'état neurologique, circulatoire et de la déshydratation."],
+       ["Examens","Quel bilan est nécessaire ?",["Glycémie, cétones, gaz veineux, ionogramme dont potassium, bicarbonates et fonction rénale","Cholestérol seul","Radiographie du poignet","Test auditif"],0,"Le bilan confirme l'acidose et guide la correction hydro-électrolytique."],
+       ["Diagnostic","Quel diagnostic est le plus probable ?",["Acidocétose diabétique","Hypoglycémie isolée certaine","Appendicite certaine sans autre bilan","Crise d'angoisse"],0,"Le diabète de type 1, les vomissements, la polyurie et la respiration ample évoquent une acidocétose."],
+       ["Traitement et surveillance","Quelle stratégie est adaptée ?",["Protocole hospitalier: remplissage, insuline après évaluation du potassium, surveillance rapprochée et recherche du déclencheur","Insuline sans contrôle du potassium ni surveillance","Restriction complète des liquides","Retour à domicile"],0,"La réhydratation, l'insuline et la surveillance du potassium doivent suivre un protocole hospitalier." ]
+      ]},
+      {titre:"Accident vasculaire cérébral suspecté",spec:"Neurologie / Urgences",niveau:"Urgence",patient:"Homme de 67 ans présentant brutalement une faiblesse du bras droit et des troubles de la parole depuis 50 minutes.",urgence:"Un déficit neurologique brutal impose l'activation immédiate de la filière AVC et la détermination de l'heure de début.",etapes:[
+       ["Accueil et triage","Quelle action immédiate ?",["Activer la filière AVC, noter l'heure de début/dernier état normal et évaluer ABC-glycémie","Faire attendre pour voir si cela passe","Donner à boire","Le faire marcher"],0,"Le temps est déterminant. L'heure de début et la stabilisation sont essentielles."],
+       ["Interrogatoire","Quelle information est capitale ?",["Heure exacte du début, anticoagulants, antécédents, autonomie et évolution des symptômes","Son dernier repas seulement","Sa profession uniquement","Son groupe musical préféré"],0,"Ces informations influencent l'éligibilité aux traitements et la sécurité."],
+       ["Examen clinique","Quel examen réaliser ?",["Évaluation neurologique structurée, constantes, glycémie et recherche de contre-indications","Examen dermatologique seul","Test auditif uniquement","Aucun examen"],0,"Il faut caractériser le déficit, rechercher une hypoglycémie et apprécier la gravité."],
+       ["Imagerie","Quel examen est urgent ?",["Imagerie cérébrale urgente selon filière (scanner sans injection ± imagerie vasculaire)","Radiographie du genou","Échographie thyroïdienne","EEG systématique en premier"],0,"L'imagerie distingue notamment hémorragie et ischémie et guide la stratégie."],
+       ["Diagnostic","Quelle hypothèse retenir ?",["AVC aigu jusqu'à preuve du contraire","Migraine certaine","Trouble anxieux certain","Neuropathie chronique"],0,"Le déficit focal brutal est un AVC jusqu'à preuve du contraire."],
+       ["Prise en charge","Quelle conduite ?",["Prise en charge spécialisée immédiate, décision de reperfusion selon imagerie, délai et critères, surveillance","Aspirine avant imagerie dans tous les cas","Retour à domicile","Attendre 24 heures"],0,"La décision thérapeutique dépend du type d'AVC et de l'imagerie. Ne pas retarder la filière spécialisée." ]
+      ]},
+      {titre:"Sepsis avec suspicion d'infection",spec:"Médecine d'urgence",niveau:"Urgence",patient:"Femme de 46 ans fébrile, confuse, tachycarde et hypotendue après plusieurs jours de symptômes infectieux.",urgence:"Confusion et hypotension dans un contexte infectieux font craindre un sepsis grave ou un choc septique.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Alerter, évaluer ABC, monitorer, mesurer les constantes et débuter la prise en charge urgente","La faire attendre","Donner uniquement un antipyrétique","La renvoyer"],0,"Le tableau peut correspondre à un choc septique. La reconnaissance précoce est essentielle."],
+       ["Interrogatoire","Que recherches-tu ?",["Foyer infectieux possible, durée, traitements, allergies, comorbidités et facteurs de risque","Ses loisirs uniquement","Son dernier voyage sans autre détail","Sa couleur préférée"],0,"L'interrogatoire recherche la porte d'entrée et les éléments utiles à l'antibiothérapie."],
+       ["Examen","Que recherches-tu ?",["Perfusion, conscience, respiration, diurèse, peau et foyer infectieux","Examen des ongles seul","Taille uniquement","Aucun examen"],0,"L'examen évalue le retentissement et recherche une source contrôlable."],
+       ["Examens","Quel bilan initial est pertinent ?",["Lactate, hémocultures si possible sans retarder le traitement, bilan biologique et prélèvements ciblés","Cholestérol seul","Radiographie du poignet","Test de vision"],0,"Les prélèvements aident à identifier le germe, mais ne doivent pas retarder les soins urgents."],
+       ["Diagnostic","Quelle situation suspectes-tu ?",["Sepsis avec possible choc septique","Infection virale bénigne certaine","Allergie alimentaire certaine","Migraine"],0,"L'infection suspectée avec hypotension et confusion évoque un sepsis grave."],
+       ["Prise en charge","Quelle stratégie ?",["Traitement urgent selon protocole: antibiothérapie précoce adaptée, remplissage/vasopresseurs si indiqués, contrôle du foyer et réévaluation","Attendre les cultures plusieurs jours","Antibiotique oral seul à domicile","Aucun monitorage"],0,"La prise en charge associe stabilisation, antimicrobiens précoces, contrôle du foyer et réévaluation fréquente." ]
+      ]},
+      {titre:"Appendicite aiguë suspectée",spec:"Chirurgie / Urgences",niveau:"Intermédiaire",patient:"Jeune adulte de 22 ans présentant une douleur abdominale ayant migré vers la fosse iliaque droite, nausées et fièvre modérée.",urgence:"Une douleur localisée avec fièvre nécessite un examen abdominal et une évaluation des diagnostics urgents.",etapes:[
+       ["Accueil et triage","Que fais-tu d'abord ?",["Évaluer constantes, douleur, signes péritonéaux et rechercher une instabilité","Le renvoyer sans examen","Donner un laxatif","Attendre une semaine"],0,"Il faut d'abord rechercher une urgence abdominale et apprécier la stabilité."],
+       ["Interrogatoire","Quelle précision est utile ?",["Chronologie et migration de la douleur, vomissements, transit, symptômes urinaires et possibilité de grossesse selon contexte","Son sport préféré","Sa couleur préférée","Son dernier film"],0,"La chronologie et les symptômes associés orientent le diagnostic différentiel."],
+       ["Examen clinique","Quel examen est important ?",["Examen abdominal complet avec recherche de défense/douleur localisée et examen adapté au contexte","Auscultation pulmonaire seule","Examen des yeux uniquement","Aucun examen"],0,"L'examen recherche des signes péritonéaux et aide à décider de l'urgence."],
+       ["Examens","Quelle démarche est pertinente ?",["NFS/CRP, analyse urinaire, test de grossesse si indiqué et imagerie selon âge/contexte","Bilan lipidique seul","EEG","Radiographie du poignet"],0,"Les examens sont ciblés et l'imagerie dépend du contexte clinique et des ressources."],
+       ["Diagnostic","Quel diagnostic évoquer ?",["Appendicite aiguë, à confirmer et stratifier","Gastro-entérite certaine","Colique néphrétique certaine sans bilan","Migraine"],0,"La migration de la douleur vers la fosse iliaque droite est évocatrice, mais les diagnostics différentiels restent à examiner."],
+       ["Prise en charge","Quelle suite est adaptée ?",["Avis chirurgical, mise à jeun, antalgiques et traitement selon évaluation/protocole","Laxatif et retour à domicile","Antibiotiques au hasard sans évaluation","Attendre plusieurs jours"],0,"L'avis chirurgical et la stratégie thérapeutique dépendent de la confirmation et de la gravité." ]
+      ]},
+      {titre:"Crise d'asthme aiguë",spec:"Pneumologie / Urgences",niveau:"Urgence",patient:"Patiente de 24 ans asthmatique, dyspnée sifflante, parle par mots et utilise ses muscles accessoires après exposition à la poussière.",urgence:"La difficulté à parler et le travail respiratoire suggèrent une exacerbation sévère. Il faut évaluer sans délai.",etapes:[
+       ["Accueil et triage","Quelle action prioritaire ?",["Évaluer gravité, SpO₂, fréquence respiratoire, capacité à parler et débuter le traitement urgent selon protocole","La laisser marcher","Attendre sans surveillance","La renvoyer"],0,"Les signes de gravité nécessitent une prise en charge immédiate et une réévaluation rapprochée."],
+       ["Interrogatoire","Quelle question est importante ?",["Début, déclencheur, traitements déjà pris, hospitalisations antérieures et antécédents d'intubation","Sa pointure","Son dernier repas uniquement","Son métier sans autre question"],0,"Les antécédents d'exacerbation sévère et la réponse aux traitements sont importants."],
+       ["Examen","Quel signe de gravité recherches-tu ?",["Épuisement, silence auscultatoire, altération de conscience, hypoxémie et mauvaise réponse au traitement","Éruption cutanée isolée","Douleur du genou","Aucun signe"],0,"Un silence auscultatoire ou un épuisement peut annoncer une défaillance respiratoire."],
+       ["Examens","Quelle mesure est utile ?",["Oxymétrie et débit expiratoire si réalisable sans retarder le traitement; examens complémentaires selon gravité","Scanner cérébral systématique","Bilan lipidique","Aucun contrôle"],0,"L'évaluation fonctionnelle aide à suivre la réponse, sans retarder le traitement d'une crise sévère."],
+       ["Diagnostic","Quelle situation ?",["Exacerbation aiguë sévère d'asthme","Rhume simple certain","Pneumothorax certain sans examen","Crise d'angoisse certaine"],0,"La dyspnée, les sibilants et les signes de lutte évoquent une exacerbation sévère."],
+       ["Prise en charge","Quelle conduite ?",["Traitement bronchodilatateur inhalé répété, oxygène si hypoxémie, corticoïde systémique selon protocole et réévaluation","Sédatif seul","Antitussif et retour à domicile","Aucun suivi"],0,"La prise en charge repose sur bronchodilatateurs, oxygène si nécessaire, corticoïdes selon gravité et surveillance de la réponse." ]
+      ]},
+      {titre:"Paludisme grave suspecté",spec:"Maladies infectieuses",niveau:"Urgence",patient:"Enfant de 6 ans vivant en zone d'endémie, forte fièvre, vomissements répétés, prostration et trouble de la conscience.",urgence:"En zone d'endémie, fièvre et altération de conscience font craindre un paludisme grave ou une autre infection sévère.",etapes:[
+       ["Accueil et triage","Quelle priorité ?",["Stabilisation ABC, glycémie immédiate, constantes et orientation urgente vers une prise en charge hospitalière","Attendre le résultat à domicile","Donner seulement un antipyrétique","Faire marcher l'enfant"],0,"L'altération de conscience est un signe de gravité. L'hypoglycémie doit être recherchée immédiatement."],
+       ["Interrogatoire","Que recherches-tu ?",["Durée de fièvre, zone d'exposition, prévention, traitements antipaludiques, convulsions et apports","Son dessin animé","Sa pointure","Son école uniquement"],0,"L'exposition, les traitements reçus et les signes neurologiques orientent la prise en charge."],
+       ["Examen","Quels signes sont essentiels ?",["Conscience, convulsions, respiration, perfusion, pâleur, ictère et signes de déshydratation","Examen des cheveux","Taille uniquement","Aucun examen"],0,"L'examen recherche les critères de gravité et les complications."],
+       ["Examens","Quel test demandes-tu ?",["Test parasitologique rapide ou goutte épaisse/frottis selon disponibilité, glycémie et bilan de gravité","Cholestérol seul","Radiographie du genou","Test auditif"],0,"La confirmation parasitologique et l'évaluation des complications guident les soins; ne pas retarder la stabilisation."],
+       ["Diagnostic","Quelle hypothèse ?",["Paludisme grave possible, à confirmer rapidement et à différencier d'autres urgences infectieuses","Paludisme simple certain","Rhume banal","Allergie"],0,"L'altération de conscience impose de considérer une forme grave, tout en recherchant d'autres causes."],
+       ["Prise en charge","Quelle conduite ?",["Hospitalisation urgente et traitement antipaludique parentéral selon recommandations nationales, avec surveillance des complications","Traitement oral à domicile malgré le trouble de conscience","Attendre plusieurs jours","Aucun contrôle glycémique"],0,"Le paludisme grave nécessite une prise en charge hospitalière urgente et un traitement recommandé par le protocole national." ]
+      ]},
+      {titre:"Hémorragie du post-partum",spec:"Gynécologie-obstétrique",niveau:"Urgence vitale",patient:"Patiente venant d'accoucher, saignement vaginal abondant, pâleur, tachycardie et malaise dans les minutes suivant la naissance.",urgence:"Une hémorragie du post-partum peut rapidement engager le pronostic vital. Il faut appeler de l'aide et agir simultanément.",etapes:[
+       ["Alerte et triage","Quelle action immédiate ?",["Déclencher l'alerte hémorragie, appeler renforts, évaluer ABC, monitorer et quantifier les pertes","Attendre que le saignement cesse","Laisser la patiente seule","La faire marcher"],0,"L'alerte et la prise en charge coordonnée doivent être immédiates."],
+       ["Interrogatoire rapide","Quelle information est utile sans retarder les soins ?",["Moment du début, délivrance/placenta, facteurs de risque, antécédents hémorragiques et traitements","Son alimentation de la veille uniquement","Sa profession","Sa couleur préférée"],0,"L'interrogatoire se fait en parallèle des gestes urgents, sans retarder la stabilisation."],
+       ["Examen","Que vérifies-tu ?",["Tonus utérin, saignement, placenta, lésions génitales et état hémodynamique","Examen des yeux seul","Taille uniquement","Aucun examen"],0,"La recherche des causes suit les grands mécanismes: atonie, rétention, traumatisme et troubles de coagulation."],
+       ["Examens","Quel bilan faut-il organiser ?",["NFS, coagulation, groupage/compatibilité et surveillance biologique selon gravité, sans retarder les gestes","Bilan lipidique seul","Radiographie du genou","Test auditif"],0,"Le bilan prépare la transfusion si nécessaire et évalue les conséquences, sans retarder la prise en charge."],
+       ["Diagnostic","Quelle complication ?",["Hémorragie du post-partum jusqu'à preuve du contraire","Saignement physiologique certain","Infection urinaire","Migraine"],0,"Le saignement abondant avec signes de choc est une hémorragie du post-partum."],
+       ["Prise en charge","Quelle conduite ?",["Prise en charge simultanée selon protocole: massage utérin si atonie, utérotoniques, acide tranexamique si indiqué, remplissage/transfusion et contrôle de la cause","Attendre sans intervention","Retour à domicile","Antalgique seul"],0,"Les gestes dépendent de la cause et du protocole local; la réanimation et le contrôle du saignement sont simultanés." ]
+      ]}
+    ];
+    // Cinq contextes réellement distincts par pathologie : ils modifient le dossier, les indices et la priorité de réévaluation.
+    const profilsSimulation = [
+      {titre:"Présentation initiale", contexte:"Le patient arrive directement aux urgences. Aucun examen n'a encore été réalisé.", indice:"Tu disposes de peu d'informations : commence par sécuriser le patient et recueillir les données essentielles.", evolution:"L'état est encore peu documenté : une réévaluation complète est indispensable après chaque décision."},
+      {titre:"Transfert d'un poste de santé", contexte:"Le patient est transféré après une première évaluation dans un poste de santé. Les documents de transfert sont incomplets.", indice:"Vérifie précisément les gestes, médicaments et examens déjà réalisés : évite les doublons et les oublis.", evolution:"Le transfert ne garantit pas la stabilité : reprends les constantes et vérifie la réponse aux premières mesures."},
+      {titre:"Aggravation pendant le trajet", contexte:"L'accompagnant rapporte une aggravation récente pendant le transport vers l'hôpital.", indice:"Compare l'état actuel à celui décrit au départ et recherche immédiatement les signes de défaillance.", evolution:"Le risque d'aggravation est plus élevé : la surveillance rapprochée et l'escalade des soins sont prioritaires."},
+      {titre:"Terrain à risque", contexte:"Le dossier signale un antécédent ou un facteur de risque pouvant modifier la présentation et la prise en charge.", indice:"Recherche les traitements habituels, allergies, antécédents et contre-indications avant toute décision thérapeutique.", evolution:"Adapte la décision au terrain, vérifie les contre-indications et surveille les effets indésirables."},
+      {titre:"Présentation atypique", contexte:"Les symptômes sont moins typiques que dans la présentation classique. Un proche apporte des informations complémentaires.", indice:"Ne t'ancre pas trop tôt sur une seule hypothèse : garde les diagnostics différentiels et les signes d'alerte en tête.", evolution:"Si la réponse attendue n'est pas au rendez-vous, réévalue le diagnostic et demande un avis adapté."}
+    ];
+    const casCliniques = modelesSimulation.flatMap((m, mi) => profilsSimulation.map((v, vi) => ({
+      titre: `${m.titre} — ${v.titre}`, specialite:m.spec, niveau:m.niveau,
+      patient: `${m.patient} ${v.contexte}`,
+      urgence:m.urgence, indice:v.indice, evolution:v.evolution, etapes:[...m.etapes,
+        ["Réévaluation du patient","Après tes premières décisions, que fais-tu maintenant ?",["Reprendre les constantes, vérifier la réponse clinique, rechercher une aggravation et adapter la conduite avec l'équipe","Considérer que le diagnostic est réglé et arrêter la surveillance","Attendre la fin de garde sans revoir le patient","Ignorer les nouveaux symptômes"],0,"Une prise en charge n'est jamais terminée après une seule décision. Il faut mesurer la réponse, rechercher les complications et réviser le plan si nécessaire."],
+        ["Transmission et continuité des soins","Le patient doit être confié à l'équipe suivante. Quelle transmission réalises-tu ?",["Transmettre identité, motif, chronologie, signes de gravité, résultats, traitements, réponse et tâches restant à réaliser","Dire seulement le diagnostic supposé","Transmettre oralement sans préciser les signes d'alerte","Ne rien noter si le patient semble aller mieux"],0,"Une transmission structurée et une traçabilité claire évitent les ruptures de prise en charge. Signale les incertitudes et les actions urgentes restantes."]
+      ], profil:v, id:`sim-${mi}-${vi}`,
+      // Référence pédagogique construite à partir des données validées du scénario.
+      // Elle n'est jamais affichée dans le dossier visible de l'étudiant.
+      ficheReference:{
+        presentation:m.patient,
+        contexte:v.contexte,
+        evolution:v.evolution,
+        urgence:m.urgence,
+        phases:m.etapes.map(e=>({phase:e[0],objectif:e[1],attendus:e[2][e[3]],justification:e[4]})).concat([
+          {phase:"Réévaluation du patient",objectif:"Vérifier la réponse et rechercher une aggravation",attendus:"Reprendre les constantes, vérifier la réponse clinique, rechercher une aggravation et adapter la conduite avec l'équipe",justification:"Réévaluation clinique et adaptation du plan."},
+          {phase:"Transmission et continuité des soins",objectif:"Organiser une transmission structurée",attendus:"Transmettre identité, motif, chronologie, signes de gravité, résultats, traitements, réponse et tâches restant à réaliser",justification:"Transmission structurée et traçabilité."}
+        ])
+      }
+    })));
+    let casSelectionne = 0;
+    let minuterieUrgence = null;
+    let progressionCas = { index:0, score:0, termine:false, enregistre:false, choixMelanges:[], stabilite:3, journal:[], evaluations:[], patientConversation:[], examensPrescrits:[], justificationsExamens:{}, modeUrgence:false, debutPhase:0, tempsDepasse:false, phasesDansLeTemps:0 };
+    const NB_ETAPES_GRATUITES = 1;
+    const libellesEtapesSimulation = ["Triage","Interrogatoire","Examen clinique","Examens","Diagnostic","Traitement","Réévaluation","Transmission"];
+    function ouvrirCasCliniques(){const zone=$("casCliniqueZone");if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Simulation clinique 🏥"),el("p","muted","Connecte-toi pour entrer dans le service."),(()=>{const a=el("a","btn btn-gold","Se connecter");a.href="#compte";return a;})());return;}afficherAccueilCas();}
+    let gardeNuit = null;
+    function commencerGardeNuit(){
+      if(!premium.actif){alert("La Garde de nuit est réservée à Premium : elle utilise les 8 phases complètes de chaque dossier.");return;}
+      const indices=casCliniques.map((_,i)=>i);
+      for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
+      const patientsGarde=indices.slice(0,4);
+      gardeNuit={patients:patientsGarde,termines:[],ordre:[],points:0,encours:null,progressions:{},urgencePatient:patientsGarde[Math.floor(Math.random()*patientsGarde.length)]};
+      afficherTableauGarde();
+    }
+    function afficherTableauGarde(){
+      const zone=$("casCliniqueZone");if(!zone||!gardeNuit)return;
+      if(gardeNuit.termines.length===gardeNuit.patients.length){
+        zone.replaceChildren(el("p","eyebrow gold-text","🌅 FIN DE GARDE"),el("h3","","Garde de nuit terminée !"),el("p","",`Tu as pris en charge ${gardeNuit.termines.length} patients.`),el("p","notice",`🏆 Total de points obtenus : ${gardeNuit.points}`),el("p","muted","L'ordre de passage et les résultats sont pédagogiques. En situation réelle, la priorisation repose sur un triage validé, les constantes et les protocoles locaux."));
+        const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";recap.append(el("strong","","📋 Bilan des patients"));
+        gardeNuit.ordre.forEach((x,i)=>recap.append(el("p","",`${i+1}. ${x.titre} — ${x.score}/${x.total} décisions adaptées`)));zone.append(recap);
+        const retour=el("button","btn btn-gold","Retour au centre de simulation");retour.type="button";retour.addEventListener("click",()=>{gardeNuit=null;afficherAccueilCas();});zone.append(retour);return;
+      }
+      zone.replaceChildren(el("p","eyebrow gold-text","🌙 GARDE DE NUIT"),el("h3","","Tableau des urgences"),el("p","muted",`${gardeNuit.termines.length}/${gardeNuit.patients.length} patients pris en charge · ${gardeNuit.patients.length-gardeNuit.termines.length} restant(s)`),el("p","notice","Choisis le patient que tu souhaites évaluer en premier. Observe les informations disponibles et justifie mentalement tes priorités. Dans la réalité, utilise toujours l'échelle de triage officielle de ton établissement."));
+      const audioPanel=el("div","history-item");audioPanel.style.cssText="display:block;padding:12px;margin:12px 0;border:1px solid var(--line)";
+      audioPanel.append(el("strong","","🔊 Vérification du son sur ton téléphone"));
+      const audioStatus=el("p","muted","Appuie sur le bouton pour autoriser Chrome à jouer la sirène et vérifier le son.");audioStatus.id="medquizAudioStatus";audioPanel.append(audioStatus);
+      const testAudio=el("button","btn btn-secondary","🔊 Activer et tester la sirène");testAudio.type="button";testAudio.addEventListener("click",activerEtTesterSonUrgence);audioPanel.append(testAudio);
+      zone.append(audioPanel);
+      const liste=el("div");
+      gardeNuit.patients.forEach((idx)=>{if(gardeNuit.termines.includes(idx))return;const c=casCliniques[idx];const carte=el("div","history-item");carte.style.cssText="display:block;padding:13px;margin:10px 0";
+        const niveau=/vitale|urgence|grave/i.test(c.niveau+" "+c.urgence)?"Priorité potentiellement élevée":"Évaluation nécessaire";
+        carte.append(el("strong","",`🩺 Patient ${gardeNuit.patients.indexOf(idx)+1}`),el("p","",c.patient),el("p","muted",`${c.specialite} · ${niveau} · ${c.profil.titre}`));
+        const enPause=!!gardeNuit.progressions[idx];const b=el("button","btn btn-gold",enPause?"Reprendre la prise en charge →":"Prendre en charge ce patient →");b.type="button";b.addEventListener("click",()=>{gardeNuit.encours=idx;if(!gardeNuit.ordre.some(x=>x.idx===idx))gardeNuit.ordre.push({idx,titre:c.titre,score:null,total:c.etapes.length});commencerCas(idx,false);});carte.append(b);liste.append(carte);
+      });zone.append(liste);
+      if(gardeNuit.termines.length){const historique=el("details");historique.append(el("summary","","Voir les patients déjà pris en charge"));gardeNuit.ordre.filter(x=>x.score!==null).forEach(x=>historique.append(el("p","muted",`${x.titre} — ${x.score}/${x.total}`)));zone.append(historique);}
+      const quitter=el("button","btn btn-secondary","Quitter la garde");quitter.type="button";quitter.addEventListener("click",()=>{gardeNuit=null;afficherAccueilCas();});zone.append(quitter);
+    }
+    function afficherAccueilCas(){const zone=$("casCliniqueZone");zone.replaceChildren(el("h3","","🏥 Centre de simulation hospitalière"),el("p","muted",`${casCliniques.length} dossiers cliniques · 10 situations de base déclinées en profils · 8 phases interactives par patient.`));
+      const garde=el("button","btn btn-gold","🌙 Commencer une garde de nuit — 4 patients");garde.type="button";garde.style.cssText="width:100%;margin:10px 0";garde.addEventListener("click",commencerGardeNuit);zone.append(garde);
+      const filtre=el("select","field");filtre.style.width="100%";filtre.setAttribute("aria-label","Filtrer par spécialité");["Toutes les spécialités",...new Set(casCliniques.map(c=>c.specialite))].forEach((x,i)=>{const o=el("option");o.value=i?x:"";o.textContent=x;filtre.append(o);});zone.append(filtre);
+      const liste=el("div");liste.id="listeSimulations";function dessiner(){liste.replaceChildren();casCliniques.forEach((cas,index)=>{if(filtre.value&&cas.specialite!==filtre.value)return;const carte=el("div","history-item");carte.style.cssText="display:block;margin:10px 0;padding:14px";carte.append(el("strong","",`${String(index+1).padStart(2,"0")} · ${cas.titre}`),el("p","muted",`${cas.specialite} · ${cas.niveau} · 8 phases · ${cas.profil.titre}`));const b=el("button","btn btn-gold",premium.actif?"Simulation classique →":"Commencer gratuitement →");b.type="button";b.addEventListener("click",()=>commencerCas(index,false));const urgence=el("button","btn btn-secondary","🚨 Mode urgence (chronométré)");urgence.type="button";urgence.style.marginLeft="8px";urgence.addEventListener("click",()=>commencerCas(index,true));carte.append(b,urgence);liste.append(carte);});}filtre.addEventListener("change",dessiner);dessiner();zone.append(liste);
+      if(!premium.actif)zone.append(el("p","notice","🎁 Gratuit : commence chaque simulation et réalise le triage initial. Premium débloque l'interrogatoire, les examens, le diagnostic, le traitement et le débrief complet."),(()=>{const a=el("a","btn btn-gold","Débloquer les simulations complètes 👑");a.href="#premium";return a;})());
+      zone.append(el("p","muted","Simulations à visée pédagogique uniquement. Elles ne remplacent ni les protocoles nationaux, ni l'encadrement clinique, ni une décision médicale réelle."));}
+    // Carnet pédagogique conservé sur cet appareil et séparé par compte connecté.
+    function cleCarnetErreurs(){return "medquiz_erreurs_"+(utilisateurActuel?.id||"anonyme");}
+    function lireCarnetErreurs(){try{const v=JSON.parse(localStorage.getItem(cleCarnetErreurs())||"[]");return Array.isArray(v)?v:[];}catch(_){return [];}}
+    function enregistrerErreursSimulation(){
+      if(!utilisateurActuel)return;
+      const deja=lireCarnetErreurs(),cas=casCliniques[casSelectionne];
+      const runId="sim_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+      (progressionCas.evaluations||[]).forEach(e=>{
+        const manquants=(e.elementsManquants||[]).map(x=>String(x).trim()).filter(Boolean);
+        const erreurs=(e.erreurs||[]).map(x=>String(x).trim()).filter(Boolean);
+        const problemes=[...new Set([...erreurs,...manquants])];
+        if(!problemes.length && Number(e.score)>=70)return;
+        problemes.forEach((texte,i)=>deja.unshift({id:runId+"_"+e.phase+"_"+i,runId,cas:cas?.titre||"Simulation clinique",specialite:cas?.specialite||"",phase:e.phase,score:Number(e.score)||0,texte,date:new Date().toISOString(),corrige:false,conseil:String(e.pisteAmelioration||"")}));
+      });
+      try{localStorage.setItem(cleCarnetErreurs(),JSON.stringify(deja.slice(0,250)));}catch(err){console.warn("Carnet d'erreurs non enregistré :",err);}
+    }
+    function afficherCarnetErreurs(){
+      const zone=$("carnetErreursZone");if(!zone)return;
+      const entries=lireCarnetErreurs(),ouvertes=entries.filter(x=>!x.corrige),corrigees=entries.filter(x=>x.corrige);
+      zone.replaceChildren();
+      const resume=el("p","muted",`${ouvertes.length} point(s) à retravailler · ${corrigees.length} erreur(s) marquée(s) comme corrigée(s).`);zone.append(resume);
+      if(!entries.length){zone.append(el("p","muted","Aucune erreur enregistrée pour le moment. Termine une simulation pour alimenter ton carnet."));return;}
+      const frequences={};ouvertes.forEach(x=>{const k=x.phase||"Autre";frequences[k]=(frequences[k]||0)+1;});
+      const recurrentes=Object.entries(frequences).filter(([,n])=>n>=2).sort((a,b)=>b[1]-a[1]);
+      if(recurrentes.length){zone.append(el("h4","","🔁 Points qui reviennent souvent"));recurrentes.forEach(([phase,n])=>zone.append(el("p","muted",`${phase} : ${n} éléments à retravailler`)));}
+      zone.append(el("h4","","À retravailler"));
+      ouvertes.slice(0,12).forEach(item=>{
+        const bloc=el("div","history-item");bloc.style.cssText="display:block;padding:10px;margin:8px 0";
+        bloc.append(el("strong","",`${item.phase} · ${item.score}/100`),el("p","",item.texte),el("p","muted",`${item.cas} · ${new Date(item.date).toLocaleDateString("fr-FR")}`));
+        if(item.conseil)bloc.append(el("p","muted",`Piste : ${item.conseil}`));
+        const btn=el("button","btn btn-secondary","Marquer comme corrigée");btn.type="button";btn.addEventListener("click",()=>{const all=lireCarnetErreurs();const found=all.find(x=>x.id===item.id);if(found)found.corrige=true;try{localStorage.setItem(cleCarnetErreurs(),JSON.stringify(all));}catch(_){}afficherCarnetErreurs();});bloc.append(btn);zone.append(bloc);
+      });
+      if(ouvertes.length>12)zone.append(el("p","muted",`12 éléments affichés sur ${ouvertes.length}.`));
+      if(corrigees.length){const details=el("details");details.append(el("summary","","Voir les erreurs déjà corrigées"));corrigees.slice(0,8).forEach(x=>details.append(el("p","muted",`✓ ${x.phase} — ${x.texte}`)));zone.append(details);}
+      ajouterExercicePersonnalise(zone,ouvertes);
+    }
+    function ajouterExercicePersonnalise(zone,ouvertes){
+      const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin-top:16px;border:1px solid var(--gold,#d6a84b)";
+      panel.append(el("h4","","🎯 Entraînement intelligent personnalisé"),el("p","muted","Un exercice est construit à partir d'un point que tu dois encore travailler. Rédige ta démarche avec tes propres mots, puis demande une correction à l'IA."));
+      if(!ouvertes.length){panel.append(el("p","notice","Bravo ! Aucun point en attente. Termine une nouvelle simulation pour obtenir un exercice personnalisé."));zone.append(panel);return;}
+      const frequences={};ouvertes.forEach(x=>{const k=(x.phase||"Autre")+"||"+(x.texte||"");frequences[k]=(frequences[k]||0)+1;});
+      const cible=ouvertes.slice().sort((a,b)=>(frequences[(b.phase||"Autre")+"||"+(b.texte||"")]||0)-(frequences[(a.phase||"Autre")+"||"+(a.texte||"")]||0)||Number(a.score)-Number(b.score))[0];
+      panel.append(el("strong","",`Exercice ciblé : ${cible.phase}`),el("p","",`Lors d'une simulation, ce point a été identifié : ${cible.texte}`));
+      const consigne=el("p","muted","Explique ce que tu vérifierais ou ferais dans cette phase, dans quel ordre et pourquoi. N'invente pas d'informations absentes du dossier.");
+      const reponse=el("textarea");reponse.rows=4;reponse.placeholder="Écris ici ta démarche…";reponse.style.cssText="width:100%;box-sizing:border-box;padding:11px;margin:8px 0;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit";
+      const bouton=el("button","btn btn-gold","Corriger mon exercice avec l'IA →");bouton.type="button";
+      const retour=el("div");retour.setAttribute("aria-live","polite");
+      bouton.addEventListener("click",async()=>{
+        const texte=reponse.value.trim();if(texte.length<12){retour.replaceChildren(el("p","error","Écris quelques phrases pour permettre une évaluation utile."));return;}
+        bouton.disabled=true;bouton.textContent="Correction en cours…";retour.replaceChildren(el("p","muted","L'IA analyse ta démarche…"));
+        try{
+          const contexte=`Exercice pédagogique personnalisé MedQuiz. Phase : ${cible.phase}. Difficulté précédemment observée : ${cible.texte}. Spécialité du dossier d'origine : ${cible.specialite||"non précisée"}. Il s'agit d'un exercice d'apprentissage, pas d'un patient réel. N'invente aucun signe, résultat, diagnostic ou protocole absent du contexte.`;
+          const attendue=`Évalue la réponse de l'étudiant sur la capacité à corriger cette difficulté : ${cible.texte}. Phase : ${cible.phase}. Attends une démarche cohérente, sûre, hiérarchisée et justifiée, adaptée à la phase. Accepte les formulations différentes et les réponses concises pertinentes. N'exige pas d'acte non indiqué. Donne un score sur 100, les points corrects, les éléments manquants, les erreurs éventuelles et une seule piste concrète. Rappelle qu'il faut respecter les protocoles locaux et l'encadrement clinique.`;
+          const {data,error}=await supabase.functions.invoke("analyze-case",{body:{caseContext:contexte,expectedAnswer:attendue,studentAnswer:texte,purpose:"exercise"}});
+          if(error)throw error;if(!data?.success||!data?.analysis)throw new Error(data?.error||"Analyse indisponible.");
+          const a=data.analysis,score=Math.max(0,Math.min(100,Number(a.score)||0));retour.replaceChildren();
+          retour.append(el("h4",score>=70?"gold-text":"",`${String(a.verdict||"Évaluation") } · ${score}/100`));
+          if(a.explication)retour.append(el("p","",String(a.explication)));
+          const liste=(titre,items,classe="")=>{if(!Array.isArray(items)||!items.length)return;retour.append(el("strong",classe,titre));const ul=el("ul");ul.style.cssText="padding-left:20px";items.forEach(x=>ul.append(el("li","",String(x))));retour.append(ul);};
+          liste("Points réussis",a.pointsCorrects);liste("À compléter",a.elementsManquants);liste("Erreurs à éviter",a.erreurs,"error");
+          if(a.pisteAmelioration)retour.append(el("p","notice",`Pour progresser : ${a.pisteAmelioration}`));
+          retour.append(el("p","muted","Correction à visée pédagogique : vérifie toujours les conduites avec tes cours, les protocoles locaux et un encadrant."));
+        }catch(err){console.error("Erreur exercice personnalisé :",err);retour.replaceChildren(el("p","error","La correction IA est indisponible. Vérifie ta connexion et réessaie."));}
+        finally{bouton.disabled=false;bouton.textContent="Corriger mon exercice avec l'IA →";}
+      });
+      panel.append(consigne,reponse,bouton,retour);zone.append(panel);
+    }
+    $("actualiserCarnetErreurs")?.addEventListener("click",afficherCarnetErreurs);
+
+    function creerEvenementsGarde(forceNouvelleUrgence=false){
+      const banque=[
+        {titre:"🚨 Alarme du scope",detail:"Le moniteur signale une variation préoccupante. L'information doit être vérifiée auprès du patient.",choix:[{texte:"Revoir immédiatement le patient, contrôler les constantes et alerter l'équipe si l'anomalie se confirme.",delta:1,score:1,retour:"Bonne réaction : tu vérifies le signal sur le patient et mobilises l'équipe selon les constatations."},{texte:"Ignorer l'alarme et poursuivre sans vérification.",delta:-2,score:0,retour:"Risque pédagogique : une alarme doit être vérifiée rapidement, sans se fier au moniteur seul."}]},
+        {titre:"🧑‍⚕️ Un collègue demande un avis",detail:"Un collègue te signale une inquiétude sur l'évolution du patient et te demande de venir réévaluer la situation.",choix:[{texte:"Interrompre ce qui peut attendre, réévaluer le patient et coordonner avec l'équipe.",delta:1,score:1,retour:"Bonne coordination : la réévaluation et la communication d'équipe sont prioritaires."},{texte:"Répondre que tu verras plus tard sans recueillir d'information.",delta:-1,score:0,retour:"À améliorer : clarifie rapidement le degré d'urgence avec ton collègue."}]},
+        {titre:"🧪 Un résultat important arrive",detail:"Un résultat d'examen vient d'être signalé comme potentiellement critique. Il faut le vérifier et le replacer dans le contexte clinique.",choix:[{texte:"Vérifier le résultat, réexaminer le patient et transmettre immédiatement l'information critique à l'équipe responsable.",delta:1,score:1,retour:"Bonne conduite : vérification, corrélation clinique et transmission rapide."},{texte:"Classer le résultat sans le relire ni prévenir l'équipe.",delta:-2,score:0,retour:"Risque pédagogique : un résultat critique nécessite vérification et transmission sans délai."}]},
+        {titre:"🚑 Une nouvelle urgence arrive",detail:"L'accueil signale un nouvel arrivant. L'équipe te demande de contribuer à la priorisation sans abandonner le patient en cours.",choix:[{texte:"Alerter l'équipe, transmettre brièvement l'état du patient actuel et participer à une priorisation structurée.",delta:1,score:1,retour:"Bonne organisation : continuité des soins et triage coordonné."},{texte:"Quitter le patient sans transmission pour aller voir le nouvel arrivant.",delta:-2,score:0,retour:"À améliorer : ne jamais interrompre une prise en charge sans relais et transmission."}]}
+      ];
+      const phases=[1,2,3,4,5,6].sort(()=>Math.random()-.5).slice(0,2).sort((a,b)=>a-b);
+      const evenements=phases.map((phase)=>({phase, ...banque[Math.floor(Math.random()*banque.length)],resolu:false}));
+      if(forceNouvelleUrgence){
+        const indexUrgence=Math.floor(Math.random()*evenements.length);
+        evenements[indexUrgence]={phase:evenements[indexUrgence].phase,...banque[3],resolu:false};
+      }
+      return evenements;
+    }
+    if(!document.getElementById("medquizUrgenceStyle")){const st=document.createElement("style");st.id="medquizUrgenceStyle";st.textContent="@keyframes medquizUrgencePulse{0%,100%{box-shadow:0 0 0 rgba(220,38,38,0)}50%{box-shadow:0 0 18px rgba(220,38,38,.35)}}";document.head.append(st);}
+    // Déverrouille l'audio dès la première interaction réelle avec la page.
+    // Les navigateurs bloquent souvent les sons lancés automatiquement avant ce geste.
+    function deverrouillerAudio(){
+      try{
+        const AudioCtx=window.AudioContext||window.webkitAudioContext;
+        if(!AudioCtx)return;
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        if(contexteAudio.state==="suspended")contexteAudio.resume().catch(()=>{});
+      }catch(e){console.warn("Audio non disponible",e);}
+    }
+    document.addEventListener("pointerdown",deverrouillerAudio,{once:true,capture:true});
+    document.addEventListener("keydown",deverrouillerAudio,{once:true,capture:true});
+    function sonnerAlerteUrgence(){
+      if(!sonUrgenceActif || !sonActif)return false;
+      try{
+        const AudioCtx=window.AudioContext||window.webkitAudioContext;
+        if(!AudioCtx)return false;
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        const jouer=()=>{
+          const ctx=contexteAudio;
+          if(ctx.state!=="running")return;
+          // Trois balayages sonores courts, plus perceptibles qu'un simple bip.
+          [0,0.48,0.96].forEach((t)=>{
+            const osc=ctx.createOscillator(),gain=ctx.createGain();
+            osc.type="sawtooth";
+            osc.frequency.setValueAtTime(650,ctx.currentTime+t);
+            osc.frequency.exponentialRampToValueAtTime(1250,ctx.currentTime+t+0.18);
+            osc.frequency.exponentialRampToValueAtTime(720,ctx.currentTime+t+0.36);
+            gain.gain.setValueAtTime(0.0001,ctx.currentTime+t);
+            gain.gain.exponentialRampToValueAtTime(0.12,ctx.currentTime+t+0.035);
+            gain.gain.setValueAtTime(0.12,ctx.currentTime+t+0.25);
+            gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+t+0.40);
+            osc.connect(gain);gain.connect(ctx.destination);
+            osc.start(ctx.currentTime+t);osc.stop(ctx.currentTime+t+0.42);
+          });
+        };
+        if(contexteAudio.state==="suspended"){
+          contexteAudio.resume().then(jouer).catch(e=>console.warn("Impossible de démarrer la sirène",e));
+        }else jouer();
+        return true;
+      }catch(e){console.warn("Son d'urgence indisponible",e);return false;}
+    }
+    function activerEtTesterSonUrgence(){
+      sonUrgenceActif=true;sonActif=true;
+      try{ecrireLocal("medquiz_son","on");}catch(e){}
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx){alert("Ce navigateur ne permet pas de jouer le son. Les alertes visuelles restent actives.");return;}
+      try{
+        if(!contexteAudio)contexteAudio=new AudioCtx();
+        const ctx=contexteAudio;
+        const lancer=()=>{
+          if(ctx.state!=="running"){alert("Le son n'est pas actif. Vérifie le volume multimédia et les réglages du navigateur.");return;}
+          sonnerAlerteUrgence();
+          const statut=document.getElementById("medquizAudioStatus");
+          if(statut)statut.textContent="🔊 Son activé — test réussi";
+        };
+        if(ctx.state==="suspended")ctx.resume().then(lancer).catch(()=>alert("Chrome a bloqué le son. Touche à nouveau le bouton et vérifie le volume multimédia."));
+        else lancer();
+      }catch(e){alert("Impossible d'activer le son sur cet appareil. Les alertes visuelles restent actives.");}
+    }
+    function afficherEvenementGarde(zone){
+      if(!gardeNuit||gardeNuit.encours!==casSelectionne)return;
+      if(!Array.isArray(progressionCas.evenementsGarde))progressionCas.evenementsGarde=creerEvenementsGarde();
+      const evenement=progressionCas.evenementsGarde.find(e=>e.phase===progressionCas.index);
+      if(!evenement)return;
+      const estNouvelleUrgence=evenement.titre.includes("nouvelle urgence");
+      if(estNouvelleUrgence&&!evenement.alerteAffichee){evenement.alerteAffichee=true;sonnerAlerteUrgence();}
+      const panel=el("div",estNouvelleUrgence?"history-item error":"history-item");panel.style.cssText=`display:block;padding:14px;margin:12px 0;border:2px solid ${estNouvelleUrgence?'#dc2626':'var(--gold,#d6a84b)'};${estNouvelleUrgence?'background:rgba(220,38,38,.09);animation:medquizUrgencePulse 1.1s ease-in-out 3':''}`;
+      if(estNouvelleUrgence){const alerte=el("div","", "🚨 NOUVELLE URGENCE — ALERTE DE GARDE");alerte.style.cssText="font-size:1.12em;font-weight:900;color:#dc2626;margin-bottom:8px";panel.append(alerte);const son=el("button","btn btn-secondary",sonUrgenceActif?"🔊 Son activé":"🔇 Son désactivé");son.type="button";son.style.cssText="margin:0 0 8px 0";son.addEventListener("click",()=>{sonUrgenceActif=!sonUrgenceActif;son.textContent=sonUrgenceActif?"🔊 Son activé":"🔇 Son désactivé";if(sonUrgenceActif)sonnerAlerteUrgence();});panel.append(son);}
+      panel.append(el("h4","",estNouvelleUrgence?"🚑 INTERRUPTION — ÉVÉNEMENT URGENT":"🎲 ÉVÉNEMENT IMPREVU DE LA GARDE"),el("strong","",evenement.titre),el("p","",evenement.detail));
+      if(estNouvelleUrgence){const voir=el("button","btn btn-gold","Voir le tableau des urgences");voir.type="button";voir.addEventListener("click",()=>{gardeNuit.progressions[casSelectionne]=progressionCas;gardeNuit.encours=null;afficherTableauGarde();});panel.append(voir);}
+      if(evenement.resolu){panel.append(el("p","notice",evenement.retour||"Événement déjà traité."));zone.append(panel);return;}
+      panel.append(el("p","muted","Que fais-tu ? Choisis une réaction."));
+      evenement.choix.forEach(option=>{const b=el("button","btn btn-secondary",option.texte);b.type="button";b.style.cssText="display:block;width:100%;text-align:left;margin:7px 0;white-space:normal";b.addEventListener("click",()=>{evenement.resolu=true;evenement.retour=option.retour;progressionCas.stabilite=Math.max(0,Math.min(6,progressionCas.stabilite+option.delta));if(option.score)progressionCas.score+=option.score;(progressionCas.journal||(progressionCas.journal=[])).push({type:"événement de garde",titre:evenement.titre,choix:option.texte,retour:option.retour});panel.replaceChildren(el("h4","","📌 Événement traité"),el("strong","",evenement.titre),el("p","notice",option.retour));const etat=el("p","muted",`État simulé actualisé : ${progressionCas.stabilite>=5?"amélioration":progressionCas.stabilite>=3?"stable ou fragile":"préoccupant — réévaluation et aide de l'équipe"}.`);panel.append(etat);});panel.append(b);});zone.append(panel);
+    }
+    function commencerCas(index,modeUrgence=false){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}casSelectionne=index;const sauvegardee=gardeNuit&&gardeNuit.encours===index?gardeNuit.progressions[index]:null;if(sauvegardee){progressionCas=sauvegardee;progressionCas.modeUrgence=false;}else{progressionCas={index:0,score:0,termine:false,enregistre:false,choixMelanges:[],stabilite:3,journal:[],evaluations:[],decisionHistory:[],patientConversation:[],examensPrescrits:[],justificationsExamens:{},resultatsExamens:[],modeUrgence:!!modeUrgence,debutPhase:0,tempsDepasse:false,phasesDansLeTemps:0,evenementsGarde:gardeNuit?creerEvenementsGarde(gardeNuit.urgencePatient===index):[]};}afficherEtapeCas();}
+    function lancerMinuterieUrgence(zone){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}if(!progressionCas.modeUrgence)return;const duree=120;progressionCas.debutPhase=Date.now();progressionCas.tempsDepasse=false;const bloc=el("div","notice");bloc.style.cssText="font-weight:700;text-align:center;margin:12px 0";zone.append(bloc);const actualiser=()=>{const restant=Math.max(0,duree-Math.floor((Date.now()-progressionCas.debutPhase)/1000));bloc.textContent=restant>0?`⏱️ Mode urgence — ${Math.floor(restant/60)}:${String(restant%60).padStart(2,"0")} pour cette phase`:"⏰ Temps écoulé — prends le temps de sécuriser ta décision";if(restant===0){progressionCas.tempsDepasse=true;clearInterval(minuterieUrgence);minuterieUrgence=null;bloc.classList.add("error");}};actualiser();minuterieUrgence=setInterval(actualiser,1000);}
+    function afficherPatientVirtuel(zone,cas){
+      const panel=el("div","history-item");panel.style.cssText="display:block;padding:14px;margin:14px 0;border:1px solid var(--gold,#d6a84b)";
+      panel.append(el("h4","","🗣️ Interroger le patient virtuel"),el("p","muted","Pose tes questions comme lors d'un vrai interrogatoire. Le patient répond avec les informations de son dossier et tient compte de son état actuel dans la simulation."));
+      const messages=el("div");messages.style.cssText="display:flex;flex-direction:column;gap:8px;margin:10px 0;max-height:280px;overflow:auto";
+      const dessinerMessages=()=>{messages.replaceChildren();if(!progressionCas.patientConversation.length)messages.append(el("p","muted","Patient : Bonjour docteur… Qu'aimeriez-vous savoir ?"));progressionCas.patientConversation.forEach(m=>{const b=el("div",m.role==="user"?"notice":"quiz-feedback",`${m.role==="user"?"Vous":"Patient"} : ${m.text}`);b.style.cssText="padding:9px 12px;border-radius:10px;white-space:pre-wrap";messages.append(b);});};
+      dessinerMessages();
+      const question=el("textarea");question.rows=2;question.placeholder="Ex. Depuis quand avez-vous mal ? La douleur a-t-elle changé ?";question.style.cssText="width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:6px 0";
+      const envoyer=el("button","btn btn-gold","Envoyer ma question");envoyer.type="button";
+      envoyer.addEventListener("click",async()=>{
+        const message=question.value.trim();if(!message)return;
+        envoyer.disabled=true;envoyer.textContent="Le patient réfléchit…";
+        try{
+          const niveauActuel=progressionCas.stabilite>=5?"amélioration simulée":progressionCas.stabilite>=3?"état fragile, à surveiller":progressionCas.stabilite>=1?"dégradation simulée": "état critique simulé — alerte immédiate";
+          const evolutionActuelle=progressionCas.stabilite>=5?"Le patient peut décrire une amélioration générale, sans inventer de signe précis.":progressionCas.stabilite>=3?"Le patient peut indiquer que son état reste globalement inchangé ou fragile.":progressionCas.stabilite>=1?"Le patient peut décrire une aggravation générale cohérente avec le dossier, sans inventer de nouveau symptôme précis.":"Le patient doit signaler une aggravation importante et le besoin d'une aide urgente, sans inventer de constantes ni de symptômes spécifiques.";
+          const contextePatient=[
+            "RÔLE : tu incarnes uniquement le patient de cette simulation clinique.",
+            "RÈGLES : réponds à la question posée comme le ferait ce patient, avec des mots simples. Ne donne que les informations pertinentes demandées. Ne récite pas toute la fiche spontanément. Ne révèle jamais les réponses attendues, le diagnostic pédagogique ni le corrigé. N'invente aucune valeur chiffrée, aucun résultat d'examen, antécédent, allergie, traitement ou symptôme précis absent de la fiche. Si une information n'est pas renseignée, dis que tu ne sais pas ou que tu ne te souviens pas.",
+            "CONTINUITÉ OBLIGATOIRE : tu es le même patient depuis le début. Tu dois tenir compte de toutes les étapes déjà réalisées, des réponses du soignant, des examens prescrits et des traitements mentionnés. Ne recommence jamais l'histoire et ne réponds pas automatiquement que tu as toujours mal. À la phase de réévaluation, décris l'évolution depuis les soins. Une amélioration n'est possible que si une intervention cohérente a été réalisée; sinon indique que les symptômes persistent ou évoluent selon le scénario. Ne prétends jamais qu'un soin a été administré si l'étudiant l'a seulement proposé. N'invente pas de résultats ou de constantes.",
+            `PHASE ACTUELLE : ${cas.etapes[progressionCas.index]?.[0]||"Simulation"}`,
+            `HISTORIQUE DES DÉCISIONS DU SOIGNANT : ${JSON.stringify(progressionCas.decisionHistory||[])}`,
+            `EXAMENS SÉLECTIONNÉS : ${JSON.stringify(progressionCas.examensPrescrits||[])}`,
+            `ÉTAT ACTUEL DE LA SIMULATION : ${niveauActuel}. ${evolutionActuelle}`,
+            `INFORMATIONS PATIENT AUTORISÉES : ${JSON.stringify({presentation:cas.ficheReference.presentation,contexte:cas.ficheReference.contexte,evolution:cas.ficheReference.evolution})}`,
+            `Présentation communiquée dans le dossier : ${cas.patient}`,
+            `Contexte du scénario : ${cas.profil.contexte}`,
+            `Évolution générale prévue dans le scénario : ${cas.profil.evolution}`
+          ].join("\n");
+          const {data,error}=await supabase.functions.invoke("patient-chat",{body:{patientContext:contextePatient,conversation:progressionCas.patientConversation,studentMessage:message,purpose:"patient-chat"}});
+          if(error)throw error;if(!data?.success||!data?.reply)throw new Error(data?.error||"Réponse invalide");
+          progressionCas.patientConversation.push({role:"user",text:message},{role:"model",text:String(data.reply)});question.value="";dessinerMessages();
+        }catch(err){console.error("Erreur patient virtuel :",err);messages.append(el("p","error","Le patient ne peut pas répondre pour le moment. Réessaie dans un instant."));}
+        envoyer.disabled=false;envoyer.textContent="Envoyer ma question";
+      });
+      panel.append(messages,question,envoyer);zone.append(panel);
+    }
+    // Résultats paracliniques simulés : qualitatifs, liés au scénario de base.
+    // Aucun chiffre biologique ou tracé n'est inventé ; les résultats sont explicitement pédagogiques.
+    function construireResultatsExamens(cas, examens){
+      const match=String(cas.id||"").match(/^sim-(\d+)-/), type=match?Number(match[1]):-1;
+      const profils=[
+        {"NFS-plaquettes":"Plaquettes à contrôler : une thrombopénie est recherchée dans le contexte de prééclampsie sévère.","Créatinine / fonction rénale":"Évaluer la fonction rénale ; une atteinte rénale associée est à rechercher.","Bilan hépatique (ASAT/ALAT)":"Transaminases à vérifier ; une cytolyse hépatique ferait craindre une complication.","Bandelette urinaire / protéinurie":"Protéinurie recherchée ; son absence n'écarte pas à elle seule une prééclampsie avec signes de gravité.","Évaluation fœtale / monitoring":"Surveillance fœtale nécessaire ; interprétation par l'équipe obstétricale.","ECG 12 dérivations":"Pas d'anomalie spécifique attendue sur la seule base du scénario ; interpréter selon symptômes et terrain."},
+        {"ECG 12 dérivations":"Anomalies ischémiques possibles à rechercher en urgence ; faire interpréter le tracé sans délai.","Troponine":"Dosage à interpréter avec la cinétique et le délai depuis le début de la douleur ; une élévation soutient une lésion myocardique.","NFS-plaquettes":"Bilan initial utile, sans anomalie spécifique imposée par le scénario.","Ionogramme sanguin":"Évaluer les troubles hydro-électrolytiques pouvant modifier le risque et la prise en charge.","Créatinine / fonction rénale":"Évaluer la fonction rénale avant les traitements et examens nécessitant une adaptation.","Radiographie thoracique":"Recherche notamment une autre cause de douleur ou des signes de congestion ; ne retarde pas la stratégie urgente."},
+        {"NFS-plaquettes":"Une numération aide à rechercher une infection ou une anomalie hématologique ; résultat à corréler à l'examen.","CRP":"Marqueur inflammatoire pouvant être augmenté dans un contexte infectieux ; non spécifique.","Gaz du sang":"Évaluer l'oxygénation, la ventilation et l'équilibre acido-basique si détresse respiratoire.","Radiographie thoracique":"Recherche un foyer pulmonaire ; l'image doit être confrontée à la clinique.","Hémocultures":"À prélever si infection sévère suspectée, idéalement avant antibiothérapie si cela ne retarde pas le traitement.","Glycémie":"Vérifier la glycémie, notamment en cas de mauvaise tolérance ou de trouble de conscience."},
+        {"Glycémie":"Hyperglycémie attendue dans ce scénario d'acidocétose ; confirmer et suivre selon protocole.","Gaz du sang":"Recherche une acidose métabolique ; apprécier le pH et la compensation.","Ionogramme sanguin":"Surveiller particulièrement le potassium et le sodium ; les valeurs guident la correction sécurisée.","Créatinine / fonction rénale":"Une déshydratation peut altérer la fonction rénale ; surveiller l'évolution.","NFS-plaquettes":"Bilan initial non spécifique ; rechercher un facteur déclenchant selon le contexte.","ECG 12 dérivations":"Utile notamment pour rechercher des conséquences cardiaques de troubles du potassium."},
+        {"Glycémie":"Glycémie à mesurer immédiatement, car une hypoglycémie peut mimer ou aggraver un déficit neurologique.","ECG 12 dérivations":"Recherche une cause ou un facteur cardio-embolique ; ne retarde pas l'imagerie cérébrale.","NFS-plaquettes":"Bilan initial utile, notamment avant certaines stratégies thérapeutiques.","Ionogramme sanguin":"Recherche un trouble métabolique pouvant contribuer aux symptômes.","Scanner / imagerie en coupe":"Imagerie cérébrale urgente pour distinguer hémorragie et ischémie selon le protocole local."},
+        {"NFS-plaquettes":"Une hyperleucocytose peut soutenir l'hypothèse infectieuse mais reste non spécifique.","CRP":"Marqueur inflammatoire susceptible d'être augmenté ; ne suffit pas à confirmer ou exclure un sepsis.","Hémocultures":"Prélèvements à réaliser rapidement si indiqués, sans retarder l'antibiothérapie urgente.","Gaz du sang":"Évaluer lactate, oxygénation et équilibre acido-basique selon disponibilité.","Créatinine / fonction rénale":"Rechercher une dysfonction rénale d'organe et adapter la prise en charge.","Ionogramme sanguin":"Rechercher des troubles hydro-électrolytiques associés.","Glycémie":"Contrôler la glycémie dans le bilan initial."},
+        {"NFS-plaquettes":"Une hyperleucocytose peut être présente mais n'est pas spécifique ; interpréter avec la clinique.","CRP":"Peut être augmentée dans l'inflammation ; ne confirme pas seule l'appendicite.","Échographie ciblée":"Recherche un appendice augmenté de calibre et des signes inflammatoires péri-appendiculaires ; résultat dépendant de l'opérateur.","Scanner / imagerie en coupe":"Peut aider si le diagnostic reste incertain, selon âge, grossesse et protocole local.","Glycémie":"Bilan biologique associé, sans résultat spécifique attendu."},
+        {"Gaz du sang":"En cas de forme sévère, recherche une hypoxémie ou une hypercapnie ; à réserver aux indications cliniques.","Radiographie thoracique":"Pas systématique ; recherche une complication ou un diagnostic alternatif si indiqué.","NFS-plaquettes":"Pas de profil spécifique attendu ; bilan orienté par le contexte.","Glycémie":"Contrôle utile selon gravité et traitements administrés.","ECG 12 dérivations":"À envisager si douleur thoracique, trouble du rythme ou diagnostic différentiel."},
+        {"NFS-plaquettes":"Rechercher notamment une anémie et une thrombopénie ; interpréter avec les signes de gravité.","Glycémie":"Contrôle utile dans le bilan d'un paludisme grave.","Créatinine / fonction rénale":"Rechercher une atteinte rénale associée.","Bilirubine / bilan hépatique (ASAT/ALAT)":"Évaluer une éventuelle atteinte hépatique ou hémolyse ; interprétation selon le bilan complet.","Gaz du sang":"Peut aider à apprécier une acidose ou une défaillance respiratoire si forme grave.","ECG 12 dérivations":"À réaliser selon signes cliniques et troubles métaboliques associés."},
+        {"NFS-plaquettes":"Évaluer l'hémoglobine et les plaquettes ; une anémie peut accompagner l'hémorragie.","Groupage sanguin et RAI":"Indispensable d'anticiper les besoins transfusionnels selon l'état clinique et le protocole.","Bilan hépatique (ASAT/ALAT)":"Pas spécifique de l'hémorragie ; à demander selon le contexte clinique.","Créatinine / fonction rénale":"Évaluer le retentissement d'une hypoperfusion si hémorragie importante.","ECG 12 dérivations":"Selon tolérance hémodynamique, symptômes et terrain."}
+      ];
+      const ref=profils[type]||{};
+      return examens.map(nom=>({nom,texte:ref[nom]||`Résultat simulé non spécifique pour « ${nom} » : interpréter selon les signes cliniques, les autres résultats et les protocoles locaux. Cet examen ne fournit pas à lui seul de conclusion diagnostique.`}));
+    }
+    function afficherResultatsExamens(zone, cas){
+      if(!progressionCas.resultatsExamens?.length)return;
+      const bloc=el("div","notice");bloc.style.cssText="display:block;margin:12px 0;padding:14px;border-left:4px solid var(--gold,#d6a84b)";
+      bloc.append(el("h4","","🧾 Résultats des examens prescrits"),el("p","muted","Résultats fictifs à visée pédagogique, cohérents avec la situation de départ. Ils ne remplacent pas des résultats réels."));
+      progressionCas.resultatsExamens.forEach(r=>{bloc.append(el("strong","",r.nom),el("p","",r.texte));});
+      zone.append(bloc);
+    }
+    function afficherEtapeCas(){const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),etape=cas.etapes[progressionCas.index];zone.replaceChildren();
+      zone.append(el("p","eyebrow gold-text","🏥 SERVICE D'URGENCES · SIMULATION"),el("h3","",cas.titre),el("p","muted",`${cas.specialite} · ${cas.niveau}`));
+      if(gardeNuit&&gardeNuit.encours===casSelectionne){const navigation=el("div");navigation.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0";if(progressionCas.index>0){const precedent=el("button","btn btn-secondary","← Phase précédente");precedent.type="button";precedent.addEventListener("click",()=>{if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}progressionCas.index=Math.max(0,progressionCas.index-1);afficherEtapeCas();});navigation.append(precedent);}const pause=el("button","btn btn-secondary","↩ Retour au tableau des urgences");pause.type="button";pause.addEventListener("click",()=>{if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}gardeNuit.progressions[casSelectionne]=progressionCas;gardeNuit.encours=null;afficherTableauGarde();});navigation.append(pause);zone.append(navigation);}
+      afficherEvenementGarde(zone);
+      const totalPhases=cas.etapes.length;const barre=el("div");barre.style.cssText="height:8px;background:var(--border);border-radius:10px;overflow:hidden;margin:12px 0";const rempl=el("div");rempl.style.cssText=`height:100%;width:${(progressionCas.index/totalPhases)*100}%;background:var(--gold,#d6a84b);transition:width .25s`;barre.append(rempl);zone.append(barre,el("p","muted",`Phase ${progressionCas.index+1}/${totalPhases} — ${etape[0]}`));if(progressionCas.modeUrgence){zone.append(el("p","muted","Mode urgence activé : 2 minutes indicatives par phase. La sécurité du patient reste prioritaire."));lancerMinuterieUrgence(zone);}
+      const dossier=el("div","history-item");dossier.style.cssText="display:block;padding:14px;margin:12px 0";dossier.append(el("strong","","📋 Dossier patient"),el("p","",cas.patient));
+      const profil=el("p","muted",`Contexte du dossier : ${cas.profil.contexte}`);dossier.append(profil);if(progressionCas.index===0)dossier.append(el("p","notice",`⚠️ ${cas.urgence}`));
+      const etat=el("div","notice",`🩺 État simulé : ${progressionCas.stabilite>=5?"stable":progressionCas.stabilite>=3?"à surveiller":progressionCas.stabilite>=1?"préoccupant":"instable — alerte et réévaluation immédiates"} · Score : ${progressionCas.score}/${Math.max(1,progressionCas.index)}`);dossier.append(etat);const reaction=progressionCas.index===0?"Le patient attend ton évaluation initiale.":progressionCas.stabilite>=5?"Le patient montre une évolution favorable dans cette simulation. Poursuis la surveillance.":progressionCas.stabilite>=3?"L'état reste fragile : poursuis l'évaluation et surveille les constantes.":progressionCas.stabilite>=1?"Des signes de dégradation apparaissent dans cette simulation. Renforce la surveillance et sollicite l'équipe.":"🚨 Dégradation simulée importante : alerte immédiatement l'équipe et réévalue les fonctions vitales.";dossier.append(el("p","muted",`Évolution du patient : ${reaction}`));if(progressionCas.index===1)dossier.append(el("p","muted",`Indice du dossier : ${cas.indice}`));if(progressionCas.index>=6)dossier.append(el("p","muted",cas.evolution));zone.append(dossier);
+      const statut=el("div","notice",`État du patient : ${progressionCas.stabilite>=4?"stable":progressionCas.stabilite>=2?"à surveiller":"instable — réévaluation urgente"} · Décisions correctes : ${progressionCas.score}`);zone.append(statut,el("h4","",etape[0]),el("p","",etape[1]));
+      const guidesSimulation = [
+        {titre:"1. Sécuriser le patient : que vérifier en premier ?", points:["Voies aériennes : le patient parle-t-il ? Y a-t-il un obstacle ?","Respiration : fréquence, effort respiratoire, saturation si disponible.","Circulation : pouls, pression artérielle, peau, saignement et perfusion.","Neurologie : conscience, comportement, convulsions ou déficit brutal.","Exposition : température, douleur, lésions et signes visibles. Quelles constantes faut-il reprendre ?","Y a-t-il un signe de danger qui impose d'alerter immédiatement l'équipe ?"]},
+        {titre:"2. Interrogatoire : quelles informations recueillir ?", points:["Début : quand les symptômes ont-ils commencé ? Brutalement ou progressivement ?","Évolution : aggravation, amélioration, épisodes précédents ?","Symptômes associés : lesquels accompagnent le motif principal ?","Antécédents : maladies, opérations, grossesse si pertinente, épisodes similaires.","Traitements en cours, automédication et allergies.","Facteurs de risque, contexte récent et informations données par l'accompagnant."]},
+        {titre:"3. Examen clinique : que rechercher à l'examen ?", points:["Quelles constantes mesurer et suivre ?","Quels signes confirment la gravité ou montrent une défaillance ?","Quel examen ciblé correspond au symptôme principal ?","Quels signes orientent vers une complication ?","Quels éléments faut-il comparer entre les deux côtés ou aux examens précédents ?"]},
+        {titre:"4. Examens : quels examens choisir et pourquoi ?", points:["Quel examen répond directement à la question clinique prioritaire ?","Quels examens biologiques ou d'imagerie sont réellement utiles ici ?","Quel résultat attendu confirmerait ou ferait écarter une hypothèse ?","Y a-t-il un examen urgent à réaliser sans retarder la stabilisation ?","Quels examens sont inutiles ou risquent de retarder les soins ?"]},
+        {titre:"5. Diagnostic : comment organiser ton raisonnement ?", points:["Quel diagnostic explique le mieux les symptômes et les signes ?","Quels arguments du dossier soutiennent cette hypothèse ?","Quels diagnostics graves ne faut-il surtout pas manquer ?","Quelles autres causes plausibles faut-il garder en tête ?","Quelles données manquent encore pour conclure avec prudence ?"]},
+        {titre:"6. Traitement : quelle conduite proposer ?", points:["Quelle mesure immédiate protège le patient ?","Quel traitement répond à la cause probable et à la gravité ?","Quelles contre-indications, allergies ou précautions vérifier ?","Quel niveau de surveillance ou d'orientation est nécessaire ?","Quels paramètres permettront de juger l'efficacité et la sécurité du traitement ?","Quand faut-il demander un avis spécialisé ou renforcer les moyens ?"]},
+        {titre:"7. Réévaluation : comment savoir si le patient va mieux ?", points:["Reprendre les constantes et les comparer aux valeurs initiales.","Les symptômes et les signes de gravité régressent-ils ?","Le traitement a-t-il produit l'effet attendu ? Y a-t-il un effet indésirable ?","Une complication ou un nouveau diagnostic doit-il être envisagé ?","Faut-il poursuivre, adapter ou escalader la prise en charge ?"]},
+        {titre:"8. Transmission : que doit savoir l'équipe suivante ?", points:["Identité, âge, motif d'admission et chronologie des symptômes.","Antécédents, allergies et traitements habituels importants.","Signes de gravité, constantes et évolution observée.","Examens réalisés et résultats importants, diagnostic retenu ou hypothèses.","Traitements donnés, horaires et réponse du patient.","Actions en attente, surveillance nécessaire et signes qui doivent faire alerter."]}
+      ];
+      const guide=guidesSimulation[progressionCas.index]||guidesSimulation[0];
+      const consigne=el("p","muted","À toi de raisonner : écris ta décision avec tes propres mots. Ouvre l’aide uniquement si tu en as besoin.");
+      const detailsGuide=el("details","history-item");detailsGuide.open=false;detailsGuide.style.cssText="display:block;padding:12px;margin:10px 0";detailsGuide.append(el("summary","",`🔎 Aide facultative — ${guide.titre}`));
+      const listeGuide=el("ul");listeGuide.style.cssText="padding-left:22px;line-height:1.65";guide.points.forEach(point=>listeGuide.append(el("li","",point)));detailsGuide.append(listeGuide);
+      const reponseLibre=el("textarea");reponseLibre.rows=4;reponseLibre.placeholder="Écris ici ton raisonnement et ta décision…";reponseLibre.style.cssText="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit;margin:8px 0";
+      if(progressionCas.index===3 && premium.actif){
+        const prescription=el("div","history-item");prescription.style.cssText="display:block;padding:14px;margin:12px 0;border:1px solid var(--gold,#d6a84b)";
+        prescription.append(el("h4","","🧪 Prescrire des examens paracliniques"),el("p","muted","Sélectionne les examens utiles pour ce patient. Les prescriptions sont simulées à des fins pédagogiques."));
+        const catalogue=["ECG 12 dérivations","Troponine","NFS-plaquettes","CRP","Glycémie","Ionogramme sanguin","Créatinine / fonction rénale","Bilan hépatique (ASAT/ALAT)","Gaz du sang","Bandelette urinaire / protéinurie","Hémocultures","Groupage sanguin et RAI","Radiographie thoracique","Échographie ciblée","Scanner / imagerie en coupe","Évaluation fœtale / monitoring"];
+        const listeExamens=el("div");listeExamens.style.cssText="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin:12px 0";
+        const justifications=el("div");justifications.style.cssText="display:grid;gap:10px;margin:12px 0";
+        const compteur=el("p","muted","Aucun examen sélectionné pour le moment.");
+        function actualiserPrescriptions(){
+          listeExamens.innerHTML="";justifications.innerHTML="";
+          catalogue.forEach(nom=>{const ligne=el("label");ligne.style.cssText="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:8px";const cb=el("input");cb.type="checkbox";cb.checked=progressionCas.examensPrescrits.includes(nom);cb.addEventListener("change",()=>{if(cb.checked&&!progressionCas.examensPrescrits.includes(nom))progressionCas.examensPrescrits.push(nom);else progressionCas.examensPrescrits=progressionCas.examensPrescrits.filter(x=>x!==nom);actualiserPrescriptions();});ligne.append(cb,document.createTextNode(nom));listeExamens.append(ligne);});
+          compteur.textContent=progressionCas.examensPrescrits.length+" examen(s) sélectionné(s). Ajoute une justification pour chacun.";
+          progressionCas.examensPrescrits.forEach(nom=>{const bloc=el("div","history-item");bloc.style.cssText="display:block;padding:10px";bloc.append(el("strong","",nom));const raison=el("textarea");raison.rows=2;raison.placeholder="Pourquoi demandes-tu cet examen ? Que cherches-tu à confirmer ou éliminer ?";raison.value=progressionCas.justificationsExamens[nom]||"";raison.style.cssText="width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font:inherit";raison.addEventListener("input",()=>{progressionCas.justificationsExamens[nom]=raison.value;});bloc.append(raison);justifications.append(bloc);});
+        }
+        actualiserPrescriptions();
+        const ajouter=el("button","btn btn-secondary","1. Valider mes prescriptions");ajouter.type="button";ajouter.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Explique pourquoi tu demandes chaque examen sélectionné.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);ajouter.textContent="Prescriptions validées ✓";});
+        const recevoir=el("button","btn btn-gold","2. Afficher les résultats des examens");recevoir.type="button";recevoir.style.cssText="margin:8px 0 0 8px";recevoir.addEventListener("click",()=>{if(!progressionCas.examensPrescrits.length){alert("Sélectionne d'abord au moins un examen.");return;}const sansRaison=progressionCas.examensPrescrits.filter(nom=>!(progressionCas.justificationsExamens[nom]||"").trim());if(sansRaison.length){alert("Ajoute une justification pour chaque examen avant de recevoir les résultats.");return;}const bloc="Examens prescrits et justifications :\n"+progressionCas.examensPrescrits.map(nom=>"- "+nom+" : "+progressionCas.justificationsExamens[nom].trim()).join("\n");if(!reponseLibre.value.includes("Examens prescrits et justifications :"))reponseLibre.value=(reponseLibre.value.trim()?reponseLibre.value.trim()+"\n\n":"")+bloc;else reponseLibre.value=reponseLibre.value.replace(/Examens prescrits et justifications :[\s\S]*/,bloc);progressionCas.resultatsExamens=construireResultatsExamens(cas,progressionCas.examensPrescrits);const ancien=prescription.querySelector(".resultats-examens-simules");if(ancien)ancien.remove();const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);recevoir.textContent="Résultats affichés ✓";});
+        prescription.append(listeExamens,compteur,justifications,ajouter,recevoir);if(progressionCas.resultatsExamens?.length){const zoneResultats=el("div","resultats-examens-simules");afficherResultatsExamens(zoneResultats,cas);prescription.append(zoneResultats);}zone.append(prescription);
+      }
+      const analyser=el("button","btn btn-gold","Analyser ma réponse →");analyser.type="button";analyser.addEventListener("click",()=>repondreCasLibre(reponseLibre.value,analyser));if(premium.actif)afficherPatientVirtuel(zone,cas);zone.append(consigne,detailsGuide,reponseLibre,analyser);
+      zone.append(el("p","muted","💡 Le guide donne une méthode de réflexion, pas les réponses toutes faites. Adapte tes recherches au patient et aux informations déjà disponibles."));
+      if(progressionCas.journal.length){const j=el("details");const sum=el("summary","","Voir le dossier de décisions précédent");j.append(sum);progressionCas.journal.forEach(x=>j.append(el("p","muted",x)));zone.append(j);}
+    }
+    async function repondreCasLibre(texte,bouton){
+      const cas=casCliniques[casSelectionne],etape=cas.etapes[progressionCas.index],zone=$("casCliniqueZone");
+      const tempsPhase=progressionCas.modeUrgence?Math.floor((Date.now()-(progressionCas.debutPhase||Date.now()))/1000):null;
+      const tempsDepasse=!!(progressionCas.modeUrgence&&(progressionCas.tempsDepasse||tempsPhase>120));
+      if(!texte.trim()){const alerte=el("p","error","Écris d'abord ta décision avant de l'analyser.");zone.append(alerte);return;}
+      if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}
+      bouton.disabled=true;bouton.textContent="Analyse par l'IA en cours…";
+      // L'appel passe par Supabase : la clé Gemini reste côté serveur.
+      const contexte=[
+        `Cas : ${cas.titre}`,
+        `Spécialité : ${cas.specialite}`,
+        `Patient : ${cas.patient}`,
+        `Contexte : ${cas.profil.contexte}`,
+        `Alerte clinique : ${cas.urgence}`,
+        `Phase : ${etape[0]}`,
+        `Question : ${etape[1]}`,
+        `Évolution simulée : ${cas.profil.evolution}`,
+        `Fiche de référence pédagogique complète : ${JSON.stringify(cas.ficheReference)}`
+      ].join("\n");
+      // Grille commune : l'IA évalue chaque phase avec les mêmes règles, sans exiger une formulation exacte.
+      const criteresParPhase=[
+        "TRIAGE : vérifier la gravité et les fonctions vitales pertinentes, identifier les signes d'alerte, prioriser les gestes immédiats et alerter/orienter si nécessaire.",
+        "INTERROGATOIRE : rechercher la chronologie, les caractéristiques des symptômes, les signes associés, les antécédents, traitements et allergies pertinents, sans retarder les soins urgents.",
+        "EXAMEN CLINIQUE : proposer des constantes et un examen ciblé pertinents, rechercher les signes de gravité et relier les constatations au problème du patient.",
+        "EXAMENS COMPLÉMENTAIRES : choisir des examens justifiés par la situation, préciser leur objectif ou le résultat recherché, hiérarchiser l'urgence et éviter les examens inutiles ou retardant la stabilisation.",
+        "DIAGNOSTIC : formuler une hypothèse principale cohérente, citer les arguments du dossier, garder les diagnostics différentiels importants et ne pas affirmer au-delà des données disponibles.",
+        "TRAITEMENT : prioriser la sécurité et les mesures urgentes, proposer une conduite adaptée à la gravité et au contexte, vérifier allergies/contre-indications et prévoir surveillance et recours à l'équipe.",
+        "RÉÉVALUATION : reprendre les paramètres pertinents, comparer avant/après, apprécier la réponse et les effets indésirables, repérer une aggravation et adapter ou escalader la prise en charge.",
+        "TRANSMISSION : transmettre de façon structurée le motif et la chronologie, les antécédents/allergies utiles, les constantes et signes de gravité, les examens/résultats, les traitements/réponses et les actions/surveillances en attente."
+      ];
+      const attendue=[
+        `Phase à évaluer : ${etape[0]}`,
+        `Critères obligatoires de cette phase : ${criteresParPhase[progressionCas.index]||"Évaluer la pertinence, la sécurité et la cohérence clinique."}`,
+        `Réponse de référence propre à ce cas : ${etape[2][0]}`,
+        `Justification pédagogique : ${etape[4]}`,
+        "RÈGLES DE NOTATION : évaluer le sens clinique, pas les mots exacts ni la longueur. Attribuer un score de 0 à 100 selon la pertinence, la priorisation, les éléments essentiels présents et la sécurité. Ne pas pénaliser une réponse concise si elle contient les éléments indispensables. Retirer des points pour les oublis importants et les décisions dangereuses. Ne pas exiger des examens ou traitements non indiqués par ce cas. Si une information manque au dossier, accepter une réponse prudente qui demande à la vérifier. Donner un retour bref : points réussis, élément prioritaire manquant et une seule piste pour progresser. Ne jamais révéler toute la réponse attendue dans le retour initial."
+      ].join("\n");
+      let analyse=null,erreurIA=null;
+      try{
+        const {data,error}=await supabase.functions.invoke("analyze-case",{
+          body:{caseContext:contexte,expectedAnswer:attendue,studentAnswer:texte,purpose:"simulation",phaseIndex:progressionCas.index}
+        });
+        if(error)throw error;
+        if(!data?.success||!data?.analysis)throw new Error(data?.error||"Réponse invalide du service d'analyse.");
+        analyse=data.analysis;
+      }catch(err){
+        console.error("Erreur analyse IA :",err);
+        erreurIA=err?.message||"Service momentanément indisponible";
+      }
+      bouton.disabled=false;bouton.textContent="Analyser ma réponse →";
+      const correction=el("div","quiz-feedback");
+      if(!analyse){
+        correction.append(el("strong","","Analyse IA indisponible pour le moment"),el("p","muted",`Détail : ${erreurIA}. Réessaie dans un instant. Ta réponse n'a pas été notée et tu peux la conserver pour réessayer.`));
+        zone.append(correction);return;
+      }
+      const score=Math.max(0,Math.min(100,Number(analyse.score)||0));
+      const verdict=String(analyse.verdict|| (score>=70?"Bonne réponse":score>=40?"Partiellement correcte":"À revoir"));
+      const juste=score>=70;
+      if(juste){progressionCas.score++;progressionCas.stabilite=Math.min(6,progressionCas.stabilite+1);}else if(score<40){progressionCas.stabilite=Math.max(0,progressionCas.stabilite-1);}
+      progressionCas.journal.push(`${etape[0]} : ${verdict} (${score}/100).`);
+      // Garder la décision réellement écrite par l'étudiant pour que le patient virtuel évolue avec le parcours.
+      progressionCas.decisionHistory=progressionCas.decisionHistory||[];
+      progressionCas.decisionHistory.push({phase:String(etape[0]),decision:String(texte).slice(0,3500),score,verdict,pointsCorrects:Array.isArray(analyse.pointsCorrects)?analyse.pointsCorrects.map(String):[],elementsManquants:Array.isArray(analyse.elementsManquants)?analyse.elementsManquants.map(String):[]});
+      // Conserver le détail de chaque phase pour construire un bilan personnalisé en fin de simulation.
+      progressionCas.evaluations.push({
+        phase:String(etape[0]), score, verdict,
+        explication:String(analyse.explication||""),
+        pointsCorrects:Array.isArray(analyse.pointsCorrects)?analyse.pointsCorrects.map(String):[],
+        elementsManquants:Array.isArray(analyse.elementsManquants)?analyse.elementsManquants.map(String):[],
+        erreurs:Array.isArray(analyse.erreurs)?analyse.erreurs.map(String):[],
+        pisteAmelioration:String(analyse.pisteAmelioration||""),
+        tempsSecondes:tempsPhase,
+        tempsDepasse,
+        modeUrgence:!!progressionCas.modeUrgence
+      });
+      if(progressionCas.modeUrgence&&!tempsDepasse)progressionCas.phasesDansLeTemps=(progressionCas.phasesDansLeTemps||0)+1;
+      correction.append(el("strong","",`${verdict} · ${score}/100`));
+      if(progressionCas.modeUrgence)correction.append(el("p",tempsDepasse?"error":"muted",tempsDepasse?`⏱️ Temps dépassé (${tempsPhase}s). La rapidité est à travailler, sans sacrifier la sécurité.`:`⏱️ Décision dans le temps imparti (${tempsPhase}s).`));
+      const phraseCourte=(valeur,repli)=>String(valeur||repli).split(/[.!?\n]/)[0].trim();
+      correction.append(el("p","",phraseCourte(analyse.explication,"Relis les éléments essentiels de ta décision.")));
+      const detail=el("details","history-item");detail.style.cssText="display:block;padding:10px;margin-top:10px";
+      detail.append(el("summary","","Voir le détail de mon évaluation"));
+      const ajouterListe=(titre,items,classe="")=>{
+        const liste=Array.isArray(items)?items:[];if(!liste.length)return;
+        detail.append(el("h4",classe,titre));
+        const ul=el("ul");ul.style.cssText="padding-left:20px;line-height:1.5";
+        liste.forEach(item=>ul.append(el("li","",String(item))));detail.append(ul);
+      };
+      ajouterListe("Points réussis",analyse.pointsCorrects);
+      ajouterListe("Éléments oubliés",analyse.elementsManquants);
+      ajouterListe("Erreurs à corriger",analyse.erreurs,"error");
+      if(analyse.pisteAmelioration)detail.append(el("h4","","Pour progresser"),el("p","",String(analyse.pisteAmelioration)));
+      detail.append(el("p","muted","Évaluation pédagogique : confronte toujours les décisions aux cours, aux protocoles locaux et à l'encadrement clinique."));
+      correction.append(detail);
+      if(!juste&&progressionCas.stabilite<=1)correction.append(el("p","error","🚨 Dans cette simulation, le patient est instable : priorité à l'alerte et à la réévaluation."));
+      zone.append(correction);
+      const prochain=progressionCas.index+1;
+      if(!premium.actif&&prochain>=NB_ETAPES_GRATUITES){zone.append(el("h4","","Fin de l'aperçu gratuit"),el("p","muted","Tu as effectué le triage initial. Avec Premium, tu poursuis l'interrogatoire, l'examen clinique, le choix des examens, le diagnostic, le traitement, la réévaluation et la transmission."),(()=>{const a=el("a","btn btn-gold","Continuer avec Premium 👑");a.href="#premium";return a;})(),(()=>{const b=el("button","btn btn-secondary","Choisir un autre patient");b.type="button";b.addEventListener("click",afficherAccueilCas);return b;})());return;}
+      const suivant=el("button","btn btn-gold",prochain===cas.etapes.length?"Terminer la simulation →":"Poursuivre la prise en charge →");suivant.type="button";suivant.style.marginTop="14px";suivant.addEventListener("click",()=>{progressionCas.index++;if(progressionCas.index<cas.etapes.length)afficherEtapeCas();else afficherResultatCas();});zone.append(suivant);
+    }
+    async function afficherResultatCas(){if(minuterieUrgence){clearInterval(minuterieUrgence);minuterieUrgence=null;}if(!progressionCas.carnetEnregistre){enregistrerErreursSimulation();progressionCas.carnetEnregistre=true;}const cas=casCliniques[casSelectionne],zone=$("casCliniqueZone"),total=cas.etapes.length,pointsGagnes=progressionCas.score*10;zone.replaceChildren(el("p","eyebrow gold-text","🏥 FIN DE GARDE"),el("h3","","Simulation terminée"),el("p","",`Décisions adaptées : ${progressionCas.score}/${total}.`),el("p","",`🏆 Points gagnés : ${pointsGagnes} points.`),...(progressionCas.modeUrgence?[el("p","notice",`🚨 Mode urgence : ${progressionCas.phasesDansLeTemps||0}/${total} phases terminées dans les 2 minutes. La rapidité est évaluée séparément de la qualité clinique.`)]:[]),el("p","muted",progressionCas.stabilite>=4?"Le patient termine la simulation dans un état stable.":progressionCas.stabilite>=2?"Le patient nécessite une surveillance et une réévaluation.":"Le patient s'est dégradé dans la simulation : reprends les décisions critiques et les signes d'alerte."));
+      const recap=el("div","history-item");recap.style.cssText="display:block;padding:14px;margin:12px 0";
+      recap.append(el("strong","","🧠 Débriefing personnalisé de la garde"),el("p","muted",`Contexte travaillé : ${cas.profil.titre}. ${cas.profil.evolution}`));
+      const evaluations=progressionCas.evaluations||[];
+      const forces=[...new Set(evaluations.flatMap(e=>e.pointsCorrects||[]))];
+      const lacunes=[...new Set(evaluations.flatMap(e=>e.elementsManquants||[]))];
+      const erreurs=[...new Set(evaluations.flatMap(e=>e.erreurs||[]))];
+      const conseils=[...new Set(evaluations.map(e=>e.pisteAmelioration).filter(Boolean))];
+      const ajouterBilan=(titre,items,classe)=>{recap.append(el("h4",classe||"",titre));if(!items.length){recap.append(el("p","muted","Aucun élément signalé dans les évaluations."));return;}const ul=el("ul");ul.style.cssText="padding-left:20px;line-height:1.5";items.forEach(x=>ul.append(el("li","",x)));recap.append(ul);};
+      ajouterBilan("✅ Tes points forts",forces);
+      ajouterBilan("📚 Les éléments à retravailler",lacunes);
+      ajouterBilan("⚠️ Les erreurs à corriger",erreurs,"error");
+      ajouterBilan("🎯 Tes pistes de progression",conseils);
+      recap.append(el("h4","","Résultat phase par phase"));
+      evaluations.forEach(e=>{const ligne=el("p","muted",`${e.phase} — ${e.verdict} (${e.score}/100)${e.explication?" : "+e.explication:""}`);recap.append(ligne);});
+      recap.append(el("p","muted","Ce bilan est pédagogique. Vérifie toujours les décisions avec les cours, les protocoles locaux et l'encadrement clinique."));
+      zone.append(recap);
+      const info=el("p","muted","Enregistrement du résultat...");zone.append(info);if(!utilisateurActuel)info.textContent="Connecte-toi pour enregistrer tes points.";else if(!progressionCas.enregistre){progressionCas.enregistre=true;const resultat={user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique",categorie:cas.specialite};let {error}=await supabase.from("quiz_history").insert(resultat);if(error){({error}=await supabase.from("quiz_history").insert({user_id:utilisateurActuel.id,score:pointsGagnes,nombre_questions:total,bonnes_reponses:progressionCas.score,score_max:total*10,niveau:"simulation clinique"}));}if(error){console.error("Erreur d'enregistrement :",error.message);info.textContent="Résultat affiché, mais enregistrement impossible.";info.classList.add("error");progressionCas.enregistre=false;}else{info.className="notice";info.textContent="Points enregistrés dans ton historique !";await chargerHistorique();}}else info.textContent="Résultat déjà enregistré.";
+      if(gardeNuit&&gardeNuit.encours===casSelectionne){
+        const entree=gardeNuit.ordre[gardeNuit.ordre.length-1];if(entree){entree.score=progressionCas.score;entree.total=total;}
+        if(!gardeNuit.termines.includes(casSelectionne))gardeNuit.termines.push(casSelectionne);delete gardeNuit.progressions[casSelectionne];
+        gardeNuit.points+=pointsGagnes;
+        const suivantGarde=el("button","btn btn-gold",gardeNuit.termines.length===gardeNuit.patients.length?"Terminer la garde 🌅":"Retour au tableau des urgences →");suivantGarde.type="button";suivantGarde.addEventListener("click",()=>{gardeNuit.encours=null;afficherTableauGarde();});zone.append(suivantGarde);
+      }else{
+        const refaire=el("button","btn btn-gold","Rejouer cette simulation");refaire.type="button";refaire.addEventListener("click",()=>commencerCas(casSelectionne));const retour=el("button","btn btn-secondary","Retour aux patients");retour.type="button";retour.addEventListener("click",afficherAccueilCas);zone.append(refaire,retour);
+      }}
+
+    // ---------- Premium : abonnement, limites gratuites, paiement ----------
+    const cleQuota = () => "medquiz_quota_" + new Date().toISOString().slice(0, 10);
+    // Quota : source de vérité = serveur (RPC get_quiz_quota / consume_quiz_quota). Le stockage local n'est qu'un repli
+    // si le script SQL n'est pas encore exécuté ou si l'utilisateur n'est pas connecté.
+    let quotaServeur = null;
+    const quizRestants = () => quotaServeur !== null ? quotaServeur : Math.max(0, LIMITE_QUIZ - (Number(lireLocal(cleQuota())) || 0));
+    async function actualiserQuota() {
+      quotaServeur = null;
+      if (!utilisateurActuel || premium.actif) return;
+      const { data, error } = await supabase.rpc("get_quiz_quota");
+      if (!error && typeof data === "number") quotaServeur = data;
+      else if (error) console.warn("Quota serveur indisponible (repli local) :", error.message);
+    }
+    const dateFr = d => new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+    function afficherLimite() {
+      const zone = $("zoneQuiz"), lien = el("a", "btn btn-gold", "Passer à Premium");
+      lien.href = "#premium"; lien.addEventListener("click", e => { e.preventDefault(); afficherPage("premium"); });
+      zone.replaceChildren(el("h3", "", "Limite du jour atteinte 🔒"), el("p", "muted", `Les comptes gratuits ont ${LIMITE_QUIZ} quiz par jour. Reviens demain ou passe à Premium pour jouer sans limite.`), lien);
+    }
+
+    function majUIPremium() {
+      window.medquizPremiumActive = !!premium.actif;
+      window.dispatchEvent(new CustomEvent("medquiz:premium-status", { detail: { active: !!premium.actif } }));
+      const jours = premium.fin ? Math.max(0, Math.ceil((new Date(premium.fin) - Date.now()) / 864e5)) : 0;
+      $("quotaInfo").textContent = premium.actif ? "👑 Premium : quiz illimités." : `Quiz gratuits restants aujourd'hui : ${quizRestants()} / ${LIMITE_QUIZ}. Quiz difficiles limités à ${LIMITE_DIFFICILE} questions.`;
+      $("profileBadge").classList.toggle("hidden", !premium.actif);
+      $("badgeAbo").className = premium.actif ? "badge-premium" : "muted";
+      $("badgeAbo").textContent = premium.actif ? "👑 Premium" : "Gratuit";
+      $("aboStatut").textContent = premium.actif ? `👑 Premium ${NOMS_PLANS[premium.plan] || ""}` : "Compte gratuit";
+      $("aboDetail").textContent = premium.actif ? `Actif jusqu'au ${dateFr(premium.fin)} (${jours} jour${jours > 1 ? "s" : ""} restant${jours > 1 ? "s" : ""}).` : "Passe à Premium pour jouer sans limite et accéder aux explications complètes et aux statistiques détaillées.";
+      $("aboAction").textContent = premium.actif ? "Prolonger mon abonnement" : "Voir les offres";
+      majOptionsNombre(); rendreStats();
+    }
+
+    async function chargerAbonnement() {
+      premium = { actif: false, plan: null, fin: null };
+      if (utilisateurActuel) {
+        const { data, error } = await supabase.rpc("my_subscription");
+        const r = Array.isArray(data) ? data[0] : data;
+        if (error) console.warn("Abonnement indisponible :", error.message);
+        else if (r?.active) premium = { actif: true, plan: r.plan_code, fin: r.ends_at };
+        if (!premium.actif && window.MQ_bonusFin && new Date(window.MQ_bonusFin) > new Date()) premium = { actif: true, plan: "parrainage", fin: window.MQ_bonusFin };
+      }
+      await actualiserQuota();
+      majUIPremium();
+      const { data: adm } = utilisateurActuel ? await supabase.rpc("is_admin") : { data: false };
+      $("lienAdmin").classList.toggle("hidden", adm !== true);
+      const zone = $("aboPaiements");
+      if (!utilisateurActuel) { zone.textContent = "Connecte-toi pour voir tes paiements."; return; }
+      const { data: paiements } = await supabase.from("payments").select("plan_code, amount_xof, status, created_at").order("created_at", { ascending: false }).limit(20);
+      zone.replaceChildren();
+      if (!paiements?.length) { zone.append(el("p", "muted", "Aucun paiement pour le moment.")); return; }
+      const ETAT = { paid: "✅ Payé", pending: "⏳ En attente de vérification", failed: "❌ Refusé", canceled: "Annulé" };
+      paiements.forEach(p => {
+        const ligne = el("div", "history-item");
+        ligne.append(el("span", "", `${NOMS_PLANS[p.plan_code] || p.plan_code} · ${Number(p.amount_xof).toLocaleString("fr-FR")} FCFA · ${ETAT[p.status] || p.status}`), el("span", "muted", new Date(p.created_at).toLocaleString("fr-FR")));
+        zone.append(ligne);
+      });
+    }
+
+    function rendreStats() {
+      const zone = $("statsZone"), h = historiqueCache || [];
+      zone.replaceChildren();
+      const pct = (a, b) => b ? Math.max(0, Math.min(100, Math.round(100 * a / b))) : 0;
+      const nb = h.reduce((t, x) => t + (Number(x.nombre_questions) || 0), 0);
+      const bonnes = h.reduce((t, x) => t + (Number(x.bonnes_reponses) || 0), 0);
+      const reussite = pct(bonnes, nb);
+      const meilleur = h.length
+        ? Math.max(...h.map(x => pct(Number(x.score) || 0, Number(x.score_max) || (Number(x.nombre_questions) || 0) * 10)))
+        : 0;
+
+      const cartes = el("div", "mq-stats-grid");
+      const creerCarte = (icone, valeur, libelle, detail, classe) => {
+        const carte = el("div", `mq-stat-card ${classe}`);
+        const haut = el("div", "mq-stat-top");
+        haut.append(el("span", "mq-stat-icon", icone), el("span", "mq-stat-dot", "•"));
+        carte.append(haut, el("strong", "mq-stat-value", valeur), el("span", "mq-stat-label", libelle), el("span", "mq-stat-detail", detail));
+        return carte;
+      };
+      cartes.append(
+        creerCarte("◎", `${reussite}%`, "Réussite", h.length ? "Sur toutes tes réponses" : "Après ton premier quiz", "mq-stat-blue"),
+        creerCarte("▤", String(h.length), "Quiz terminés", h.length ? "Depuis ton inscription" : "Ton parcours commence ici", "mq-stat-violet"),
+        creerCarte("★", `${meilleur}%`, "Meilleur score", h.length ? "Ton meilleur résultat" : "Pas encore de record", "mq-stat-gold")
+      );
+      zone.append(cartes);
+    }
+
+    // ---------- Paiement manuel Wave / Orange Money (numéros à renseigner ici) ----------
+    const NUMEROS_PAIEMENT = { wave: "765648049", orange_money: "" };      // ex. "77 000 00 00"
+    const NOMS_METHODES = { wave: "Wave", orange_money: "Orange Money" };
+    const PRIX_PLANS = { mensuel: 1000, trimestriel: 2500, annuel: 10000 };
+    let planChoisi = null;
+
+    function majConsigne() {
+      const m = $("payMethode").value, num = NUMEROS_PAIEMENT[m];
+      $("payConsigne").textContent = num
+        ? `1) Envoie ${PRIX_PLANS[planChoisi].toLocaleString("fr-FR")} FCFA par ${NOMS_METHODES[m]} au ${num}. 2) Note l'identifiant de transaction reçu par SMS. 3) Remplis les champs ci-dessous.`
+        : `Le numéro ${NOMS_METHODES[m]} n'est pas encore renseigné : contacte l'administrateur avant de payer.`;
+    }
+    function acheter(plan) {
+      if (!utilisateurActuel) { afficherPage("compte"); return; }
+      planChoisi = plan;
+      $("payTitre").textContent = `Abonnement ${NOMS_PLANS[plan].toLowerCase()} — ${PRIX_PLANS[plan].toLocaleString("fr-FR")} FCFA`;
+      $("payPanel").classList.remove("hidden"); majConsigne();
+      $("payPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    $("payMethode").addEventListener("change", majConsigne);
+    document.querySelectorAll("[data-plan]").forEach(b => b.addEventListener("click", () => acheter(b.dataset.plan)));
+    $("payEnvoyer").addEventListener("click", async () => {
+      const msg = $("payMessage");
+      if (!NUMEROS_PAIEMENT[$("payMethode").value]) { msg.className = "notice error"; msg.textContent = "Paiement impossible : numéro non renseigné."; return; }
+      msg.className = "notice"; msg.textContent = "Envoi de ta demande...";
+      const { error } = await supabase.rpc("request_payment", { p_plan: planChoisi, p_method: $("payMethode").value, p_phone: $("payTel").value, p_txn: $("payTxn").value });
+      if (error) { msg.className = "notice error"; msg.textContent = /déjà/.test(error.message) ? "Cet identifiant de transaction a déjà été déclaré." : "Demande refusée : vérifie ton numéro et l'identifiant de transaction."; return; }
+      $("payPanel").classList.add("hidden"); $("payTel").value = ""; $("payTxn").value = "";
+      msg.textContent = "Demande envoyée ✅ Ton Premium sera activé dès que le paiement sera vérifié.";
+      chargerAbonnement();
+    });
+
+    // ---------- Administration : validation des paiements ----------
+    async function chargerAdmin() {
+      const zone = $("adminListe");
+      const { data, error } = await supabase.rpc("admin_pending_payments");
+      if (error) { zone.textContent = "Accès réservé à l'administrateur."; return; }
+      zone.replaceChildren();
+      if (!data.length) { zone.append(el("p", "muted", "Aucun paiement en attente.")); return; }
+      data.forEach(p => {
+        const ligne = el("div", "history-item"), infos = el("span", "", `${p.pseudonyme || p.email} · ${NOMS_PLANS[p.plan_code]} · ${NOMS_METHODES[p.provider]} · tél ${p.payer_phone} · transaction ${p.transaction_ref}`);
+        const montant = el("input"); montant.type = "number"; montant.value = p.amount_xof; montant.style.width = "100px"; montant.title = "Montant reçu (FCFA)";
+        const ok = el("button", "btn btn-gold", "Confirmer"), non = el("button", "btn btn-secondary", "Refuser");
+        ok.type = non.type = "button";
+        ok.addEventListener("click", async () => { const { error: e } = await supabase.rpc("admin_confirm_payment", { p_id: p.id, p_amount: Number(montant.value) }); if (e) alert("Refusé : " + e.message); chargerAdmin(); });
+        non.addEventListener("click", async () => { await supabase.rpc("admin_reject_payment", { p_id: p.id }); chargerAdmin(); });
+        ligne.append(infos, montant, ok, non); zone.append(ligne);
+      });
+    }
+
+    window.addEventListener("hashchange", () => {
+      const id = window.location.hash.slice(1);
+      if (id && $(id)) afficherPage(id);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        utilisateurActuel = session.user;
+        $("accountNav").textContent = "Mon profil";
+      } else {
+        utilisateurActuel = null;
+        $("accountNav").textContent = "Mon compte";
+      }
+      majPageParties();
+      chargerAbonnement();
+    });
+
+    // ----- Carte de score partageable (image générée dans le navigateur, rien n'est envoyé) -----
+    function dessinerCarte({ score, max, bonnes, total, titre }) {
+      const W = 1080, H = 1350, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const g = c.getContext("2d");
+      const fond = g.createLinearGradient(0, 0, W, H);
+      fond.addColorStop(0, "#071426"); fond.addColorStop(1, "#0f3358");
+      g.fillStyle = fond; g.fillRect(0, 0, W, H);
+      g.fillStyle = "rgba(230,184,77,.12)"; g.beginPath(); g.arc(W - 120, 160, 320, 0, 7); g.fill();
+      g.textAlign = "center"; g.fillStyle = "#e6b84d";
+      g.font = "700 40px system-ui, sans-serif"; g.fillText("✚  MEDQUIZ", W / 2, 130);
+      g.fillStyle = "#b8c7dc"; g.font = "36px system-ui, sans-serif";
+      g.fillText(String(titre || "Mon quiz").slice(0, 34), W / 2, 215);
+      const pct = max > 0 ? Math.max(0, Math.min(1, score / max)) : 0, cx = W / 2, cy = 640, r = 280;
+      g.lineWidth = 46; g.lineCap = "round";
+      g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = pct >= .5 ? "#3ddc97" : "#e6b84d";
+      g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); g.stroke();
+      g.fillStyle = "#fff"; g.font = "800 190px system-ui, sans-serif"; g.fillText(`${Math.round(pct * 100)}%`, cx, cy + 40);
+      g.fillStyle = "#b8c7dc"; g.font = "46px system-ui, sans-serif"; g.fillText(`${score} / ${max} points`, cx, cy + 130);
+      g.fillStyle = "#fff"; g.font = "700 56px system-ui, sans-serif";
+      g.fillText(total ? `${bonnes} bonnes réponses sur ${total}` : "", cx, 1060);
+      g.fillStyle = "#e6b84d"; g.font = "800 64px system-ui, sans-serif"; g.fillText("Fais mieux ! 😏", cx, 1160);
+      g.fillStyle = "#b8c7dc"; g.font = "36px system-ui, sans-serif"; g.fillText(location.host || "medquiz", cx, 1260);
+      return c;
+    }
+    async function partagerCarte(d, bouton) {
+      const msg = `🔥 J'ai fait ${d.score}/${d.max} sur MedQuiz ! Fais mieux : ${urlSite()}`;
+      const ancien = bouton.textContent;
+      try {
+        const blob = await new Promise((ok, ko) => dessinerCarte(d).toBlob(b => b ? ok(b) : ko(new Error("image")), "image/png"));
+        const fichier = new File([blob], "medquiz-score.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [fichier] })) {
+          try { await navigator.share({ files: [fichier], text: msg }); return; }
+          catch (e) { if (e && e.name === "AbortError") return; }
+        }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "medquiz-score.png";
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        bouton.textContent = "Image téléchargée ✓ — partage-la sur WhatsApp";
+        setTimeout(() => { bouton.textContent = ancien; }, 4000);
+      } catch (e) { console.warn("Carte de score :", e); bouton.textContent = "Impossible de créer l'image"; setTimeout(() => { bouton.textContent = ancien; }, 3000); }
+    }
+    const boutonCarte = (d) => {
+      const b = el("button", "btn btn-gold", "🖼️ Partager ma carte");
+      b.type = "button"; b.addEventListener("click", () => partagerCarte(d, b)); return b;
+    };
+
+    // ----- Croissance : lien de parrainage, essai gratuit, invitation -----
+    const lienParrainage = () => {
+      const code = $("myReferralCode")?.value;
+      if (!code || code === "Chargement..." || code === "Indisponible") return null;
+      return `${location.origin}${location.pathname}?ref=${encodeURIComponent(code)}`;
+    };
+    $("copyReferralLink")?.addEventListener("click", async () => {
+      const lien = lienParrainage(), m = $("referralMessage");
+      if (!lien) { m.textContent = "Ton code n’est pas encore disponible."; return; }
+      try { await navigator.clipboard.writeText(lien); m.textContent = "Lien copié ! Envoie-le à tes amis."; }
+      catch { window.prompt("Copie ton lien :", lien); }
+    });
+    $("waReferral")?.addEventListener("click", () => {
+      const lien = lienParrainage();
+      if (!lien) { $("referralMessage").textContent = "Ton code n’est pas encore disponible."; return; }
+      const msg = `Je révise la médecine avec MedQuiz 🩺 Inscris-toi avec mon lien : on gagne tous les deux 7 jours Premium après 3 quiz ! ${lien}`;
+      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank", "noopener");
+    });
+    try {
+      const ref = new URLSearchParams(location.search).get("ref");
+      if (ref && /^[A-Za-z0-9]{4,16}$/.test(ref)) localStorage.setItem("mqx_ref_pending", ref.toUpperCase());
+      if (localStorage.getItem("mqx_ref_pending")) $("refInvite").hidden = false;
+    } catch (e) { /* stockage indisponible */ }
+    $("voirTarifs")?.addEventListener("click", e => { e.preventDefault(); $("tarifs").scrollIntoView({ behavior: "smooth" }); });
+    $("essaiGratuit")?.addEventListener("click", e => {
+      e.preventDefault();
+      const tirage = melangerChoix(questionsMedQuiz.filter(q => q.choix && q.choix.length === 4 && q.niveau !== "difficile")).slice(0, 5);
+      lancerQuiz({
+        mode: "partie", titre: "Essai gratuit", chrono: 0, selection: tirage,
+        surFin: async (score, zone) => {
+          zone.append(el("p", "notice", utilisateurActuel ? "Cette session d’essai n’est pas enregistrée. Lance un quiz complet pour gagner des points !" : "🎁 Crée un compte gratuit pour sauvegarder ta progression, entrer au classement et défier tes amis."));
+          const b = el("button", "btn btn-primary", utilisateurActuel ? "Lancer un vrai quiz" : "Créer mon compte gratuit");
+          b.type = "button"; b.style.marginTop = "10px";
+          b.addEventListener("click", () => { fermerEcranQuiz(); afficherPage(utilisateurActuel ? "quiz" : "compte"); });
+          zone.append(b);
+        }
+      });
+    });
+
+    window.MQ = { boutonCarte, supabase, el, $, afficherPage, lancerQuiz, melangerChoix,
+      getUser: () => utilisateurActuel, getPremium: () => premium, getQuestions: () => questionsMedQuiz,
+      refreshPremium: () => chargerAbonnement() };
+    window.dispatchEvent(new Event("medquiz:ready"));
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user) {
+      utilisateurActuel = sessionData.session.user;
+      $("accountNav").textContent = "Mon profil";
+    }
+    {
+      const duelOuvert = afficherDuelEntrant();
+      const codeLien = new URLSearchParams(window.location.search).get("partie");
+      const hash = window.location.hash.slice(1);
+      if (codeLien) {
+        $("codePartie").value = codeLien.toUpperCase().slice(0, 10);
+        afficherPage("parties");
+        if (utilisateurActuel) rejoindrePartie(codeLien);
+      } else if (duelOuvert) afficherPage("quiz");
+      else if (hash && $(hash)) afficherPage(hash);
+      else afficherPage("accueil");
+    }
+    // Synchronise la photo choisie vers Supabase Storage et le profil public.
+    window.addEventListener("medquiz:avatar-selected", async (event) => {
+      if (!utilisateurActuel) { alert("Connecte-toi pour publier ta photo de profil."); return; }
+      const dataUrl = event.detail?.dataUrl;
+      if (!dataUrl) return;
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const path = `${utilisateurActuel.id}/avatar.jpg`;
+        const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
+        const avatarUrl = `${publicData.publicUrl}?v=${Date.now()}`;
+        const { error: updateError } = await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", utilisateurActuel.id);
+        if (updateError) throw updateError;
+        window.dispatchEvent(new CustomEvent("medquiz:avatar-cloud", { detail: { url: avatarUrl } }));
+        const status = document.getElementById("profileAvatarStatus");
+        if (status) status.textContent = "Photo publiée : elle est maintenant visible par les autres joueurs.";
+        if (document.getElementById("classement")?.classList.contains("active")) chargerClassement();
+      } catch (error) {
+        console.error("Publication photo impossible :", error);
+        alert("La photo n'a pas pu être publiée. Exécute d'abord le fichier SQL fourni dans Supabase, puis réessaie. Détail : " + (error.message || "erreur inconnue"));
+      }
+    });
+    window.addEventListener("medquiz:avatar-remove", async () => {
+      if (!utilisateurActuel) return;
+      try {
+        const path = `${utilisateurActuel.id}/avatar.jpg`;
+        await supabase.storage.from("avatars").remove([path]);
+        const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", utilisateurActuel.id);
+        if (error) throw error;
+        window.dispatchEvent(new CustomEvent("medquiz:avatar-cloud", { detail: { url: null } }));
+        const status = document.getElementById("profileAvatarStatus");
+        if (status) status.textContent = "Photo supprimée du profil partagé.";
+      } catch (error) { console.error("Suppression photo impossible :", error); }
+    });
+    await chargerAbonnement();
+  
+    // MEDQUIZ SOCIAL — fonctions connectées aux RPC sécurisées du script SQL fourni.
+    let socialTab = "friends", socialFriendActif = null, socialRefreshHandle = null;
+    // ---------- Duel multijoueur synchronisé via Supabase ----------
+    let mqDuelActif=null, mqDuelChannel=null, mqDuelTimer=null, mqDuelRefreshBusy=false, mqDuelMode=null, mqDuelOffsetMs=0;
+    const mqDuelRpc=async(name,args={})=>{const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;};
+    function mqDuelNettoyer(){if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}mqDuelActif=null;mqDuelRefreshBusy=false;mqDuelMode=null;}
+    function mqDuelEcran(titre,id){mqDuelNettoyer();mqDuelActif=id;const zone=ouvrirEcranQuiz(titre);mqQuizCloseHandler=mqDuelNettoyer;return zone;}
+    async function mqCreerDuel(ami){
+      if(!utilisateurActuel){socialNotice("Connecte-toi pour défier un ami.",true);return;}
+      const pool=filtrer($("categorieQuiz").value,$("niveauQuiz").value,$("themeQuiz").value);
+      if(!pool.length){socialNotice("Aucune question disponible avec ces paramètres.",true);return;}
+      const seed=Math.floor(Math.random()*1e9), n=Math.min(Math.max(Number($("nombreQuiz").value)||5,1),pool.length,20);
+      const selection=choisirQuestions(pool,n,seed).map(q=>({type:q.type||"qcm",question:q.question,choix:q.choix||[],reponse:q.reponse,reponses:q.reponses||[],explication:q.explication||""}));
+      const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
+      try{
+        const duelId=await mqDuelRpc("mq_duel_create",{p_opponent:ami.id,p_questions:selection,p_chrono:chrono});
+        mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true);
+      }catch(e){socialNotice("Impossible de créer le duel : "+e.message,true);}
+    }
+    function mqDuelAttente(id,ami,createur){
+      const zone=mqDuelEcran("⚔️ Duel en attente",id);mqDuelMode="waiting";
+      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Ton ami doit accepter l'invitation. La partie commencera automatiquement pour vous deux."));
+      const annuler=el("button","btn btn-secondary","Annuler le duel");annuler.type="button";annuler.onclick=async()=>{try{await mqDuelRpc("mq_duel_cancel",{p_duel:id});}catch(_){}mqDuelNettoyer();fermerEcranQuiz();};zone.append(annuler);
+      mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelActualiser(id)).subscribe();
+      mqDuelTimer=setInterval(()=>mqDuelActualiser(id),1200);mqDuelActualiser(id);
+    }
+    async function mqDuelAccepter(id,nom){
+      try{await mqDuelRpc("mq_duel_accept",{p_duel:id,p_accept:true});mqDuelEcran("⚔️ Duel accepté",id);mqDuelJouer(id,nom);}
+      catch(e){alert("Impossible de rejoindre le duel : "+e.message);}
+    }
+    async function mqDuelActualiser(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});
+        if(st.status==="playing"){mqDuelJouer(id,st.opponent_name||"ton ami",true);}
+        else if(st.status==="finished"){mqDuelAfficherFin(st);}
+        else if(st.status==="declined"||st.status==="cancelled"){const z=$("mqQuizZone");if(z)z.replaceChildren(el("h3","","Duel annulé"),el("p","muted",st.status==="declined"?"Ton ami a refusé le duel.":"Ce duel a été annulé."));mqDuelNettoyer();}
+      }catch(e){console.warn("Duel sync:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelJouer(id,ami,already=false){
+      if(mqDuelActif!==id)return;
+      if(mqDuelMode!=="playing"){
+        if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}
+        mqDuelMode="playing";const zone=$("mqQuizZone");if(zone){delete zone.dataset.duelRound;zone.replaceChildren(el("h3","","⚔️ Le duel commence !"),el("p","muted",`Tu affrontes ${ami}. Les deux joueurs ont le même chronomètre.`));}
+        mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duel_answers",filter:"duel_id=eq."+id},()=>mqDuelRafraichirPartie(id)).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelRafraichirPartie(id)).subscribe();mqDuelTimer=setInterval(()=>mqDuelRafraichirPartie(id),500);
+      }
+      mqDuelRafraichirPartie(id);
+    }
+    async function mqDuelRafraichirPartie(id){
+      if(mqDuelRefreshBusy||mqDuelActif!==id)return;mqDuelRefreshBusy=true;
+      try{const st=await mqDuelRpc("mq_duel_state",{p_duel:id});mqDuelOffsetMs=Date.parse(st.server_now)-Date.now();if(st.status==="finished"){mqDuelAfficherFin(st);return;}if(st.status!=="playing")return;
+        const zone=$("mqQuizZone");if(!zone)return;const round=Number(st.round)||1;
+        if(zone.dataset.duelRound===String(round)){
+          const timer=zone.querySelector("[data-duel-timer]");if(timer){const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";}
+          const score=zone.querySelector("[data-duel-score]");if(score)score.textContent=`Toi ${st.my_score} pts · ${st.opponent_name||"Adversaire"} ${st.opponent_score} pts`;
+          if(st.my_answered&&!zone.querySelector(".mq-duel-wait")){zone.append(el("p","notice mq-duel-wait","Réponse enregistrée. En attente de ton adversaire…"));}if(st.opponent_answered&&!zone.querySelector(".mq-duel-opponent-wait")){zone.append(el("p","muted mq-duel-opponent-wait","Ton adversaire a répondu."));}
+          return;
+        }
+        zone.dataset.duelRound=String(round);zone.replaceChildren();
+        const header=el("div","notice",`⚔️ Question ${round}/${st.total} · Toi ${st.my_score} pts — ${st.opponent_name} ${st.opponent_score} pts`);header.dataset.duelScore="1";zone.append(header);
+        const timer=el("p","chrono-text","⏱ …");timer.dataset.duelTimer="1";zone.append(timer);
+        const q=st.question;zone.append(el("h3","",q.question));let controls=[];
+        const submit=async answer=>{controls.forEach(b=>b.disabled=true);try{const result=await mqDuelRpc("mq_duel_submit",{p_duel:id,p_round:round,p_answer:String(answer)});zone.append(el("p",result.correct?"quiz-feedback":"notice",result.correct?`Bonne réponse ! +${Number(result.points)||0} points`:"Réponse enregistrée. Continue !"));zone.append(el("p","mq-duel-wait","En attente de ton adversaire…"));}catch(e){zone.append(el("p","error",e.message));}};
+        if(q.type==="ouverte"){const input=el("input","reponse-libre");input.placeholder="Ta réponse";const b=el("button","btn btn-primary","Valider");b.type="button";b.onclick=()=>{if(input.value.trim())submit(input.value.trim());};controls=[input,b];zone.append(input,b);}
+        else (q.choix||[]).forEach(choice=>{const b=el("button","quiz-answer",choice);b.type="button";b.onclick=()=>submit(choice);controls.push(b);zone.append(b);});
+        const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";
+      }catch(e){console.warn("Duel refresh:",e.message);}finally{mqDuelRefreshBusy=false;}
+    }
+    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;const duelTermine=mqDuelActif;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const actions=el("div","social-actions");const revanche=el("button","btn btn-primary","🔁 Revanche");revanche.type="button";revanche.onclick=async()=>{revanche.disabled=true;try{const id=await mqDuelRpc("mq_duel_rematch",{p_duel:duelTermine});mqDuelActif=id;mqDuelAttente(id,st.opponent_name,true);}catch(e){socialNotice("Impossible de proposer la revanche : "+e.message,true);revanche.disabled=false;}};const b=el("button","btn btn-secondary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};actions.append(revanche,b);zone.append(actions);}
+    let mqInvitationsConnues=new Set(),mqInviteBusy=false;
+    async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
+    if(utilisateurActuel)setTimeout(mqVerifierInvitations,1200);
+
+    const socialMain = () => $("socialMain");
+    // Notifications push MedQuiz : abonnement navigateur et envoi via Supabase Edge Function mq-push.
+    const MQ_PUSH_PUBLIC_KEY="BO0RFjTz_LO-sen2HmhxbgLmob8mM3I49jMEMnZTXudVkum4JTF54u2P7a56ZAhSQLvO6TmuGKztB6zbdkSqsXs";
+    function mqBase64UrlBytes(v){const pad="=".repeat((4-v.length%4)%4),raw=atob((v+pad).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(raw,c=>c.charCodeAt(0));}
+    async function mqPushActiver(){if(!utilisateurActuel){socialNotice("Connecte-toi pour activer les notifications.",true);return;}if(!('serviceWorker' in navigator)||!('PushManager' in window)){socialNotice("Notifications push non prises en charge par ce navigateur.",true);return;}try{const permission=await Notification.requestPermission();if(permission!=="granted"){socialNotice("Autorise les notifications dans les paramètres du navigateur.",true);return;}const reg=await navigator.serviceWorker.register("sw.js");await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:mqBase64UrlBytes(MQ_PUSH_PUBLIC_KEY)});const {error}=await supabase.rpc("mq_push_save_subscription",{p_subscription:sub.toJSON()});if(error)throw error;socialNotice("Notifications activées !");}catch(e){socialNotice("Activation impossible : "+(e.message||e),true);}}
+    async function mqPushNotifier(ids,title,body,url){try{const user_ids=[...new Set((ids||[]).filter(Boolean))];if(user_ids.length){const {error}=await supabase.functions.invoke("mq-push",{body:{user_ids,title,body,url}});if(error)console.warn("Push MedQuiz:",error.message);}}catch(e){console.warn("Push MedQuiz:",e.message);}}
+    function socialNotice(txt, bad=false){const n=$("socialNotice");if(!n)return;n.textContent=txt;n.style.display="block";n.classList.toggle("error",bad);}
+    function socialBtn(label, action, cls="btn btn-secondary"){const b=el("button",cls,label);b.type="button";b.addEventListener("click",action);return b;}
+    function socialAvatar(url,pseudo){const a=el("div","social-avatar");if(url){const im=el("img");im.src=url;im.alt="Photo de "+pseudo;a.append(im)}else a.textContent=(pseudo||"?").slice(0,1).toUpperCase();return a;}
+    function socialRow(person, status="", actions=[]){const row=el("div","social-row");row.append(socialAvatar(person.avatar_url,person.pseudonyme));const info=el("div","social-person");const name=el("strong", "",person.pseudonyme||"Étudiant MedQuiz");const sub=el("small","",status);info.append(name,sub);row.append(info);if(actions.length){const wrap=el("div","social-actions");actions.forEach(x=>wrap.append(x));row.append(wrap)}return row;}
+    async function socialRpc(name,args={}){const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data||[];}
+    async function chargerSocial(tab=socialTab){socialTab=tab;const zone=socialMain();if(!zone)return;if(!utilisateurActuel){zone.replaceChildren(el("h3","","Connecte-toi pour utiliser MedQuiz Social"),el("p","muted","Ajoute des amis, échange des messages et lance des défis depuis ton compte."),socialBtn("Se connecter",()=>afficherPage("compte"),"btn btn-primary"));return;}
+      zone.replaceChildren(el("p","muted","Chargement…"));
+      try{await socialRpc("mq_ping_presence");}catch(_){}
+      try{
+        if(tab==="friends"){
+          zone.replaceChildren(el("h3","","Mes amis"));const data=await socialRpc("mq_list_friends");$("socialFriendTotal").textContent=data.length;
+          if(!data.length)zone.append(el("div","social-empty","👥"),el("p","social-empty","Tu n'as pas encore d'amis. Recherche des étudiants pour commencer !"),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));
+          data.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("Message",()=>{socialFriendActif=f;chargerSocial("chat")},"btn btn-secondary"),socialBtn("Défier",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")] )));
+        } else if(tab==="search"){
+          zone.replaceChildren(el("h3","","Trouver des étudiants"));const form=el("div","social-search"),input=el("input");input.placeholder="Pseudo de l'étudiant…";input.setAttribute("aria-label","Rechercher un étudiant");const go=socialBtn("Rechercher",async()=>{const q=input.value.trim();if(q.length<2){socialNotice("Saisis au moins 2 caractères.",true);return;}await socialSearch(q)},"btn btn-primary");form.append(input,go);zone.append(form,el("div","muted","Recherche par pseudonyme. Les comptes déjà amis ne sont pas proposés."));
+        } else if(tab==="requests"){
+          zone.replaceChildren(el("h3","","Invitations reçues"));const data=await socialRpc("mq_friend_requests_inbox");$("socialRequestCount").textContent=data.length?"· "+data.length:"";if(!data.length)zone.append(el("p","social-empty","Aucune nouvelle invitation pour le moment."));data.forEach(r=>zone.append(socialRow(r,"Souhaite rejoindre ta liste d'amis",[socialBtn("Accepter",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:true});socialNotice("Invitation acceptée !");chargerSocial("requests")},"btn btn-primary"),socialBtn("Refuser",async()=>{await socialRpc("mq_respond_friend_request",{p_request:r.request_id,p_accept:false});chargerSocial("requests")})])));
+        } else if(tab==="tournaments"){
+          zone.replaceChildren(el("h3","","🏆 Tournois entre amis"),el("p","muted","Crée un tournoi privé et invite jusqu'à 7 amis. Les invitations et inscriptions sont synchronisées avec Supabase."));
+          const friends=await socialRpc("mq_list_friends");
+          if(!friends.length){zone.append(el("p","social-empty","Ajoute des amis avant de créer un tournoi."));return;}
+          const title=el("input");title.placeholder="Nom du tournoi (ex. Coupe MedQuiz)";title.maxLength=60;zone.append(title,el("p","muted","Sélectionne 1 à 7 amis (8 joueurs maximum avec toi)."));
+          const choices=el("div","social-tournament-choices");const selected=new Set();friends.forEach(f=>{const label=el("label","social-tournament-choice");const cb=el("input");cb.type="checkbox";cb.addEventListener("change",()=>{if(cb.checked){if(selected.size>=7){cb.checked=false;socialNotice("Maximum 7 amis par tournoi.",true);return;}selected.add(f.id);}else selected.delete(f.id);});label.append(cb,document.createTextNode(" "+f.pseudonyme));choices.append(label);});zone.append(choices);
+          const create=socialBtn("Créer le tournoi",async()=>{if(!selected.size){socialNotice("Sélectionne au moins un ami.",true);return;}create.disabled=true;try{await socialRpc("mq_tournament_create",{p_title:title.value.trim()||"Tournoi MedQuiz",p_players:Array.from(selected)});mqPushNotifier(Array.from(selected),"Invitation à un tournoi",(title.value.trim()||"Un tournoi MedQuiz")+" : tu as reçu une invitation.","/#social");socialNotice("Tournoi créé ! Les invitations ont été envoyées.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);create.disabled=false;}},"btn btn-primary");zone.append(create);
+          const inbox=await socialRpc("mq_tournament_inbox");zone.append(el("h3","","Invitations reçues"));if(!inbox.length)zone.append(el("p","muted","Aucune invitation en attente."));inbox.forEach(t=>zone.append(socialRow({pseudonyme:t.title,avatar_url:null},"Tournoi proposé par "+t.creator_name,[socialBtn("Accepter",async()=>{try{await socialRpc("mq_tournament_respond",{p_tournament:t.id,p_accept:true});socialNotice("Tu as rejoint le tournoi !");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-primary"),socialBtn("Refuser",async()=>{try{await socialRpc("mq_tournament_respond",{p_tournament:t.id,p_accept:false});await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}})])));
+          const mine=await socialRpc("mq_tournament_mine_details");zone.append(el("h3","","Mes tournois"));if(!mine.length)zone.append(el("p","social-empty","Tu n'as pas encore de tournoi."));
+          for(const t of mine){
+            const card=el("div","notice"),statusLabel={registration:"Inscriptions ouvertes",ready:"Prêt à démarrer",active:"En cours",finished:"Terminé",cancelled:"Annulé"}[t.status]||t.status;
+            card.append(el("strong","", "🏆 "+t.title),el("p","muted",`${t.accepted_count} joueurs inscrits · ${statusLabel}`));
+            if(t.creator_id===utilisateurActuel.id&&["registration","ready"].includes(t.status))card.append(socialBtn("🚀 Démarrer le tournoi QCM",async()=>{try{const pool=questionsMedQuiz.filter(q=>Array.isArray(q.choix)&&q.choix.length>=2&&q.reponse);const needed=5*Math.ceil(Math.log2(Math.max(2,Number(t.accepted_count)||2)));if(pool.length<needed)throw new Error(`Il faut au moins ${needed} QCM pour le nombre de joueurs inscrits.`);const questions=[...pool].sort(()=>Math.random()-.5).slice(0,needed).map(q=>({question:q.question,choix:q.choix,reponse:q.reponse}));await socialRpc("mq_tournament_qcm_start",{p_tournament:t.id,p_questions:questions});location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);}catch(e){socialNotice(e.message,true);}},"btn btn-primary"));
+            if(["active","finished"].includes(t.status)){card.append(socialBtn(t.status==="finished"?"🏁 Voir le classement":"▶ Ouvrir le QCM",()=>{location.href=location.pathname+"?mq-tournoi="+encodeURIComponent(t.id);},"btn btn-primary"));}
+            if(t.creator_id===utilisateurActuel.id&&!["cancelled","finished"].includes(t.status))card.append(socialBtn("Annuler le tournoi",async()=>{if(!confirm("Annuler définitivement ce tournoi ?"))return;try{await socialRpc("mq_tournament_cancel",{p_tournament:t.id});socialNotice("Tournoi annulé.");await chargerSocial("tournaments");}catch(e){socialNotice(e.message,true);}},"btn btn-secondary"));
+            zone.append(card);
+          }
+        } else if(tab==="chat"){
+          zone.replaceChildren(el("h3","","Messages privés"));const friends=await socialRpc("mq_list_friends");if(!socialFriendActif&&friends.length)socialFriendActif=friends[0];if(!socialFriendActif){zone.append(el("p","social-empty","Ajoute d'abord un ami pour démarrer une conversation."));return;}
+          const pick=el("select");pick.setAttribute("aria-label","Choisir un ami");friends.forEach(f=>{const o=el("option","",f.pseudonyme);o.value=f.id;pick.append(o)});pick.value=socialFriendActif.id;pick.addEventListener("change",()=>{socialFriendActif=friends.find(f=>f.id===pick.value);chargerSocial("chat")});zone.append(el("p","muted","Conversation avec"),pick);
+          const chat=el("div","social-chat"),list=el("div","social-chat-list");list.id="socialChatList";chat.append(list);const send=el("div","social-search"),input=el("input","social-chat-input");input.placeholder="Écris un message…";input.setAttribute("aria-label","Écrire un message privé");input.maxLength=2000;let sending=false;const envoyer=async()=>{const body=input.value.trim();if(!body||sending)return;sending=true;btn.disabled=true;try{await socialRpc("mq_send_message",{p_friend:socialFriendActif.id,p_body:body});input.value="";await socialLoadMessages()}catch(e){socialNotice(e.message,true)}finally{sending=false;btn.disabled=false;input.focus()}};const btn=socialBtn("Envoyer",envoyer,"btn btn-primary");input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();envoyer()}});send.append(input,btn);chat.append(send);zone.append(chat);await socialLoadMessages();
+        }
+      }catch(e){zone.replaceChildren(el("h3","","MedQuiz Social"),el("p","error","Le module social n'est pas encore configuré dans Supabase. Exécute le fichier SQL fourni avec cette version. Détail : "+(e.message||"erreur inconnue")));}
+    }
+    const mqTournoiTimers=new Map();
+    function mqTournoiAfficherPartie(area,tournamentId){
+      if(mqTournoiTimers.has(tournamentId))clearInterval(mqTournoiTimers.get(tournamentId));
+      let renderedQuestion=0,answeredLocally=false,loading=false,serverOffset=0;
+      const refresh=async()=>{
+        if(!area.isConnected||loading)return;loading=true;
+        try{
+          const st=await socialRpc("mq_tournament_qcm_state",{p_tournament:tournamentId});
+          serverOffset=Date.parse(st.server_now)-Date.now();
+          const idx=Number(st.question_index)||1;
+          if(st.status==="finished"){
+            area.replaceChildren(el("h4","","🏁 Tournoi terminé !"),el("p","notice",`Champion : ${st.champion||"Vainqueur"}`),el("p","muted","Classement de la dernière manche"));
+            (st.scores||[]).forEach((x,i)=>area.append(el("p",i===0?"notice":"social-tournament-choice",`${i+1}. ${x.pseudo} — ${x.points} points${i===0?" 🏆":""}`)));
+            if(mqTournoiTimers.has(tournamentId)){clearInterval(mqTournoiTimers.get(tournamentId));mqTournoiTimers.delete(tournamentId);}return;
+          }
+          if(st.eliminated){area.replaceChildren(el("h3","","⛔ Tu es éliminé"),el("p","muted","Tu peux suivre la suite du tournoi et voir le champion à la fin."),el("p","muted",`Manche ${st.stage_number||1}`));return;}
+          if(idx!==renderedQuestion||area.dataset.mqStage!==String(st.stage_number||1)){
+            renderedQuestion=idx;area.dataset.mqStage=String(st.stage_number||1);answeredLocally=!!st.my_answered;area.replaceChildren(el("p","notice",`🏆 Manche ${st.stage_number||1} · ${st.alive_count||""} joueurs encore en lice`),el("p","muted",`Question ${idx}/${st.total_questions} · 20 secondes`));
+            const q=st.question;if(!q){area.append(el("p","muted","Préparation de la question…"));return;}
+            area.append(el("h3","",q.question));const answers=el("div","social-tournament-choices");
+            (q.choix||[]).forEach(choice=>{const b=socialBtn(choice,async()=>{if(answeredLocally)return;answeredLocally=true;answers.querySelectorAll("button").forEach(x=>x.disabled=true);try{const result=await socialRpc("mq_tournament_qcm_submit",{p_tournament:tournamentId,p_answer:choice});area.append(el("p",result.correct?"notice":"muted",result.correct?`Bonne réponse ! +${result.points} points`:"Réponse enregistrée : 0 point"));}catch(e){answeredLocally=false;socialNotice(e.message,true);answers.querySelectorAll("button").forEach(x=>x.disabled=false);}},"btn btn-secondary");b.style.width="100%";answers.append(b);});area.append(answers);
+          }
+          if(st.my_answered||answeredLocally){area.querySelectorAll(".social-tournament-choices button").forEach(b=>b.disabled=true);}
+          let timer=area.querySelector("[data-mq-tournoi-timer]");if(!timer){timer=el("p","chrono-text");timer.dataset.mqTournoiTimer="1";area.prepend(timer);}
+          const left=Math.max(0,Math.ceil((new Date(st.question_ends_at).getTime()-Date.now()+serverOffset)/1000));timer.textContent=`⏱ ${left} s`;
+          let scores=area.querySelector("[data-mq-tournoi-scores]");if(!scores){scores=el("div","muted");scores.dataset.mqTournoiScores="1";area.append(scores);}scores.textContent="Classement de la manche : "+(st.scores||[]).map(x=>`${x.pseudo} ${x.points} pts`).join(" · ");
+        }catch(e){if(!area.dataset.mqError){area.dataset.mqError="1";area.append(el("p","error","Tournoi QCM : "+e.message));}}
+        finally{loading=false;}
+      };
+      refresh();mqTournoiTimers.set(tournamentId,setInterval(refresh,1200));
+    }
+    async function socialSearch(q){const zone=socialMain();try{const data=await socialRpc("mq_search_students",{p_term:q});const results=el("div");if(!data.length)results.append(el("p","social-empty","Aucun étudiant trouvé."));data.forEach(p=>results.append(socialRow(p,"Étudiant MedQuiz",[socialBtn(p.request_pending?"Invitation envoyée":"Ajouter",async()=>{try{await socialRpc("mq_send_friend_request",{p_receiver:p.id});mqPushNotifier([p.id],"Nouvelle demande d’ami","Un étudiant souhaite t’ajouter en ami.","/#social");socialNotice("Invitation envoyée à "+p.pseudonyme+" !");await socialSearch(q)}catch(e){socialNotice(e.message,true)}},"btn btn-primary")] )));zone.append(results);}catch(e){socialNotice(e.message,true)}}
+    async function socialLoadMessages(){const list=$("socialChatList");if(!list||!socialFriendActif)return;try{const data=await socialRpc("mq_get_messages",{p_friend:socialFriendActif.id});list.replaceChildren();if(!data.length)list.append(el("p","social-empty","Aucun message pour le moment. Envoie le premier message !"));data.forEach(m=>{const b=el("div","social-bubble"+(m.sender_id===utilisateurActuel.id?" mine":""));b.append(el("span","",m.body),el("small","",new Date(m.created_at).toLocaleString()));list.append(b)});list.scrollTop=list.scrollHeight;}catch(e){socialNotice(e.message,true)}}
+    document.querySelectorAll("[data-social-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-social-tab]").forEach(x=>x.className=x===b?"btn btn-primary":"btn btn-secondary");chargerSocial(b.dataset.socialTab)}));
+    const mqPushButton=el("button","btn btn-secondary","🔔 Activer les notifications");mqPushButton.type="button";mqPushButton.addEventListener("click",mqPushActiver);document.querySelector(".social-tabs")?.append(mqPushButton);
+    $("socialQuickFind")?.addEventListener("click",()=>chargerSocial("search"));
+    const socialOriginalAfficherPage=afficherPage;
+    afficherPage=function(id){socialOriginalAfficherPage(id);if(id==="social")chargerSocial("friends");};
+    window.addEventListener("hashchange",()=>{if(location.hash==="#social")chargerSocial("friends")});
+    setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();mqVerifierInvitations();}},3500);
+    supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user&&location.hash==="#social")setTimeout(()=>chargerSocial(socialTab),0)});
+    // Page de jeu indépendante : uniquement les QCM et le classement du tournoi.
+    const mqTournoiPageId=new URLSearchParams(location.search).get("mq-tournoi");
+    if(mqTournoiPageId){
+      const afficherPageTournoi=()=>{
+        document.body.replaceChildren();
+        document.body.style.cssText="min-height:100vh;background:#071426;color:#f4f8fc;font-family:Inter,system-ui,sans-serif;margin:0;padding:24px 16px;";
+        const shell=el("main");shell.style.cssText="max-width:760px;margin:0 auto;";
+        const title=el("h2","","🏆 MedQuiz Arena · Tournoi QCM");title.style.cssText="text-align:center;margin:12px 0 24px;font-size:1.45rem;";
+        const area=el("section");area.style.cssText="background:#102944;border:1px solid rgba(188,213,232,.18);border-radius:18px;padding:clamp(18px,4vw,30px);min-height:280px;";
+        const back=socialBtn("← Retour à MedQuiz",()=>{location.href=location.pathname+"#social";},"btn btn-secondary");back.style.cssText="display:block;margin:0 auto 18px;";
+        shell.append(back,title,area);document.body.append(shell);
+        if(!utilisateurActuel){area.append(el("p","","Ta session MedQuiz n'est pas active. Retourne à MedQuiz, connecte-toi, puis rouvre le tournoi."));return;}
+        mqTournoiAfficherPartie(area,mqTournoiPageId);
+      };
+      setTimeout(afficherPageTournoi,900);
+    }
+</script>
+<script id="medquiz-theme-controller">(()=>{const root=document.body;let saved='light';try{saved=localStorage.getItem('medquiz-theme')||'light'}catch(e){}root.dataset.theme=saved;const b=document.getElementById('themeToggle');const paint=()=>{if(b){b.textContent=root.dataset.theme==='dark'?'☀':'☾';b.setAttribute('aria-label',root.dataset.theme==='dark'?'Activer le thème clair':'Activer le thème sombre')}};paint();b?.addEventListener('click',()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('medquiz-theme',root.dataset.theme)}catch(e){}paint()})})();</script>
+<script id="medquiz-premium-theme-controller">
+(()=> {
+ const root=document.body, key="medquiz-premium-skin";
+ const names={royal:"Royal",cyber:"Cyber",ocean:"Ocean",emerald:"Emerald",sakura:"Sakura",sunset:"Sunset",graphite:"Graphite",arctic:"Arctic"};
+ const choices=[...document.querySelectorAll("[data-skin-choice]")], status=document.getElementById("mqThemeStatus");
+ let active=false, selected="";
+ try{selected=localStorage.getItem(key)||""}catch(e){}
+ const paint=()=>{
+   if(!active || !names[selected]) root.removeAttribute("data-skin");
+   else root.dataset.skin=selected;
+   choices.forEach(btn=>{
+     const on=btn.dataset.skinChoice===selected && active;
+     btn.classList.toggle("is-active",on);
+     btn.classList.toggle("is-locked",!active);
+     btn.setAttribute("aria-pressed",String(on));
+     btn.title=active?"Appliquer le thème "+names[btn.dataset.skinChoice]:"Réservé aux membres Premium";
+     const old=btn.querySelector(".mq-theme-lock"); if(old)old.remove();
+     if(!active){const lock=document.createElement("small");lock.className="mq-theme-lock";lock.textContent="🔒 Premium";btn.append(lock)}
+   });
+   if(status) status.textContent=active?(selected&&names[selected]?"Thème actif : "+names[selected]:"Choisis un thème pour personnaliser ton espace."):"Les thèmes sont réservés à Premium. Ton affichage actuel reste inchangé.";
+ };
+ choices.forEach(btn=>btn.addEventListener("click",()=>{
+   if(!active){if(status)status.textContent="Passe à Premium pour débloquer les 8 thèmes.";const link=document.querySelector('a[href="#premium"]');if(link)link.click();return}
+   selected=btn.dataset.skinChoice;
+   try{localStorage.setItem(key,selected)}catch(e){}
+   paint();
+ }));
+ window.addEventListener("medquiz:premium-status",e=>{active=!!e.detail?.active;paint()});
+ active=window.medquizPremiumActive===true;
+ paint();
+})();
+</script>
+<script id="medquiz-profile-avatar-controller">
+(()=> {
+ const $ = id => document.getElementById(id);
+ const input=$("profileAvatarInput"), avatar=$("profileAvatar"), name=$("profileAvatarName");
+ if(!input||!avatar) return;
+ const storageKey=()=>`medquiz-avatar:${document.getElementById("profilePseudo")?.textContent?.trim()||"guest"}`;
+ const render=(data)=>{
+   avatar.replaceChildren();
+   if(data){const img=document.createElement("img");img.src=data;img.alt="Photo de profil";avatar.append(img)}
+   else avatar.textContent="👤";
+ };
+ const load=()=>{try{render(localStorage.getItem(storageKey()))}catch(e){render(null)}};
+ const setName=()=>{const p=$("profilePseudo")?.textContent?.trim();if(p&&p!=="Chargement...")name.textContent=p};
+ input.addEventListener("change",()=>{
+   const file=input.files?.[0];if(!file)return;
+   if(!/^image\/(png|jpeg|webp)$/.test(file.type)){alert("Choisis une image JPG, PNG ou WEBP.");input.value="";return}
+   if(file.size>8*1024*1024){alert("La photo doit faire moins de 8 Mo.");input.value="";return}
+   const reader=new FileReader();
+   reader.onload=()=>{
+     const img=new Image();
+     img.onload=()=>{
+       const max=480,scale=Math.min(1,max/Math.max(img.width,img.height));
+       const canvas=document.createElement("canvas");canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
+       const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,canvas.width,canvas.height);
+       const data=canvas.toDataURL("image/jpeg",.84);
+       try{localStorage.setItem(storageKey(),data);render(data);setName();window.dispatchEvent(new CustomEvent("medquiz:avatar-selected",{detail:{dataUrl:data}}));}
+       catch(e){alert("Impossible de préparer cette photo sur cet appareil. Essaie une image plus légère.");}
+     };
+     img.onerror=()=>alert("Cette image ne peut pas être ouverte.");
+     img.src=reader.result;
+   };
+   reader.readAsDataURL(file);
+ });
+ $("removeProfileAvatar")?.addEventListener("click",()=>{try{localStorage.removeItem(storageKey())}catch(e){}render(null);input.value="";window.dispatchEvent(new CustomEvent("medquiz:avatar-remove"));});
+ window.addEventListener("medquiz:avatar-cloud",e=>{const url=e.detail?.url;render(url||null);if(url){try{localStorage.setItem(storageKey(),url)}catch(_){}}else{try{localStorage.removeItem(storageKey())}catch(_){}}});
+ const observer=new MutationObserver(()=>{setName();load()});
+ const pseudo=$("profilePseudo");
+ if(pseudo)observer.observe(pseudo,{childList:true,characterData:true,subtree:true});
+ document.querySelectorAll('a[href="#compte"],a[href="#member"]').forEach(a=>a.addEventListener("click",()=>setTimeout(()=>{setName();load()},120)));
+ setName();load();
+})();
+</script>
+
+<style id="medquiz-mobile-final">
+/* Ajustements mobiles complémentaires : navigation, classement et profil */
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,video,canvas{max-width:100%}
+@media(max-width:640px){
+  body{overflow-x:hidden!important}
+  .site-header.mq-sidebar{z-index:1000!important;box-shadow:0 8px 24px rgba(10,8,30,.16)!important}
+  .mq-sidebar .nav{scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-x:contain!important;white-space:nowrap!important}
+  .mq-sidebar .nav::-webkit-scrollbar{display:none!important}
+  .mq-sidebar .nav a{min-height:42px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:11px!important}
+  main{width:100%!important;min-width:0!important;box-sizing:border-box!important}
+  .page,.page.active{width:100%!important;min-width:0!important;box-sizing:border-box!important}
+  .section-heading{gap:12px!important;flex-wrap:wrap!important}
+  #classement .panel{width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:13px!important;overflow:hidden!important}
+  #classement .tabs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+  #classement .tabs .btn{min-width:0!important;width:100%!important;white-space:normal!important;min-height:42px!important}
+  #classement .rank-item{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:12px 8px!important;min-width:0!important}
+  #classement .rank-left{gap:8px!important;flex:1 1 auto!important;min-width:0!important}
+  #classement .rank-number{width:30px!important;height:30px!important;min-width:30px!important;border-radius:10px!important;font-size:12px!important;display:grid!important;place-items:center!important}
+  #classement .rank-avatar{width:36px!important;height:36px!important;flex:0 0 36px!important}
+  #classement .rank-points{font-size:12px!important;white-space:nowrap!important;flex:0 0 auto!important}
+  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:13px!important}
+  #member .profile-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}
+  #member #profileIdentity{width:100%!important;box-sizing:border-box!important}
+  #member .profile-avatar{width:92px!important;height:92px!important}
+  button,.btn,a.btn,input,select{touch-action:manipulation}
 }
-async function chargerBonus() {
-  if (!MQ.getUser()) { window.MQ_bonusFin = null; return null; }
-  const { data, error } = await supabase.rpc("my_referral");
-  if (error) return null;
-  const r = Array.isArray(data) ? data[0] : data;
-  const avant = window.MQ_bonusFin;
-  window.MQ_bonusFin = r?.bonus_until || null;
-  if (avant !== window.MQ_bonusFin) MQ.refreshPremium();
-  return r;
+@media(max-width:380px){
+  main{padding-left:10px!important;padding-right:10px!important}
+  .mq-sidebar .nav a{padding:0 9px!important;font-size:10px!important}
+  #classement .rank-item{padding:10px 5px!important}
+  #classement .rank-avatar{width:32px!important;height:32px!important;flex-basis:32px!important}
+  #classement .rank-points{font-size:11px!important}
+  #classement .rank-left>span:not(.rank-number):not(.rank-avatar){font-size:12px!important}
 }
-async function renderReferral() {
-  prBody.replaceChildren();
-  if (!MQ.getUser()) { prBody.append(el("p", "notice", "Connecte-toi pour obtenir ton lien de parrainage.")); const b = el("button", "btn btn-primary", "Me connecter"); b.type = "button"; b.addEventListener("click", () => MQ.afficherPage("compte")); prBody.append(b); return; }
-  prBody.append(el("p", "muted", "Chargement…"));
-  await claimPending();
-  const r = await chargerBonus();
-  prBody.replaceChildren();
-  if (!r) { prBody.append(el("p", "notice", "Parrainage indisponible pour le moment (le script supabase/extras.sql a-t-il été exécuté ?).")); return; }
-  const lien = `${location.origin}${location.pathname}?ref=${r.code}`;
-  prBody.append(el("p", "", "Ton code :"), el("div", "mqx-code", r.code));
-  const msg = `Je révise avec MedQuiz 🩺 Inscris-toi avec mon lien, on gagne tous les deux 7 jours d'explications complètes : ${lien}`;
-  const acts = el("div", "actions"); acts.style.margin = "14px 0";
-  const wa = el("a", "btn btn-gold", "Partager sur WhatsApp"); wa.href = "https://wa.me/?text=" + encodeURIComponent(msg); wa.target = "_blank"; wa.rel = "noopener";
-  const cp = el("button", "btn btn-secondary", "Copier mon lien"); cp.type = "button";
-  cp.addEventListener("click", async () => { try { await navigator.clipboard.writeText(lien); cp.textContent = "Copié ✓"; } catch { prompt("Copie ton lien :", lien); } });
-  acts.append(wa, cp); prBody.append(acts);
-  prBody.append(el("p", "", `Amis inscrits : ${r.invited} · Récompensés : ${r.rewarded}`));
-  prBody.append(el("p", "muted", r.bonus_until ? `🎁 Bonus actif jusqu'au ${new Date(r.bonus_until).toLocaleDateString("fr-FR")}` : "Aucun bonus actif pour l'instant."));
-  prBody.append(el("p", "muted", "Règles : l'ami doit s'inscrire via ton lien, puis terminer 3 quiz dans ses 7 premiers jours. Maximum 8 récompenses par parrain."));
-  const form = el("div", "mqx-field"); form.style.marginTop = "18px";
-  const inp = el("input"); inp.placeholder = "Code d'un ami (si tu t'es inscrit récemment)"; inp.maxLength = 16;
-  const ok = el("button", "btn btn-secondary", "Valider le code"); ok.type = "button"; const msg2 = el("p", "muted");
-  ok.addEventListener("click", async () => {
-    const { data } = await supabase.rpc("claim_referral", { p_code: inp.value });
-    msg2.textContent = { ok: "Code enregistré ✓ Termine 3 quiz pour débloquer ton bonus.", invalid_code: "Code inconnu.", self: "Tu ne peux pas utiliser ton propre code.", already_referred: "Un parrain est déjà enregistré.", too_late: "Trop tard : le code doit être saisi dans les 7 jours suivant l'inscription." }[data] || "Impossible de valider ce code.";
-  });
-  form.append(inp, ok, msg2); prBody.append(form);
-}
-supabase.auth.onAuthStateChange((_e, session) => { setTimeout(async () => { if (session?.user) { await claimPending(); await chargerBonus(); flushOutbox(); } else window.MQ_bonusFin = null; }, 0); });
-if (MQ.getUser()) { claimPending().then(chargerBonus); flushOutbox(); }
+</style>
+
+
+<div id="mqQuitDialog" role="dialog" aria-modal="true" aria-labelledby="mqQuitTitle">
+  <div class="mq-quit-box">
+    <h3 id="mqQuitTitle">Quitter cette session ?</h3>
+    <p>Ta progression en cours sera perdue.</p>
+    <div class="mq-quit-actions">
+      <button type="button" id="mqQuitContinue">Continuer le quiz</button>
+      <button type="button" id="mqQuitConfirm">Quitter</button>
+    </div>
+  </div>
+</div>
+<div id="mqQuizFocus" aria-hidden="true">
+  <div class="mq-focus-top">
+    <div class="mq-focus-brand">MED<span>QUIZ</span> <small style="opacity:.55;font-weight:600;letter-spacing:.04em">/ SESSION</small></div>
+    <button class="mq-focus-exit" id="mqQuizExit" type="button">✕ <span>Quitter</span></button>
+  </div>
+  <main class="mq-focus-main">
+    <p class="mq-focus-kicker" id="mqQuizKicker">Session en cours</p>
+    <div class="mq-focus-progress"><i id="mqQuizProgress"></i></div>
+    <div class="panel quiz-area" id="mqQuizZone" aria-live="polite"></div>
+  </main>
+</div>
+
+</body>
+</html>
+
+<style id="medquiz-shared-avatar-styles">
+#classement .rank-left{display:flex;align-items:center;gap:12px;min-width:0}
+#classement .rank-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,#eee9ff,#dcd5ff);color:#7050d8;font-size:20px;border:2px solid rgba(112,80,216,.16)}
+#classement .rank-avatar img{width:100%;height:100%;object-fit:cover}
+#classement .rank-left>span:not(.rank-number):not(.rank-avatar){min-width:0}
+@media(max-width:640px){#classement .rank-avatar{width:36px;height:36px;flex-basis:36px}}
+</style>
