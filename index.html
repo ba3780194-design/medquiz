@@ -1294,6 +1294,39 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 </div>
 <p style="margin-top:12px"><a class="btn btn-secondary" href="#abonnement">Gérer mon abonnement</a> <a class="btn btn-secondary hidden" href="#admin" id="lienAdmin">Administration</a></p>
 </div>
+<div class="panel" id="referralPanel" style="margin-bottom:22px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div><span class="eyebrow">✦ INVITE TES AMIS</span><h3 style="margin-top:8px">Parrainage</h3></div>
+    <span class="badge-premium">🎁 7 jours Premium</span>
+  </div>
+  <p class="muted" style="margin:10px 0 16px">Partage ton code. Ton ami et toi recevez chacun 7 jours Premium lorsqu’il a effectué 3 quiz.</p>
+  <div class="profile-grid" style="margin-bottom:14px">
+    <div class="panel" style="box-shadow:none!important;margin:0!important;padding:16px!important">
+      <p class="muted">Personnes invitées</p><div class="profile-number" id="referralInvited">—</div>
+    </div>
+    <div class="panel" style="box-shadow:none!important;margin:0!important;padding:16px!important">
+      <p class="muted">Invitations récompensées</p><div class="profile-number" id="referralRewarded">—</div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="myReferralCode">Mon code personnel</label>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <input id="myReferralCode" readonly value="Chargement..." style="font-weight:900;letter-spacing:2px;max-width:260px"/>
+      <button class="btn btn-primary" id="copyReferralCode" type="button">📋 Copier mon code</button>
+    </div>
+  </div>
+  <p class="muted" id="referralBonusUntil" style="margin:8px 0 16px">Bonus Premium : aucun bonus actif.</p>
+  <div style="border-top:1px solid var(--mq-line);padding-top:16px;margin-top:12px">
+    <h3>Tu as un code d’invitation ?</h3>
+    <p class="muted" style="margin:6px 0 12px">Saisis le code reçu d’un ami. Tu dois le faire dans les 7 jours suivant la création de ton compte.</p>
+    <div class="field">
+      <label for="claimReferralCode">Code de ton ami</label>
+      <input id="claimReferralCode" maxlength="8" placeholder="Ex. A1B2C3D4" autocomplete="off" style="max-width:260px;text-transform:uppercase;letter-spacing:2px"/>
+    </div>
+    <button class="btn btn-secondary" id="claimReferralBtn" type="button">Valider le code</button>
+  </div>
+  <p id="referralMessage" class="muted" role="status" aria-live="polite" style="margin-top:12px"></p>
+</div>
 <div class="panel mq-theme-panel" id="themeChooserPanel" style="margin-bottom:22px">
   <div class="mq-theme-heading">
     <div><span class="eyebrow">✦ PERSONNALISATION</span><h3 style="margin-top:8px">Thèmes d’affichage</h3>
@@ -1535,7 +1568,87 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
       window.dispatchEvent(new CustomEvent("medquiz:avatar-cloud", { detail: { url: profil?.avatar_url || null } }));
       await chargerHistorique(user);
       afficherCarnetErreurs();
+      await chargerParrainage();
     }
+
+    async function chargerParrainage() {
+      const message = $("referralMessage");
+      const codeInput = $("myReferralCode");
+      if (!utilisateurActuel || !codeInput) return;
+      message.textContent = "Chargement de ton parrainage...";
+      const { data, error } = await supabase.rpc("my_referral");
+      if (error) {
+        console.error("Erreur parrainage :", error.message);
+        message.textContent = "Impossible de charger le parrainage. Vérifie que la fonction my_referral() existe dans Supabase.";
+        return;
+      }
+      const info = Array.isArray(data) ? data[0] : data;
+      if (!info) {
+        message.textContent = "Aucune information de parrainage disponible.";
+        return;
+      }
+      codeInput.value = info.code || "Indisponible";
+      $("referralInvited").textContent = Number(info.invited || 0);
+      $("referralRewarded").textContent = Number(info.rewarded || 0);
+      $("referralBonusUntil").textContent = info.bonus_until
+        ? "Ton bonus Premium est valable jusqu’au " + new Date(info.bonus_until).toLocaleString("fr-FR")
+        : "Bonus Premium : aucun bonus actif.";
+      message.textContent = "";
+    }
+
+    $("copyReferralCode")?.addEventListener("click", async () => {
+      const code = $("myReferralCode")?.value;
+      const message = $("referralMessage");
+      if (!code || code === "Chargement..." || code === "Indisponible") {
+        message.textContent = "Ton code n’est pas encore disponible.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(code);
+        message.textContent = "Code copié ! Tu peux l’envoyer à tes amis.";
+      } catch (error) {
+        const input = $("myReferralCode");
+        input.focus(); input.select();
+        const copied = document.execCommand("copy");
+        message.textContent = copied ? "Code copié ! Tu peux l’envoyer à tes amis." : "Sélectionne le code pour le copier.";
+      }
+    });
+
+    $("claimReferralBtn")?.addEventListener("click", async () => {
+      const bouton = $("claimReferralBtn");
+      const message = $("referralMessage");
+      const code = $("claimReferralCode").value.trim().toUpperCase();
+      if (!code) { message.textContent = "Saisis d’abord le code de ton ami."; return; }
+      bouton.disabled = true;
+      bouton.textContent = "Vérification...";
+      message.textContent = "";
+      try {
+        const { data, error } = await supabase.rpc("claim_referral", { p_code: code });
+        if (error) throw error;
+        const retours = {
+          ok: "Code accepté ! Fais 3 quiz pour débloquer tes 7 jours Premium.",
+          invalid_code: "Ce code est invalide. Vérifie-le avec ton ami.",
+          self: "Tu ne peux pas utiliser ton propre code.",
+          already_referred: "Tu as déjà utilisé un code de parrainage.",
+          too_late: "Le délai de 7 jours après ton inscription est dépassé.",
+          not_authenticated: "Connecte-toi pour utiliser un code."
+        };
+        message.textContent = retours[data] || ("Réponse du serveur : " + String(data));
+        if (data === "ok") {
+          $("claimReferralCode").value = "";
+          bouton.textContent = "Code déjà utilisé";
+          bouton.disabled = true;
+        }
+      } catch (error) {
+        console.error("Erreur validation parrainage :", error);
+        message.textContent = "Impossible de valider le code : " + (error.message || "erreur inconnue");
+      } finally {
+        if (!bouton.disabled || bouton.textContent !== "Code déjà utilisé") {
+          bouton.disabled = false;
+          bouton.textContent = "Valider le code";
+        }
+      }
+    });
 
     async function chargerHistorique(user = utilisateurActuel) {
       if (!user) return;
