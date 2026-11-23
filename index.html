@@ -10,6 +10,16 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <title>MedQuiz — Apprendre, jouer, progresser</title>
+<meta name="description" content="Quiz de médecine, cas cliniques et défis entre amis. Révise gratuitement sur MedQuiz."/>
+<meta property="og:site_name" content="MedQuiz"/>
+<meta property="og:type" content="website"/>
+<meta property="og:locale" content="fr_FR"/>
+<meta property="og:title" content="MedQuiz — Révise la médecine en jouant"/>
+<meta property="og:description" content="Quiz, cas cliniques, examens blancs. Défie tes amis !"/>
+<!-- IMPORTANT : remplace https://TON-SITE par l'adresse réelle du site (og.png à placer à la racine) -->
+<meta property="og:image" content="https://TON-SITE/og.png"/>
+<meta property="og:url" content="https://TON-SITE/"/>
+<meta name="twitter:card" content="summary_large_image"/>
 <style>
     .price-card .btn[data-plan] { opacity: 1; cursor: pointer; }
     .stat-bar { height: 10px; border-radius: 8px; background: rgba(255,255,255,.08); overflow: hidden; margin: 4px 0 12px; }
@@ -956,9 +966,11 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
         <div class="home-kicker"><span>✦</span> TON TERRAIN D’ENTRAÎNEMENT</div>
         <h1>La médecine<br/>se <em>maîtrise</em><br/>en jouant.</h1>
         <p class="home-lead">Entraîne ton raisonnement, relève des défis et transforme chaque bonne réponse en progression.</p>
+        <p id="refInvite" class="notice" hidden style="margin:0 0 14px">🎁 Tu as été invité ! <a href="#compte" style="font-weight:700">Crée ton compte</a>, fais 3 quiz et gagne 7 jours Premium.</p>
         <div class="home-actions">
           <a class="home-primary" href="#quiz">Lancer une session <span>↗</span></a>
           <a class="home-secondary" href="#cas-cliniques">Explorer les cas cliniques <span>→</span></a>
+          <a class="home-secondary" href="#essai" id="essaiGratuit">⚡ Essai gratuit en 1 min <span>→</span></a>
         </div>
         <div class="home-proof"><span class="proof-avatars"><i>✚</i><i>⚕</i><i>+</i></span><span>Apprends à ton rythme, progresse à chaque session.</span></div>
       </div>
@@ -1185,8 +1197,8 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <div class="premium-hero">
 <span class="eyebrow gold-text">✦ <span class="gold-text">MedQuiz Premium</span></span>
 <h2>Va plus loin dans ton apprentissage.</h2>
-<p>Questions avancées illimitées, examens blancs, statistiques détaillées, défis exclusifs et certificats de réussite.</p>
-<div style="margin-top:22px"><span aria-disabled="true" class="btn btn-gold">Offre Premium — bientôt disponible</span></div>
+<p>Quiz illimités, explications complètes de chaque réponse et statistiques détaillées.</p>
+<div style="margin-top:22px"><a class="btn btn-gold" href="#tarifs" id="voirTarifs">Voir les tarifs — dès 1 000 FCFA/mois</a></div>
 </div>
 <div class="section-heading"><h2>Gratuit ou Premium</h2></div>
 <div class="compare-wrap"><table class="compare"><thead><tr><th>Fonctionnalité</th><th>Gratuit</th><th>Premium</th></tr></thead><tbody>
@@ -1196,7 +1208,7 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
 <tr><td>Statistiques personnelles</td><td>Basiques</td><td>✓ Détaillées</td></tr>
 <tr><td>Médecine, culture générale, défi du jour</td><td>✓ Oui</td><td>✓ Oui</td></tr>
 </tbody></table></div>
-<div class="section-heading"><h2>Nos tarifs</h2></div>
+<div class="section-heading" id="tarifs"><h2>Nos tarifs</h2></div>
 <div class="pricing">
 <div class="price-card"><h3>Abonnement mensuel</h3><div class="price">1 000 FCFA</div><p>Pour un mois</p><button class="btn btn-gold" data-plan="mensuel" type="button">Choisir</button></div>
 <div class="price-card"><h3>Abonnement trimestriel</h3><div class="price">2 500 FCFA</div><p>Pour trois mois</p><button class="btn btn-gold" data-plan="trimestriel" type="button">Choisir</button></div>
@@ -1313,6 +1325,8 @@ body[data-theme="dark"] #social .social-bubble.mine{background:#39305f;color:#ff
     <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
       <input id="myReferralCode" readonly value="Chargement..." style="font-weight:900;letter-spacing:2px;max-width:260px"/>
       <button class="btn btn-primary" id="copyReferralCode" type="button">📋 Copier mon code</button>
+      <button class="btn btn-gold" id="waReferral" type="button">💬 Inviter sur WhatsApp</button>
+      <button class="btn btn-secondary" id="copyReferralLink" type="button">🔗 Copier mon lien</button>
     </div>
   </div>
   <p class="muted" id="referralBonusUntil" style="margin:8px 0 16px">Bonus Premium : aucun bonus actif.</p>
@@ -3790,6 +3804,7 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           catch { window.prompt("Copie ce message :", message); }
         });
         actions.append(wa, copier);
+        actions.append(boutonCarte({ score, max, bonnes, total: selection.length, titre: cfg.titre }));
         zone.append(actions);
 
         const info = el("p", "muted");
@@ -3825,6 +3840,11 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
           histo.type = "button";
           histo.addEventListener("click", () => afficherPage("member"));
           zone.append(histo);
+          const inviter = el("button", "btn btn-gold", "🎁 Inviter un ami (7 jours Premium)");
+          inviter.type = "button";
+          inviter.style.marginLeft = "8px";
+          inviter.addEventListener("click", () => { afficherPage("member"); setTimeout(() => $("referralPanel")?.scrollIntoView({ behavior: "smooth" }), 400); });
+          zone.append(inviter);
           await chargerHistorique();
         }
       }
@@ -5466,7 +5486,95 @@ function lignesDePage(items) {
       chargerAbonnement();
     });
 
-    window.MQ = { supabase, el, $, afficherPage, lancerQuiz, melangerChoix,
+    // ----- Carte de score partageable (image générée dans le navigateur, rien n'est envoyé) -----
+    function dessinerCarte({ score, max, bonnes, total, titre }) {
+      const W = 1080, H = 1350, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const g = c.getContext("2d");
+      const fond = g.createLinearGradient(0, 0, W, H);
+      fond.addColorStop(0, "#071426"); fond.addColorStop(1, "#0f3358");
+      g.fillStyle = fond; g.fillRect(0, 0, W, H);
+      g.fillStyle = "rgba(230,184,77,.12)"; g.beginPath(); g.arc(W - 120, 160, 320, 0, 7); g.fill();
+      g.textAlign = "center"; g.fillStyle = "#e6b84d";
+      g.font = "700 40px system-ui, sans-serif"; g.fillText("✚  MEDQUIZ", W / 2, 130);
+      g.fillStyle = "#b8c7dc"; g.font = "36px system-ui, sans-serif";
+      g.fillText(String(titre || "Mon quiz").slice(0, 34), W / 2, 215);
+      const pct = max > 0 ? Math.max(0, Math.min(1, score / max)) : 0, cx = W / 2, cy = 640, r = 280;
+      g.lineWidth = 46; g.lineCap = "round";
+      g.strokeStyle = "rgba(255,255,255,.12)"; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = pct >= .5 ? "#3ddc97" : "#e6b84d";
+      g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); g.stroke();
+      g.fillStyle = "#fff"; g.font = "800 190px system-ui, sans-serif"; g.fillText(`${Math.round(pct * 100)}%`, cx, cy + 40);
+      g.fillStyle = "#b8c7dc"; g.font = "46px system-ui, sans-serif"; g.fillText(`${score} / ${max} points`, cx, cy + 130);
+      g.fillStyle = "#fff"; g.font = "700 56px system-ui, sans-serif";
+      g.fillText(total ? `${bonnes} bonnes réponses sur ${total}` : "", cx, 1060);
+      g.fillStyle = "#e6b84d"; g.font = "800 64px system-ui, sans-serif"; g.fillText("Fais mieux ! 😏", cx, 1160);
+      g.fillStyle = "#b8c7dc"; g.font = "36px system-ui, sans-serif"; g.fillText(location.host || "medquiz", cx, 1260);
+      return c;
+    }
+    async function partagerCarte(d, bouton) {
+      const msg = `🔥 J'ai fait ${d.score}/${d.max} sur MedQuiz ! Fais mieux : ${urlSite()}`;
+      const ancien = bouton.textContent;
+      try {
+        const blob = await new Promise((ok, ko) => dessinerCarte(d).toBlob(b => b ? ok(b) : ko(new Error("image")), "image/png"));
+        const fichier = new File([blob], "medquiz-score.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [fichier] })) {
+          try { await navigator.share({ files: [fichier], text: msg }); return; }
+          catch (e) { if (e && e.name === "AbortError") return; }
+        }
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "medquiz-score.png";
+        document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        bouton.textContent = "Image téléchargée ✓ — partage-la sur WhatsApp";
+        setTimeout(() => { bouton.textContent = ancien; }, 4000);
+      } catch (e) { console.warn("Carte de score :", e); bouton.textContent = "Impossible de créer l'image"; setTimeout(() => { bouton.textContent = ancien; }, 3000); }
+    }
+    const boutonCarte = (d) => {
+      const b = el("button", "btn btn-gold", "🖼️ Partager ma carte");
+      b.type = "button"; b.addEventListener("click", () => partagerCarte(d, b)); return b;
+    };
+
+    // ----- Croissance : lien de parrainage, essai gratuit, invitation -----
+    const lienParrainage = () => {
+      const code = $("myReferralCode")?.value;
+      if (!code || code === "Chargement..." || code === "Indisponible") return null;
+      return `${location.origin}${location.pathname}?ref=${encodeURIComponent(code)}`;
+    };
+    $("copyReferralLink")?.addEventListener("click", async () => {
+      const lien = lienParrainage(), m = $("referralMessage");
+      if (!lien) { m.textContent = "Ton code n’est pas encore disponible."; return; }
+      try { await navigator.clipboard.writeText(lien); m.textContent = "Lien copié ! Envoie-le à tes amis."; }
+      catch { window.prompt("Copie ton lien :", lien); }
+    });
+    $("waReferral")?.addEventListener("click", () => {
+      const lien = lienParrainage();
+      if (!lien) { $("referralMessage").textContent = "Ton code n’est pas encore disponible."; return; }
+      const msg = `Je révise la médecine avec MedQuiz 🩺 Inscris-toi avec mon lien : on gagne tous les deux 7 jours Premium après 3 quiz ! ${lien}`;
+      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank", "noopener");
+    });
+    try {
+      const ref = new URLSearchParams(location.search).get("ref");
+      if (ref && /^[A-Za-z0-9]{4,16}$/.test(ref)) localStorage.setItem("mqx_ref_pending", ref.toUpperCase());
+      if (localStorage.getItem("mqx_ref_pending")) $("refInvite").hidden = false;
+    } catch (e) { /* stockage indisponible */ }
+    $("voirTarifs")?.addEventListener("click", e => { e.preventDefault(); $("tarifs").scrollIntoView({ behavior: "smooth" }); });
+    $("essaiGratuit")?.addEventListener("click", e => {
+      e.preventDefault();
+      const tirage = melangerChoix(questionsMedQuiz.filter(q => q.choix && q.choix.length === 4 && q.niveau !== "difficile")).slice(0, 5);
+      lancerQuiz({
+        mode: "partie", titre: "Essai gratuit", chrono: 0, selection: tirage,
+        surFin: async (score, zone) => {
+          zone.append(el("p", "notice", utilisateurActuel ? "Cette session d’essai n’est pas enregistrée. Lance un quiz complet pour gagner des points !" : "🎁 Crée un compte gratuit pour sauvegarder ta progression, entrer au classement et défier tes amis."));
+          const b = el("button", "btn btn-primary", utilisateurActuel ? "Lancer un vrai quiz" : "Créer mon compte gratuit");
+          b.type = "button"; b.style.marginTop = "10px";
+          b.addEventListener("click", () => { fermerEcranQuiz(); afficherPage(utilisateurActuel ? "quiz" : "compte"); });
+          zone.append(b);
+        }
+      });
+    });
+
+    window.MQ = { boutonCarte, supabase, el, $, afficherPage, lancerQuiz, melangerChoix,
       getUser: () => utilisateurActuel, getPremium: () => premium, getQuestions: () => questionsMedQuiz,
       refreshPremium: () => chargerAbonnement() };
     window.dispatchEvent(new Event("medquiz:ready"));
