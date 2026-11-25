@@ -306,6 +306,48 @@
 .mq-password-wrap input{width:100%;padding-right:52px}
 .mq-password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:inherit;cursor:pointer;padding:8px 10px;font-size:1.05rem;border-radius:8px}
 .mq-password-toggle:hover{background:rgba(128,128,128,.14)}
+
+/* MEDQUIZ — podium décoré, sans toucher aux avatars Supabase */
+#classement .mq-podium{--mq-gold:#f6c453;--mq-silver:#b8c5d8;--mq-bronze:#c98a62;position:relative;isolation:isolate;display:grid;grid-template-columns:1fr 1.12fr 1fr;align-items:end;gap:clamp(8px,2vw,20px);margin:22px 0 28px;padding:28px clamp(10px,3vw,30px) 0;border:1px solid rgba(151,128,255,.22);border-radius:24px;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,rgba(255,211,104,.22),transparent 42%),linear-gradient(145deg,#17152f,#292052 58%,#1b2b50);box-shadow:0 18px 42px rgba(32,24,76,.18)}
+#classement .mq-podium:before{content:"✦      ·       ✧       ·      ✦";position:absolute;top:10px;left:0;right:0;text-align:center;color:rgba(255,225,151,.72);font-size:16px;letter-spacing:clamp(8px,3vw,24px);pointer-events:none}
+#classement .mq-podium-card{position:relative;z-index:1;display:flex;min-width:0;flex-direction:column;align-items:center;text-align:center;color:#fff;padding:12px 6px 0;animation:mqPodiumRise .65s both}
+#classement .mq-podium-card:nth-child(2){animation-delay:.1s}
+#classement .mq-podium-card:nth-child(3){animation-delay:.2s}
+#classement .mq-podium-avatar{position:relative;display:grid;place-items:center;width:clamp(58px,8vw,82px);height:clamp(58px,8vw,82px);border-radius:50%;padding:4px;background:linear-gradient(145deg,var(--mq-medal),rgba(255,255,255,.55));box-shadow:0 0 0 5px rgba(255,255,255,.08),0 8px 25px rgba(0,0,0,.3);font-size:30px}
+#classement .mq-podium-card.first .mq-podium-avatar{width:clamp(76px,10vw,104px);height:clamp(76px,10vw,104px);box-shadow:0 0 0 6px rgba(246,196,83,.16),0 0 34px rgba(246,196,83,.36)}
+#classement .mq-podium-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;border:3px solid #252044}
+#classement .mq-podium-crown{position:absolute;top:-25px;left:50%;transform:translateX(-50%) rotate(-9deg);font-size:29px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
+#classement .mq-podium-rank{margin-top:12px;color:var(--mq-medal);font-size:11px;font-weight:950;letter-spacing:1.8px;text-transform:uppercase}
+#classement .mq-podium-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px;font-weight:900;font-size:clamp(12px,1.5vw,15px)}
+#classement .mq-podium-points{margin:4px 0 12px;color:#e9e5ff;font-size:12px;font-weight:800}
+#classement .mq-podium-base{display:flex;align-items:center;justify-content:center;width:100%;min-height:74px;border-radius:13px 13px 0 0;color:#fff;font-size:clamp(22px,3vw,34px);font-weight:1000;text-shadow:0 2px 5px rgba(0,0,0,.22);background:linear-gradient(180deg,color-mix(in srgb,var(--mq-medal) 85%,white),var(--mq-medal) 65%,color-mix(in srgb,var(--mq-medal) 55%,#17152f));box-shadow:inset 0 1px rgba(255,255,255,.5),0 -8px 25px color-mix(in srgb,var(--mq-medal) 18%,transparent)}
+#classement .mq-podium-card.first .mq-podium-base{min-height:112px}
+#classement .mq-podium-card.second{--mq-medal:var(--mq-silver)}
+#classement .mq-podium-card.first{--mq-medal:var(--mq-gold)}
+#classement .mq-podium-card.third{--mq-medal:var(--mq-bronze)}
+#classement .mq-podium-card.second .mq-podium-base{background:linear-gradient(180deg,#dce5f0,#9eacc2 70%,#59677f)}
+#classement .mq-podium-card.third .mq-podium-base{background:linear-gradient(180deg,#e5b18d,#bd7952 70%,#71432f)}
+#classement .mq-podium-card.first .mq-podium-base{background:linear-gradient(180deg,#ffe8a0,#e7ad35 70%,#8e5b13)}
+#classement .mq-podium-card .mq-podium-avatar{--mq-medal:var(--mq-silver)}
+#classement .mq-podium-card.first .mq-podium-avatar{--mq-medal:var(--mq-gold)}
+#classement .mq-podium-card.third .mq-podium-avatar{--mq-medal:var(--mq-bronze)}
+@keyframes mqPodiumRise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:520px){#classement .mq-podium{gap:5px;padding:27px 7px 0;margin:16px -4px 22px;border-radius:18px}#classement .mq-podium-card{padding-inline:2px}#classement .mq-podium-base{min-height:58px}#classement .mq-podium-card.first .mq-podium-base{min-height:86px}#classement .mq-podium-points{font-size:10px}}
+@media(prefers-reduced-motion:reduce){#classement .mq-podium-card{animation:none}}
+
+
+/* Le podium contient déjà le top 3 : la liste commence au rang 4. */
+#classement #listeClassement .rank-item:nth-child(1){
+  background:transparent!important;
+  border:0!important;
+  border-bottom:1px solid var(--room-line)!important;
+  padding:16px 12px!important;
+}
+#classement #listeClassement .rank-item:nth-child(1) .rank-number{
+  background:rgba(112,80,216,.10)!important;
+  color:var(--purple)!important;
+}
+
 </style>
 <style id="medquiz-creative-redesign">
 :root{--mq-bg:#f4f5fb;--mq-paper:#fff;--mq-ink:#17152c;--mq-muted:#77758c;--mq-line:#e8e7f1;--mq-violet:#6847f5;--mq-blue:#2878ff;--mq-lime:#c8f36a;--mq-shadow:0 18px 55px rgba(33,25,80,.08)}
@@ -1231,38 +1273,6 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 <h2>🏆 Classement MedQuiz</h2>
 <p>Les joueurs sont classés selon le total de leurs points enregistrés.</p>
 </div>
-<section id="mqMyRank" aria-label="Ma progression dans le classement" hidden>
-  <div class="mq-mr-glow" aria-hidden="true"></div>
-  <header class="mq-mr-head">
-    <span class="mq-mr-avatar" id="mqMrAvatar" aria-hidden="true">👤</span>
-    <div class="mq-mr-who"><span class="mq-mr-kicker">MA PROGRESSION</span><strong id="mqMrName">—</strong></div>
-    <span class="mq-mr-level"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg><b id="mqMrLevel">Étudiant</b></span>
-  </header>
-  <div class="mq-mr-stats">
-    <div class="mq-mr-stat mq-mr-rank" id="mqMrRankBox">
-      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Mon classement</span>
-      <strong id="mqMrRank">—</strong><small id="mqMrRankSub"></small>
-    </div>
-    <div class="mq-mr-stat">
-      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Mes points</span>
-      <strong id="mqMrPoints">—</strong><small id="mqMrPointsSub"></small>
-    </div>
-    <div class="mq-mr-stat mq-mr-evo" id="mqMrEvoBox">
-      <span class="mq-mr-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Mon évolution</span>
-      <strong id="mqMrEvo">—</strong><small id="mqMrEvoSub"></small>
-    </div>
-  </div>
-  <div class="mq-mr-progress">
-    <div class="mq-mr-progress-top"><span id="mqMrFrom">Étudiant</span><span id="mqMrTo"></span></div>
-    <div class="mq-mr-bar" id="mqMrBar" role="progressbar" aria-label="Progression vers le niveau suivant" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="mqMrFill"></i></div>
-    <small id="mqMrProgressNote"></small>
-  </div>
-  <div class="mq-mr-goal">
-    <span class="mq-mr-goal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></span>
-    <div><span class="mq-mr-label">Mon prochain objectif</span><strong id="mqMrGoal">—</strong></div>
-  </div>
-  <p class="mq-mr-msg" id="mqMrMsg" aria-live="polite"></p>
-</section>
 <div class="panel">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:12px">
 <div class="tabs" role="tablist">
@@ -1272,6 +1282,7 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 <button class="btn btn-secondary" id="refreshLeaderboard">Actualiser</button>
 </div>
 <p class="muted" id="noteClassement" style="font-size:.88rem;margin-bottom:10px">Points gagnés depuis lundi. Le classement repart à zéro chaque lundi.</p>
+<div id="mqPodium" class="mq-podium" aria-label="Podium des trois meilleurs joueurs" hidden></div>
 <div aria-live="polite" id="listeClassement"><p class="muted">Connecte-toi pour consulter le classement.</p></div>
 </div>
 </section>
@@ -1547,7 +1558,7 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 </section>
 <section class="page" id="social" aria-label="MedQuiz Social">
  <div class="section-heading"><span class="eyebrow">✦ CAMPUS CONNECTÉ</span><h2>MedQuiz Social</h2><p>Retrouve tes amis, discute et lance des défis sans quitter MedQuiz.</p></div>
- <div class="social-tabs"><button class="btn btn-primary" data-social-tab="friends">👥 Mes amis</button><button class="btn btn-secondary" data-social-tab="requests">📨 Invitations <span id="socialRequestCount"></span></button><button class="btn btn-secondary" data-social-tab="search">🔎 Trouver des étudiants</button><button class="btn btn-secondary" data-social-tab="chat">💬 Messages</button><button class="btn btn-secondary" data-social-tab="tournaments">🏆 Tournois</button></div>
+ <div class="social-tabs"><button class="btn btn-primary" data-social-tab="friends">👥 Mes amis</button><button class="btn btn-secondary" data-social-tab="requests">📨 Invitations <span id="socialRequestCount"></span></button><button class="btn btn-secondary" data-social-tab="search">🔎 Trouver des étudiants</button><button class="btn btn-secondary" data-social-tab="chat">💬 Messages</button></div>
  <div id="socialNotice" class="notice" role="status" style="display:none"></div>
  <div class="social-layout">
   <div class="panel social-main" id="socialMain"><h3>Mes amis</h3><p class="muted">Connecte-toi pour retrouver tes amis sur MedQuiz.</p></div>
@@ -2072,6 +2083,7 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
       liste.textContent = "Chargement du classement...";
       const jeton = ++jetonClassement;
       if (!utilisateurActuel) {
+        if ($("mqPodium")) $("mqPodium").hidden = true;
         liste.textContent = "Connecte-toi pour consulter le classement.";
         if ($("mqMyRank")) $("mqMyRank").hidden = true;
         return;
@@ -2088,6 +2100,7 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
         return;
       }
       if (!data || data.length === 0) {
+        if ($("mqPodium")) $("mqPodium").hidden = true;
         liste.textContent = modeClassement === "semaine" ? "Personne n'a encore marqué de points cette semaine. Sois le premier du classement hebdomadaire !" : "Aucun joueur classé pour le moment.";
         return;
       }
@@ -2102,16 +2115,65 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
         (profilsPhotos || []).forEach(p => { if (p.avatar_url) avatarsParPseudo[p.pseudonyme] = p.avatar_url; });
       }
       if (jeton !== jetonClassement) return;
+      // Podium décoratif : réutilise exactement les photos publiques déjà chargées pour la liste.
+      const podium = $("mqPodium");
+      if (podium) {
+        const top = data.slice(0, 3);
+        podium.replaceChildren();
+        podium.hidden = top.length === 0;
+        // Ordre visuel classique : 2e, 1er, 3e.
+        const ordrePodium = [top[1], top[0], top[2]].filter(Boolean);
+        const positions = ["second", "first", "third"];
+        ordrePodium.forEach((joueur, i) => {
+          const carte = document.createElement("div");
+          carte.className = `mq-podium-card ${positions[i]}`;
+          const avatar = document.createElement("div");
+          avatar.className = "mq-podium-avatar";
+          const avatarUrl = avatarsParPseudo[joueur.pseudonyme];
+          if (avatarUrl) {
+            const img = document.createElement("img");
+            img.src = avatarUrl; img.alt = `Photo de ${joueur.pseudonyme}`; img.loading = "lazy";
+            avatar.append(img);
+          } else avatar.textContent = "👤";
+          if (positions[i] === "first") {
+            const couronne = document.createElement("span");
+            couronne.className = "mq-podium-crown"; couronne.textContent = "👑";
+            avatar.append(couronne);
+          }
+          const rang = document.createElement("span");
+          rang.className = "mq-podium-rank";
+          rang.textContent = positions[i] === "first" ? "Champion" : positions[i] === "second" ? "Vice-champion" : "3e place";
+          // nomJoueur() renvoie un élément HTML (pseudo + badge Premium), pas une chaîne.
+          // On l'insère donc dans le podium au lieu de le convertir en texte.
+          const nom = nomJoueur(joueur.pseudonyme);
+          nom.classList.add("mq-podium-name");
+          const points = document.createElement("span");
+          points.className = "mq-podium-points"; points.textContent = `${joueur.points} pts`;
+          const base = document.createElement("div");
+          base.className = "mq-podium-base"; base.textContent = positions[i] === "first" ? "1" : positions[i] === "second" ? "2" : "3";
+          carte.append(avatar, rang, nom, points, base);
+          podium.append(carte);
+        });
+      }
       liste.replaceChildren();
       const rangsListe = rangsCompetition(data); // égalités = même rang
-      data.forEach((joueur, index) => {
+      // Les trois premiers sont déjà affichés sur le podium : ne pas les répéter dans la liste.
+      const resteClassement = data.slice(3);
+      if (resteClassement.length === 0) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent = "Le podium présente les trois premiers joueurs. Les autres joueurs apparaîtront ici dès qu'ils auront marqué des points.";
+        liste.append(note);
+      }
+      resteClassement.forEach((joueur, index) => {
+        const rangIndex = index + 3;
         const row = document.createElement("div");
         row.className = "rank-item";
         const left = document.createElement("div");
         left.className = "rank-left";
         const number = document.createElement("span");
         number.className = "rank-number";
-        number.textContent = String(rangsListe[index]);
+        number.textContent = String(rangsListe[rangIndex]);
         const name = nomJoueur(joueur.pseudonyme);
         const avatar = document.createElement("span");
         avatar.className = "rank-avatar";
