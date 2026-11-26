@@ -8202,4 +8202,10 @@ html body .mq-stats-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,1
   html body:has(#mqQuizFocus.is-open) .site-header.mq-sidebar{display:none!important}
 }
 @media(max-width:360px){html body .mq-sidebar .nav a{flex-basis:58px!important}}
+@media(max-width:640px){
+  html body .mq-notif-trigger{position:fixed!important;top:calc(10px + env(safe-area-inset-top,0px))!important;right:108px!important;bottom:auto!important;left:auto!important;width:40px!important;height:40px!important;min-height:0!important;padding:0!important;margin:0!important;border-radius:50%!important;font-size:0!important;display:grid!important;place-items:center!important;background:#17152c!important;color:#fff!important;border:1px solid rgba(255,255,255,.18)!important;box-shadow:0 4px 14px rgba(10,8,30,.3)!important;z-index:1001!important}
+  html body .mq-notif-trigger::before{content:"🔔";font-size:18px;line-height:1}
+  html body .mq-notif-trigger .mq-notif-badge{position:absolute!important;top:-4px!important;right:-4px!important;margin:0!important;font-size:10px!important;min-width:18px;height:18px}
+  html body .mq-topbar{padding-right:156px!important}
+}
 </style>
