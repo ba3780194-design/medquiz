@@ -7249,22 +7249,6 @@ function lignesDePage(items) {
     // ---------- Duel multijoueur synchronisé via Supabase ----------
     let mqDuelActif=null, mqDuelChannel=null, mqDuelTimer=null, mqDuelRefreshBusy=false, mqDuelMode=null, mqDuelOffsetMs=0;
     const mqDuelRpc=async(name,args={})=>{const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;};
-    let mqDuelGroupeActif=null, mqDuelGroupeTimer=null, mqDuelGroupeBusy=false;
-    async function mqGroupeRpc(name,args={}){const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;}
-    async function mqGroupeCreerDepuisAmis(friends,zone){
-      const panel=el("div","notice"),title=el("strong","","⚔️ Duel jusqu’à 4 joueurs"),hint=el("p","muted","Sélectionne de 1 à 3 amis. Vous jouerez tous la même manche avec les mêmes questions."),choices=el("div","social-tournament-choices");
-      const selected=new Set();friends.forEach(f=>{const label=el("label","social-tournament-choice"),cb=el("input");cb.type="checkbox";cb.addEventListener("change",()=>{if(cb.checked){if(selected.size>=3){cb.checked=false;socialNotice("Maximum 3 amis (4 joueurs avec toi).",true);return;}selected.add(f.id);}else selected.delete(f.id);});label.append(cb,document.createTextNode(" "+(f.pseudonyme||"Étudiant")));choices.append(label);});
-      const launch=socialBtn("🚀 Créer le duel multijoueur",async()=>{if(!selected.size){socialNotice("Sélectionne au moins un ami.",true);return;}launch.disabled=true;try{const pool=filtrer($("categorieQuiz").value,$("niveauQuiz").value,$("themeQuiz").value);if(!pool.length)throw new Error("Aucune question disponible.");const seed=Math.floor(Math.random()*1e9),n=Math.min(Math.max(Number($("nombreQuiz").value)||5,1),pool.length,20);const questions=choisirQuestions(pool,n,seed).map(q=>({type:q.type||"qcm",question:q.question,choix:q.choix||[],reponse:q.reponse,reponses:q.reponses||[],explication:q.explication||""}));const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));const id=await mqGroupeRpc("mq_duel_group_create",{p_opponents:[...selected],p_questions:questions,p_chrono:chrono});mqPushNotifier([...selected],"Invitation à un duel MedQuiz","Un ami t’invite à un duel multijoueur !","/#social");mqDuelGroupeActif=id;mqGroupeAttente(id); }catch(e){socialNotice("Création impossible : "+e.message,true);launch.disabled=false;}} ,"btn btn-primary");
-      panel.append(title,hint,choices,launch);zone.append(panel);
-    }
-    function mqGroupeAttente(id){const z=mqDuelEcran("⚔️ Duel multijoueur",id);mqDuelGroupeActif=id;z.replaceChildren(el("h3","","⚔️ Invitations envoyées"),el("p","muted","La manche commencera quand tous les joueurs auront accepté."));mqGroupeRefresh(id);mqDuelGroupeTimer=setInterval(()=>mqGroupeRefresh(id),900);}
-    async function mqGroupeRefresh(id){if(mqDuelGroupeBusy||mqDuelGroupeActif!==id)return;mqDuelGroupeBusy=true;try{const st=await mqGroupeRpc("mq_duel_group_state",{p_group:id});const z=$("mqQuizZone");if(!z)return;if(st.status==="pending"){z.replaceChildren(el("h3","","⚔️ En attente des joueurs"));(st.players||[]).forEach(p=>z.append(el("p","",`${p.name} — ${p.status==="accepted"?"Prêt ✓":p.status==="declined"?"A refusé":"Invitation envoyée"}`)));return;}if(st.status==="cancelled"){z.replaceChildren(el("h3","","Duel annulé"),el("p","muted","Un participant a refusé l’invitation."));mqGroupeNettoyer();return;}if(st.status==="finished"){z.replaceChildren(el("h3","","🏁 Manche terminée !"),el("p","muted","Classement final"));(st.players||[]).filter(p=>p.status==="accepted").forEach((p,i)=>z.append(el("p",i===0?"notice":"",`${i+1}. ${p.name} — ${p.score} points`)));const b=socialBtn("Retour à MedQuiz",()=>{mqGroupeNettoyer();fermerEcranQuiz();},"btn btn-secondary");z.append(b);mqGroupeNettoyer();return;}if(st.status!=="playing")return;
-      const me=(st.players||[]).find(p=>p.user_id===utilisateurActuel.id);const round=Number(st.round)||1;if(z.dataset.groupRound===String(round)){const timer=z.querySelector("[data-duel-timer]");if(timer)timer.textContent="⏱ "+Math.max(0,Math.ceil((Date.parse(st.round_ends_at)-Date.now()+mqDuelOffsetMs)/1000))+" s";const board=z.querySelector("[data-group-board]");if(board)board.textContent=(st.players||[]).filter(p=>p.status==="accepted").map(p=>`${p.name}: ${p.score} pts${p.answered?" ✓":""}`).join(" · ");return;}
-      z.dataset.groupRound=String(round);z.replaceChildren(el("div","notice",`⚔️ Question ${round}/${st.total}`));const board=el("p","muted",(st.players||[]).filter(p=>p.status==="accepted").map(p=>`${p.name}: ${p.score} pts${p.answered?" ✓":""}`).join(" · "));board.dataset.groupBoard="1";z.append(board);const timer=el("p","chrono-text","⏱ …");timer.dataset.duelTimer="1";z.append(timer);const q=st.question;z.append(el("h3","",q.question));const controls=[];const submit=async a=>{controls.forEach(b=>b.disabled=true);try{const r=await mqGroupeRpc("mq_duel_group_submit",{p_group:id,p_round:round,p_answer:String(a)});z.append(el("p",r.correct?"quiz-feedback":"notice",r.correct?`Bonne réponse ! +${r.points} points`:"Réponse enregistrée."));}catch(e){z.append(el("p","error",e.message));}};if(st.my_answered){z.append(el("p","notice","Réponse enregistrée. En attente des autres joueurs…"));}else if(q.type==="ouverte"){const input=el("input","reponse-libre");input.placeholder="Ta réponse";const b=socialBtn("Valider",()=>{if(input.value.trim())submit(input.value.trim());},"btn btn-primary");controls.push(input,b);z.append(input,b);}else(q.choix||[]).forEach(c=>{const b=socialBtn(c,()=>submit(c),"quiz-answer");controls.push(b);z.append(b);});timer.textContent="⏱ "+Math.max(0,Math.ceil((Date.parse(st.round_ends_at)-Date.now()+mqDuelOffsetMs)/1000))+" s";
-    }catch(e){console.warn("Duel groupe:",e.message);}finally{mqDuelGroupeBusy=false;}}
-    function mqGroupeNettoyer(){if(mqDuelGroupeTimer){clearInterval(mqDuelGroupeTimer);mqDuelGroupeTimer=null;}mqDuelGroupeActif=null;mqDuelGroupeBusy=false;mqDuelNettoyer();}
-    async function mqGroupeInvitations(zone){try{const rows=await mqGroupeRpc("mq_duel_group_inbox");if(!rows.length)return;zone.append(el("h3","","Invitations multijoueurs"));rows.forEach(inv=>zone.append(socialRow({pseudonyme:inv.creator_name},`${inv.player_count} joueurs · ${inv.question_count} questions`,[socialBtn("Accepter",async()=>{try{await mqGroupeRpc("mq_duel_group_respond",{p_group:inv.id,p_accept:true});mqDuelGroupeActif=inv.id;mqGroupeAttente(inv.id);}catch(e){socialNotice(e.message,true);}},"btn btn-primary"),socialBtn("Refuser",async()=>{try{await mqGroupeRpc("mq_duel_group_respond",{p_group:inv.id,p_accept:false});chargerSocial("challenges");}catch(e){socialNotice(e.message,true);}})])));}catch(e){console.warn("Inbox duel groupe:",e.message);}}
-
     function mqDuelNettoyer(){if(mqDuelTimer){clearInterval(mqDuelTimer);mqDuelTimer=null;}if(mqDuelChannel){supabase.removeChannel(mqDuelChannel);mqDuelChannel=null;}mqDuelActif=null;mqDuelRefreshBusy=false;mqDuelMode=null;}
     function mqDuelEcran(titre,id){mqDuelNettoyer();mqDuelActif=id;const zone=ouvrirEcranQuiz(titre);mqQuizCloseHandler=mqDuelNettoyer;return zone;}
     async function mqCreerDuel(ami){
@@ -7276,12 +7260,15 @@ function lignesDePage(items) {
       const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
       try{
         const duelId=await mqDuelRpc("mq_duel_create",{p_opponent:ami.id,p_questions:selection,p_chrono:chrono});
+        // Alerter immédiatement l'adversaire : la notification push est envoyée
+        // si cet ami a déjà activé les notifications sur son navigateur.
+        mqPushNotifier([ami.id],"⚔️ Nouveau défi MedQuiz",`${pseudoActuel||"Un ami"} te défie sur MedQuiz (${n} questions). Ouvre MedQuiz pour accepter ou refuser.`,"/#social");
         mqDuelActif=duelId;mqDuelAttente(duelId,ami.pseudonyme,true);
       }catch(e){socialNotice("Impossible de créer le duel : "+e.message,true);}
     }
     function mqDuelAttente(id,ami,createur){
       const zone=mqDuelEcran("⚔️ Duel en attente",id);mqDuelMode="waiting";
-      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Ton ami doit accepter l'invitation. La partie commencera automatiquement pour vous deux."));
+      zone.replaceChildren(el("h3","","⚔️ Invitation envoyée !"),el("p","muted",`En attente de ${ami}…`),el("p","notice","Une notification est envoyée si ton ami a activé les notifications MedQuiz. Sinon, il verra la demande en ouvrant MedQuiz et en restant connecté."));
       const annuler=el("button","btn btn-secondary","Annuler le duel");annuler.type="button";annuler.onclick=async()=>{try{await mqDuelRpc("mq_duel_cancel",{p_duel:id});}catch(_){}mqDuelNettoyer();fermerEcranQuiz();};zone.append(annuler);
       mqDuelChannel=supabase.channel("mq-duel-"+id).on("postgres_changes",{event:"*",schema:"public",table:"mq_duels",filter:"id=eq."+id},()=>mqDuelActualiser(id)).subscribe();
       mqDuelTimer=setInterval(()=>mqDuelActualiser(id),1200);mqDuelActualiser(id);
@@ -7327,7 +7314,20 @@ function lignesDePage(items) {
         const left=Math.max(0,Math.ceil((new Date(st.round_ends_at).getTime()-Date.now()+mqDuelOffsetMs)/1000));timer.textContent="⏱ "+left+" s";
       }catch(e){console.warn("Duel refresh:",e.message);}finally{mqDuelRefreshBusy=false;}
     }
-    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;const duelTermine=mqDuelActif;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const actions=el("div","social-actions");const revanche=el("button","btn btn-primary","🔁 Revanche");revanche.type="button";revanche.onclick=async()=>{revanche.disabled=true;try{const id=await mqDuelRpc("mq_duel_rematch",{p_duel:duelTermine});mqDuelActif=id;mqDuelAttente(id,st.opponent_name,true);}catch(e){socialNotice("Impossible de proposer la revanche : "+e.message,true);revanche.disabled=false;}};const b=el("button","btn btn-secondary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};actions.append(revanche,b);zone.append(actions);}
+    function mqDuelAfficherFin(st){const zone=$("mqQuizZone");if(!zone)return;const duelTermine=mqDuelActif;mqDuelNettoyer();zone.replaceChildren(el("h3","","🏁 Duel terminé !"),el("p","",`Ton score : ${st.my_score} points`),el("p","",`${st.opponent_name} : ${st.opponent_score} points`),el("p","notice",st.winner_id===utilisateurActuel?.id?"🏆 Victoire !":st.winner_id?"Ton ami remporte le duel. Belle revanche à prendre !":"🤝 Égalité parfaite !"));const actions=el("div","social-actions");const revanche=el("button","btn btn-primary","🔁 Revanche");revanche.type="button";revanche.onclick=async()=>{revanche.disabled=true;try{
+        // Une revanche est un nouveau duel : on réutilise le RPC de création
+        // déjà présent, avec un nouveau tirage de questions côté client.
+        const adversaireId=st.opponent_id||st.opponent_user_id||st.opponentId;
+        if(!adversaireId)throw new Error("L'identifiant de ton adversaire n'est pas renvoyé par Supabase. La fonction SQL du duel doit être vérifiée.");
+        const pool=filtrer($("categorieQuiz").value,$("niveauQuiz").value,$("themeQuiz").value);
+        if(!pool.length)throw new Error("Aucune question disponible pour préparer la revanche.");
+        const n=Math.min(Math.max(Number($("nombreQuiz").value)||Number(st.total)||5,1),pool.length,20);
+        const seed=Math.floor(Math.random()*1e9);
+        const nouvellesQuestions=choisirQuestions(pool,n,seed).map(q=>({type:q.type||"qcm",question:q.question,choix:q.choix||[],reponse:q.reponse,reponses:q.reponses||[],explication:q.explication||""}));
+        const chrono=Math.min(60,Math.max(10,Number($("chronoQuiz").value)||20));
+        const id=await mqDuelRpc("mq_duel_create",{p_opponent:adversaireId,p_questions:nouvellesQuestions,p_chrono:chrono});
+        mqDuelActif=id;mqDuelAttente(id,st.opponent_name,true);
+      }catch(e){socialNotice("Impossible de proposer la revanche : "+e.message,true);revanche.disabled=false;}};const b=el("button","btn btn-secondary","Retour à MedQuiz");b.type="button";b.onclick=()=>{mqDuelNettoyer();fermerEcranQuiz();};actions.append(revanche,b);zone.append(actions);}
     let mqInvitationsConnues=new Set(),mqInviteBusy=false;
     async function mqVerifierInvitations(){if(!utilisateurActuel||mqInviteBusy||mqDuelActif)return;mqInviteBusy=true;try{const rows=await mqDuelRpc("mq_duel_inbox");for(const inv of rows){if(mqInvitationsConnues.has(inv.id))continue;mqInvitationsConnues.add(inv.id);const ok=confirm(`⚔️ ${inv.challenger_name} te défie sur MedQuiz (${inv.question_count} questions). Accepter ?`);if(ok)await mqDuelAccepter(inv.id,inv.challenger_name);else await mqDuelRpc("mq_duel_accept",{p_duel:inv.id,p_accept:false});}}catch(e){console.warn("Invitations duel:",e.message);}finally{mqInviteBusy=false;}}
     if(utilisateurActuel)setTimeout(mqVerifierInvitations,1200);
@@ -7427,7 +7427,7 @@ function lignesDePage(items) {
           const tips=el("div","mq-ig-side-card");tips.append(el("strong","","Idées de publication"),el("p","","Une fiche claire"),el("p","","Un QCM qui t’a piégé"),el("p","","Ta progression de la semaine"),el("p","","Une astuce de révision"));side.append(tips);
           try{await loadAll();wrap.querySelectorAll(".mq-ig-mine-av").forEach(a=>{const n=socialAvatar(avOf(uid),nameOf(uid,pseudo));n.className=a.className;a.replaceWith(n)});renderStories();renderPosts();}catch(e){list.replaceChildren(el("div","mq-ig-empty","Le fil partagé n’est pas encore configuré. Exécute le fichier SQL MedQuiz Social fourni avec cette version. Détail : "+e.message));}
         } else if(tab==="challenges"){
-          zone.replaceChildren(el("h3","","⚔️ Défis entre amis"),el("p","muted","Duel classique à 2 ou nouvelle manche multijoueur jusqu’à 4 participants."));const friends=await socialRpc("mq_list_friends");if(!friends.length){zone.append(el("div","social-empty","Ajoute des amis pour pouvoir lancer un duel."),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));return;}await mqGroupeInvitations(zone);await mqGroupeCreerDepuisAmis(friends,zone);zone.append(el("h3","","Duel classique"));friends.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("⚔️ Lancer un duel",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")])));
+          zone.replaceChildren(el("h3","","⚔️ Défis entre amis"),el("p","muted","Lance un duel QCM synchronisé avec un ami. Vous répondez aux mêmes questions avec le même chronomètre."));const friends=await socialRpc("mq_list_friends");if(!friends.length){zone.append(el("div","social-empty","Ajoute des amis pour pouvoir lancer un duel."),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));return;}friends.forEach(f=>zone.append(socialRow(f,(f.is_online?"● En ligne":"○ Hors ligne")+" · "+(f.points||0)+" points",[socialBtn("⚔️ Lancer un duel",async()=>{socialFriendActif=f;await mqCreerDuel(f);},"btn btn-primary")])));
         } else if(tab==="friends"){
           zone.replaceChildren(el("h3","","Mes amis"));const data=await socialRpc("mq_list_friends");$("socialFriendTotal").textContent=data.length;
           if(!data.length)zone.append(el("div","social-empty","👥"),el("p","social-empty","Tu n'as pas encore d'amis. Recherche des étudiants pour commencer !"),socialBtn("Trouver des étudiants",()=>chargerSocial("search"),"btn btn-primary"));
@@ -7832,6 +7832,7 @@ img,svg,video,canvas{max-width:100%}
         it.appendChild(el('div','ic',b.ic));var t=el('div');t.appendChild(el('b','',b.n));t.appendChild(el('span','',b.d));it.appendChild(t);nw.appendChild(it)});
       card.appendChild(nw);
     }
+    if(tier.rewardText){var rw=el('div','mq-er-points',tier.rewardText);rw.style.cssText='margin:14px auto 4px;padding:11px 15px;border-radius:13px;background:rgba(255,255,255,.12);font-weight:900;font-size:15px';card.appendChild(rw)}
     var btn=el('button','mq-er-btn','Continuer');btn.type='button';card.appendChild(btn);
     ov.appendChild(card);document.body.appendChild(ov);
     confetti(card,[tier.c,tier.c1,'#fff','#8b75ff','#31d6c2']);
@@ -7845,10 +7846,12 @@ img,svg,video,canvas{max-width:100%}
     document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',esc)}});
   }
 
-  function award(bonnes,total){
+  function pointsPour(pct){return pct>=90?100:pct>=80?75:pct>=70?50:pct>=60?30:pct>=50?15:5}
+  var activeExamKey=null;
+  function nouvelleCleExamen(){try{return crypto.randomUUID()}catch(e){return 'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2)}}
+  async function award(bonnes,total,preview){
     if(!total)return;
-    var pct=Math.round(bonnes/total*100),d=load(),before=Object.keys(d.badges);
-    var prevBest=d.best;
+    var pct=Math.round(bonnes/total*100),d=load(),prevBest=d.best;
     d.exams++;d.best=Math.max(d.best,pct);d.streak=pct>=50?d.streak+1:0;
     d.history.push({pct:pct,t:Date.now()});d.history=d.history.slice(-20);
     var got=[];function unlock(id){if(!d.badges[id]){d.badges[id]=Date.now();got.push(id)}}
@@ -7857,6 +7860,19 @@ img,svg,video,canvas{max-width:100%}
     save(d);
     var tier=TIERS.filter(function(t){return pct>=t.min})[0];
     var newOnes=BADGES.filter(function(b){return got.indexOf(b.id)>-1});
+    var points=pointsPour(pct), rewardText='';
+    if(!preview&&typeof supabase!=='undefined'&&typeof utilisateurActuel!=='undefined'&&utilisateurActuel&&utilisateurActuel.id){
+      try{
+        var key=activeExamKey||(activeExamKey=nouvelleCleExamen());
+        var rep=await supabase.rpc('award_exam_white_points',{p_exam_key:key,p_correct:bonnes,p_total:total});
+        if(rep.error)throw rep.error;
+        var result=rep.data||{};
+        if(result.already_awarded){rewardText='🔒 Récompense déjà enregistrée pour cet examen';}
+        else{points=Number(result.points_awarded)||points;rewardText='🎁 +'+points+' points ajoutés à tes classements !';}
+        if(typeof chargerHistorique==='function')await chargerHistorique();
+      }catch(err){console.error('Récompense examen blanc non enregistrée :',err);rewardText='⚠️ Points non enregistrés. Vérifie le script SQL dans Supabase.'}
+    }else if(!preview){rewardText='Connecte-toi pour gagner tes points dans les classements.'}
+    tier.rewardText=rewardText;
     show(pct,bonnes,total,newOnes,tier);renderStrip(got);
   }
 
@@ -7875,7 +7891,7 @@ img,svg,video,canvas{max-width:100%}
   }
   function onKicker(){
     var k=document.getElementById('mqQuizKicker');if(!k)return;var tx=k.textContent||'';
-    if(isExamTitle(tx)){examFlag=true;done=false}
+    if(isExamTitle(tx)){if(!examFlag)activeExamKey=nouvelleCleExamen();examFlag=true;done=false}
     else if(/TERMIN/i.test(tx)){
       if(examFlag&&!done){
         var tries=0;(function wait(){if(done)return;if(tryResult()){done=true;examFlag=false;return}if(++tries<12)setTimeout(wait,250)})();
@@ -7887,10 +7903,10 @@ img,svg,video,canvas{max-width:100%}
     var k=document.getElementById('mqQuizKicker');
     if(k&&!watching){watching=true;new MutationObserver(onKicker).observe(k,{childList:true,characterData:true,subtree:true})}
     var b=document.getElementById('ouvrirExamenBlanc');
-    if(b)b.addEventListener('click',function(){examFlag=true;done=false},true);
+    if(b)b.addEventListener('click',function(){activeExamKey=nouvelleCleExamen();examFlag=true;done=false},true);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-  window.medquizExamRewardsDemo=function(p){var t=Math.round((p==null?80:p));award(t,100)};
+  window.medquizExamRewardsDemo=function(p){var t=Math.round((p==null?80:p));award(t,100,true)};
 })();
 </script>
 
@@ -7945,166 +7961,3 @@ img,svg,video,canvas{max-width:100%}
 #social .mq-ig-layout{display:grid;grid-template-columns:minmax(0,600px) 270px;justify-content:center;gap:34px;align-items:start}
 #social .mq-ig-main{min-width:0}
 
-/* Stories */
-#social .mq-ig-stories-card{padding:14px 12px 10px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;margin-bottom:14px}
-#social .mq-ig-section-head{display:none}
-#social .mq-ig-stories{display:flex;gap:16px;overflow-x:auto;padding:2px 4px 6px;scrollbar-width:none}
-#social .mq-ig-stories::-webkit-scrollbar{display:none}
-#social .mq-ig-story{flex:0 0 72px;gap:6px;font-size:11px;color:var(--mq-ink);background:none;border:0;cursor:pointer}
-#social .mq-ig-story>span:last-child{max-width:72px;color:var(--mq-ink)}
-#social .mq-ig-ring{width:68px;height:68px;padding:3px;border-radius:50%;background:conic-gradient(from 210deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5,#feda75)}
-#social .mq-ig-ring img{border:3px solid var(--mq-paper);border-radius:50%}
-#social .mq-ig-ring.seen{background:var(--mq-line)}
-#social .mq-ig-story-mine{position:relative;display:grid;place-items:center;width:68px;height:68px}
-#social .mq-ig-story-avatar{width:64px;height:64px;padding:0;background:var(--mq-bg);border:1px solid var(--mq-line);outline:0;font-size:22px;font-weight:800;color:var(--mq-violet)}
-#social .mq-ig-story-mine b{position:absolute;right:1px;bottom:1px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#0095f6;color:#fff;font-size:16px;line-height:1;border:2px solid var(--mq-paper)}
-#social .mq-ig-story-hint{align-self:center;margin:0 0 14px 6px;font-size:12px;color:var(--mq-muted);white-space:normal;max-width:240px;line-height:1.4}
-
-/* Composeur */
-#social .mq-ig-composer{padding:14px 16px 12px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;margin-bottom:6px}
-#social .mq-ig-compose-top{display:flex;align-items:flex-start;gap:12px;margin:0}
-#social .mq-ig-compose-top .social-avatar{flex:0 0 42px;width:42px;height:42px}
-#social .mq-ig-textarea{flex:1;min-height:46px;max-height:220px;padding:11px 0 8px;background:transparent;border:0;border-radius:0;font-size:15px;line-height:1.45;resize:none;color:var(--mq-ink)}
-#social .mq-ig-textarea::placeholder{color:var(--mq-muted)}
-#social .mq-ig-preview{position:relative;margin:10px 0 0;display:block}
-#social .mq-ig-preview[hidden]{display:none}
-#social .mq-ig-preview img{display:block;width:100%;max-height:340px;object-fit:cover;border-radius:10px}
-#social .mq-ig-preview button{position:absolute;top:10px;right:10px;border:0;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:700;background:rgba(0,0,0,.65);color:#fff;cursor:pointer}
-#social .mq-ig-chips{display:flex;gap:7px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
-#social .mq-ig-chips::-webkit-scrollbar{display:none}
-#social .mq-ig-chip{flex:0 0 auto;border:1px solid var(--mq-line);background:transparent;color:var(--mq-muted);border-radius:99px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer}
-#social .mq-ig-chip.active{background:var(--mq-ink);border-color:var(--mq-ink);color:var(--mq-paper)}
-#social .mq-ig-compose-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 0;padding-top:10px;border-top:1px solid var(--mq-line)}
-#social .mq-ig-soft-btn{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--mq-ink);border:0;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:650}
-#social .mq-ig-soft-btn:hover{background:var(--mq-bg)}
-#social .mq-ig-publish{margin:0;background:#0095f6;color:#fff;box-shadow:none;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:700}
-#social .mq-ig-publish:hover{background:#1877f2}
-#social .mq-ig-publish:disabled{opacity:.5;cursor:default}
-
-/* Titre et filtres du fil */
-#social .mq-ig-feed-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 10px}
-#social .mq-ig-feed-head h3{font-size:17px;letter-spacing:-.2px;margin:0}
-#social .mq-ig-feed-head p{display:none}
-#social .mq-ig-tabs{padding:3px;border-radius:10px;background:var(--mq-bg);border:0;gap:2px}
-#social .mq-ig-tab{padding:7px 13px;border-radius:8px;font-size:12px;font-weight:650;color:var(--mq-muted)}
-#social .mq-ig-tab.active{background:var(--mq-paper);color:var(--mq-ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-#social .mq-ig-filters{gap:7px;padding:2px 0 14px;scrollbar-width:none}
-#social .mq-ig-filters::-webkit-scrollbar{display:none}
-#social .mq-ig-filter{padding:6px 13px;font-size:12px;font-weight:600;background:transparent;border-color:var(--mq-line);color:var(--mq-muted)}
-#social .mq-ig-filter.active{background:var(--mq-ink);border-color:var(--mq-ink);color:var(--mq-paper)}
-
-/* Publication */
-#social .mq-ig-post{margin:0 0 18px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;overflow:hidden}
-#social .mq-ig-post-head{display:flex;align-items:center;gap:11px;padding:11px 14px}
-#social .mq-ig-post-ring{display:grid;place-items:center;flex:0 0 auto;width:42px;height:42px;padding:2px;border-radius:50%;background:conic-gradient(from 210deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5,#feda75)}
-#social .mq-ig-post-ring .social-avatar{width:100%;height:100%;border:2px solid var(--mq-paper);font-size:15px}
-#social .mq-ig-who{display:grid;gap:1px;min-width:0;flex:1}
-#social .mq-ig-who-line{display:flex;align-items:baseline;gap:6px;min-width:0}
-#social .mq-ig-who-line strong{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#social .mq-ig-who-line time,#social .mq-ig-dot{font-size:13px;color:var(--mq-muted);white-space:nowrap}
-#social .mq-ig-who small{font-size:12px;color:var(--mq-muted)}
-#social .mq-ig-iconbtn{display:inline-grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--mq-ink);cursor:pointer;transition:transform .12s}
-#social .mq-ig-iconbtn:hover{opacity:.65}
-#social .mq-ig-iconbtn:active{transform:scale(.88)}
-#social .mq-ig-ico{display:block;width:26px;height:26px}
-#social .mq-ig-ico svg{display:block;width:100%;height:100%}
-#social .mq-ig-more .mq-ig-ico{width:22px;height:22px}
-
-#social .mq-ig-media{position:relative;display:block;max-height:none;overflow:hidden;background:#000;cursor:pointer;-webkit-user-select:none;user-select:none}
-#social .mq-ig-media img{display:block;width:100%;max-height:640px;aspect-ratio:4/5;object-fit:cover;margin:0}
-#social .mq-ig-textcard{position:relative;display:grid;place-items:center;aspect-ratio:1/1;max-height:420px;padding:34px 30px;text-align:center;color:#fff;-webkit-user-select:none;user-select:none}
-#social .mq-ig-textcard p{margin:0;font-size:clamp(19px,3.4vw,26px);line-height:1.35;font-weight:700;letter-spacing:-.3px;overflow-wrap:anywhere;white-space:pre-wrap}
-#social .mq-ig-textcard.t0{background:linear-gradient(135deg,#833ab4,#fd1d1d 60%,#fcb045)}
-#social .mq-ig-textcard.t1{background:linear-gradient(135deg,#0f2027,#2c5364)}
-#social .mq-ig-textcard.t2{background:linear-gradient(135deg,#11998e,#38ef7d);color:#06231c}
-#social .mq-ig-textcard.t3{background:linear-gradient(135deg,#4776e6,#8e54e9)}
-#social .mq-ig-textcard.t4{background:linear-gradient(135deg,#f7971e,#ffd200);color:#2e2100}
-
-#social .mq-ig-burst{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;color:#fff;pointer-events:none;filter:drop-shadow(0 4px 14px rgba(0,0,0,.35));animation:mqBurst .75s ease-out forwards}
-#social .mq-ig-burst svg{display:block;width:100%;height:100%;fill:currentColor;stroke:none}
-@keyframes mqBurst{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.15);opacity:1}55%{transform:scale(.95)}100%{transform:scale(1.2);opacity:0}}
-
-#social .mq-ig-actions{display:flex;align-items:center;gap:2px;padding:6px 8px 0;border:0}
-#social .mq-ig-save{margin-left:auto}
-#social .mq-ig-like.liked{color:#ff3040}
-#social .mq-ig-like.liked .mq-ig-ico svg{fill:currentColor;animation:mqPop .3s ease-out}
-#social .mq-ig-save.saved .mq-ig-ico svg{fill:currentColor}
-@keyframes mqPop{0%{transform:scale(.7)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
-#social .mq-ig-likes{padding:2px 14px 0;font-size:14px;font-weight:700}
-#social .mq-ig-likes.empty{font-weight:500;color:var(--mq-muted);font-size:13px}
-#social .mq-ig-caption{margin:5px 0 0;padding:0 14px;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-#social .mq-ig-caption strong{font-weight:700}
-#social .mq-ig-comments{padding:4px 14px 0}
-#social .mq-ig-comments p{margin:2px 0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
-#social .mq-ig-viewall{display:block;border:0;background:none;padding:2px 0;font-size:13px;color:var(--mq-muted);cursor:pointer}
-#social .mq-ig-comment-form{display:flex;align-items:center;gap:8px;margin:8px 0 0;padding:4px 14px 12px}
-#social .mq-ig-comment-form[hidden]{display:none}
-#social .mq-ig-comment-form input{flex:1;min-width:0;border:0;background:transparent;padding:8px 0;font-size:14px;color:var(--mq-ink);outline:0}
-#social .mq-ig-comment-form input::placeholder{color:var(--mq-muted)}
-#social .mq-ig-comment-form button{border:0;background:none;color:#0095f6;font-weight:700;font-size:14px;cursor:pointer;padding:6px 0}
-#social .mq-ig-comment-form button:disabled{opacity:0;pointer-events:none}
-#social .mq-ig-empty{display:grid;gap:6px;padding:48px 20px;text-align:center;border:1px dashed var(--mq-line);border-radius:14px;color:var(--mq-muted);font-size:13px}
-#social .mq-ig-empty strong{color:var(--mq-ink);font-size:16px}
-
-/* Colonne droite */
-#social .mq-ig-side{position:sticky;top:88px;display:grid;gap:18px}
-#social .mq-ig-side-me{display:flex;align-items:center;gap:12px;padding:4px 2px}
-#social .mq-ig-side-me .social-avatar{width:56px;height:56px;font-size:20px}
-#social .mq-ig-side-me strong{display:block;font-size:14px}
-#social .mq-ig-side-me small{font-size:13px;color:var(--mq-muted)}
-#social .mq-ig-side-card{padding:14px 16px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none}
-#social .mq-ig-side-card strong{font-size:14px}
-#social .mq-ig-side-card p{margin:8px 0 0;font-size:13px;color:var(--mq-muted)}
-
-/* Visionneuse de story (ajoutée à <body>, donc non limitée à #social) */
-.mq-story-viewer{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:0;background:rgba(0,0,0,.92)}
-.mq-story-viewer-panel{position:relative;width:min(420px,100vw);height:min(100dvh,760px);background:#000;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
-.mq-story-viewer-panel>img{width:100%;height:100%;object-fit:contain;background:#000}
-.mq-story-progress{position:absolute;left:12px;right:12px;top:10px;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden;z-index:2}
-.mq-story-progress i{display:block;height:100%;background:#fff;transform-origin:left;animation:mqStory 6s linear forwards}
-@keyframes mqStory{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.mq-story-viewer-top{position:absolute;left:0;right:0;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:22px 14px 30px;color:#fff;background:linear-gradient(rgba(0,0,0,.6),transparent)}
-.mq-story-viewer-top .social-avatar{width:36px;height:36px;font-size:14px}
-.mq-story-who{display:grid;flex:1;line-height:1.2}
-.mq-story-who small{opacity:.75;font-size:12px}
-.mq-story-close{border:0;background:transparent;color:#fff;font-size:20px;width:40px;height:40px;cursor:pointer}
-.mq-story-caption{position:absolute;left:0;right:0;bottom:0;margin:0;padding:40px 18px 24px;color:#fff;font-size:15px;line-height:1.4;background:linear-gradient(transparent,rgba(0,0,0,.7))}
-
-#social .mq-ig-iconbtn:focus-visible,#social .mq-ig-chip:focus-visible,#social .mq-ig-tab:focus-visible,#social .mq-ig-filter:focus-visible,#social .mq-ig-publish:focus-visible,#social .mq-ig-story:focus-visible{outline:2px solid #0095f6;outline-offset:2px}
-
-@media(max-width:900px){#social .mq-ig-layout{grid-template-columns:minmax(0,600px)}#social .mq-ig-side{display:none}}
-@media(max-width:620px){
-  #social .mq-ig-stories-card,#social .mq-ig-composer,#social .mq-ig-post{border-radius:12px}
-  #social .mq-ig-feed-head{flex-direction:column;align-items:stretch}
-  #social .mq-ig-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
-  #social .mq-ig-media img{max-height:560px}
-}
-@media(prefers-reduced-motion:reduce){#social .mq-ig-burst,#social .mq-ig-like.liked .mq-ig-ico svg{animation:none}.mq-story-progress i{animation-duration:.01s}}
-#social .mq-ig-post-ring .social-avatar,#social .mq-ig-story-avatar,#social .mq-ig-side-me .social-avatar,#social .mq-ig-compose-top .social-avatar,.mq-story-viewer-top .social-avatar{overflow:hidden;border-radius:50%}
-#social .mq-ig-post-ring .social-avatar img,#social .mq-ig-story-avatar img,#social .mq-ig-side-me .social-avatar img,#social .mq-ig-compose-top .social-avatar img,.mq-story-viewer-top .social-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-</style>
-
-<style id="medquiz-lives-stats-v1">
-#socialMain.mq-wide{padding:18px}
-.mq-lv-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.mq-lv-head h3{margin:0;font-size:22px;letter-spacing:-.4px}.mq-lv-head p{margin:2px 0 0;font-size:13px;color:var(--mq-muted)}
-.mq-lv-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--mq-line);background:var(--mq-paper);color:var(--mq-ink);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:transform .12s,background .15s}.mq-lv-btn:hover{background:var(--mq-bg)}.mq-lv-btn:active{transform:scale(.96)}.mq-lv-btn.primary{background:linear-gradient(110deg,#e0245e,#7b3fe4);border:0;color:#fff}.mq-lv-btn.danger{color:#ff4d5e}.mq-lv-btn.on{background:#22c55e;border-color:#22c55e;color:#fff}
-.mq-lv-search{width:100%;border:1px solid var(--mq-line);border-radius:12px;padding:11px 14px;background:var(--mq-bg);color:var(--mq-ink);margin-bottom:6px}
-.mq-lv-sec{margin-top:18px}.mq-lv-sec h4{margin:0 0 10px;font-size:15px}.mq-lv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.mq-lv-empty{font-size:13px;color:var(--mq-muted);margin:6px 0}
-.mq-lv-card{display:grid;gap:9px;padding:15px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper);animation:mqIn .35s ease both}.mq-lv-card.live{border-color:rgba(224,36,94,.45);box-shadow:0 0 0 3px rgba(224,36,94,.08)}.mq-lv-card h4{margin:0;font-size:16px;line-height:1.3}.mq-lv-desc{margin:0;font-size:13px;color:var(--mq-muted);overflow-wrap:anywhere}
-.mq-lv-card-top{display:flex;gap:6px;flex-wrap:wrap}.mq-lv-badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--mq-bg);color:var(--mq-muted)}.mq-lv-badge.live{background:#e0245e;color:#fff;display:inline-flex;align-items:center;gap:6px}.mq-lv-badge.live::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;animation:mqPulse 1.2s infinite}.mq-lv-cat{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--mq-line);color:var(--mq-muted)}
-.mq-lv-host{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:650}.mq-lv-host .social-avatar{width:30px;height:30px;font-size:12px}.mq-lv-faces{display:flex;align-items:center}.mq-lv-faces .social-avatar{width:28px;height:28px;font-size:11px;margin-right:-8px;border:2px solid var(--mq-paper)}.mq-lv-faces small{margin-left:16px;font-size:12px;color:var(--mq-muted)}
-.mq-lv-link{border:0;background:none;color:var(--mq-muted);font-size:12px;cursor:pointer;text-align:left;padding:0}
-.mq-lv-state{padding:11px 14px;border-radius:12px;background:var(--mq-bg);color:var(--mq-muted);font-size:13px;margin:8px 0}.mq-lv-state.error{background:rgba(255,77,94,.12);color:#ff4d5e}.mq-lv-state.ok{background:rgba(34,197,94,.12);color:#22c55e}
-.mq-room{position:relative;overflow:hidden}.mq-room-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mq-room-title h3{margin:0;font-size:20px}.mq-room-title small{margin-left:auto;color:var(--mq-muted)}
-.mq-room-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:10px}.mq-room-main h4,.mq-chat h4{margin:12px 0 8px;font-size:14px}
-.mq-stage,.mq-aud{display:flex;flex-wrap:wrap;gap:12px}.mq-person{display:grid;justify-items:center;gap:4px;width:84px;border:0;background:none;color:var(--mq-ink);font-size:12px;cursor:pointer}.mq-person .social-avatar{width:60px;height:60px;font-size:20px;outline:3px solid transparent;outline-offset:2px;transition:outline-color .15s}.mq-stage .mq-person .social-avatar{width:72px;height:72px}.mq-person.speaking .social-avatar{outline-color:#22c55e}.mq-person small{font-size:10px;color:var(--mq-muted)}
-.mq-chat{display:flex;flex-direction:column;border:1px solid var(--mq-line);border-radius:16px;padding:12px;background:var(--mq-bg);min-height:320px}.mq-chat h4{margin-top:0}.mq-chat-list{flex:1;max-height:340px;overflow-y:auto;font-size:13px}.mq-chat-list p{margin:4px 0;overflow-wrap:anywhere}.mq-chat-form{display:flex;gap:6px;margin-top:8px}.mq-chat-form input{flex:1;min-width:0;border:1px solid var(--mq-line);border-radius:10px;padding:9px;background:var(--mq-paper);color:var(--mq-ink)}.mq-chat-form button{border:0;border-radius:10px;background:#0095f6;color:#fff;font-weight:700;padding:0 12px}
-.mq-controls{position:sticky;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px;padding:10px;border:1px solid var(--mq-line);border-radius:18px;background:var(--mq-paper);box-shadow:0 8px 28px rgba(0,0,0,.16)}.mq-react{border:0;background:var(--mq-bg);border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;transition:transform .12s}.mq-react:active{transform:scale(1.3)}
-.mq-fly{position:absolute;bottom:70px;font-size:30px;pointer-events:none;animation:mqFly 1.8s ease-out forwards}@keyframes mqFly{to{transform:translateY(-260px);opacity:0}}@keyframes mqPulse{50%{opacity:.25}}@keyframes mqIn{from{opacity:0;transform:translateY(6px)}}
-.mq-modal{position:fixed;inset:0;z-index:99998;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.55)}.mq-modal-box{width:min(460px,100%);max-height:92vh;overflow:auto;border-radius:20px;padding:18px;background:var(--mq-paper,#fff);color:var(--mq-ink,#111);animation:mqIn .2s ease}.mq-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.mq-modal-head h3{margin:0}.mq-modal-x{border:0;background:none;color:inherit;font-size:20px;cursor:pointer}.mq-form{display:grid;gap:11px}.mq-form label{display:grid;gap:5px;font-size:13px;font-weight:650}.mq-form input,.mq-form textarea,.mq-form select{border:1px solid var(--mq-line,#ddd);border-radius:10px;padding:10px;background:var(--mq-bg,#f5f5f5);color:inherit;font:inherit}.mq-actions{display:grid;gap:8px}
-.mq-st-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mq-st-card{display:grid;gap:2px;padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper);animation:mqIn .35s ease both}.mq-st-card small{font-size:12px;color:var(--mq-muted)}.mq-st-card strong{font-size:28px;letter-spacing:-1px}.mq-st-card span{font-size:11px;color:var(--mq-muted)}
-.mq-st-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}.mq-st-chart{padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper)}.mq-st-chart h4{margin:0 0 8px;font-size:14px}.mq-st-chart svg{width:100%;height:140px;fill:var(--mq-violet)}.mq-st-chart rect:hover{opacity:.6}
-.mq-st-perf{margin-top:14px;padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper)}.mq-st-perf select{border:1px solid var(--mq-line);border-radius:10px;padding:7px;background:var(--mq-bg);color:var(--mq-ink)}.mq-st-post{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--mq-line)}.mq-st-post>div:nth-child(2){flex:1;min-width:0;display:grid}.mq-st-post small{color:var(--mq-muted);font-size:11px}.mq-st-thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:var(--mq-bg);color:var(--mq-muted);font-weight:800}.mq-st-thumb img{width:100%;height:100%;object-fit:cover}.mq-st-nums{display:flex;gap:10px;font-size:12px;white-space:nowrap}
-@media(max-width:760px){.mq-room-grid{grid-template-columns:1fr}.mq-controls{border-radius:16px}}
-@media(prefers-reduced-motion:reduce){.mq-lv-card,.mq-st-card,.mq-fly,.mq-lv-badge.live::before{animation:none}}
-</style>
