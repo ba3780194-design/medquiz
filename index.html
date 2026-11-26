@@ -1556,6 +1556,19 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
 <div class="field"><label for="loginPassword">Mot de passe</label><div class="mq-password-wrap"><input id="loginPassword" placeholder="Ton mot de passe" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="loginPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
 <button class="btn btn-primary" type="submit">Se connecter</button>
 <p class="auth-switch">Pas encore de compte ? <button class="text-link" id="showSignup" type="button">Créer un compte</button></p>
+<p class="auth-switch"><button class="text-link" id="showForgotPassword" type="button">Mot de passe oublié ?</button></p>
+</form>
+<form class="hidden" id="forgotPasswordForm">
+  <p>Entre l’adresse e-mail associée à ton compte. Nous t’enverrons un lien pour choisir un nouveau mot de passe.</p>
+  <div class="field"><label for="forgotEmail">Adresse e-mail</label><input id="forgotEmail" placeholder="Ton e-mail" required="" type="email"/></div>
+  <button class="btn btn-primary" type="submit">Envoyer le lien de réinitialisation</button>
+  <p class="auth-switch"><button class="text-link" id="backToLogin" type="button">Retour à la connexion</button></p>
+</form>
+<form class="hidden" id="updatePasswordForm">
+  <p>Choisis ton nouveau mot de passe pour ton compte MedQuiz.</p>
+  <div class="field"><label for="newAccountPassword">Nouveau mot de passe</label><div class="mq-password-wrap"><input id="newAccountPassword" minlength="6" placeholder="Minimum 6 caractères" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="newAccountPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
+  <div class="field"><label for="confirmAccountPassword">Confirmer le mot de passe</label><div class="mq-password-wrap"><input id="confirmAccountPassword" minlength="6" placeholder="Répète le mot de passe" required="" type="password"/><button class="mq-password-toggle" type="button" data-password-toggle="confirmAccountPassword" aria-label="Afficher le mot de passe" aria-pressed="false">👁</button></div></div>
+  <button class="btn btn-primary" type="submit">Enregistrer le nouveau mot de passe</button>
 </form>
 <div aria-live="polite" id="message"></div>
 <button class="btn btn-secondary hidden" id="resendConfirmation" type="button" style="width:100%;margin-top:12px">Renvoyer l’e-mail de confirmation</button>
@@ -1731,20 +1744,21 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
     });
     document.querySelectorAll("[data-go]").forEach(card => card.addEventListener("click", () => afficherPage(card.dataset.go)));
 
-    $("showLogin").addEventListener("click", () => {
-      $("signupForm").classList.add("hidden");
-      $("loginForm").classList.remove("hidden");
-      $("formTitle").textContent = "Connexion";
+    function afficherFormulaireAuth(formId, titre) {
+      ["signupForm", "loginForm", "forgotPasswordForm", "updatePasswordForm"].forEach(id => $(id)?.classList.toggle("hidden", id !== formId));
+      $("formTitle").textContent = titre;
       message.textContent = "";
       message.classList.remove("error");
+      $("resendConfirmation")?.classList.add("hidden");
+    }
+
+    $("showLogin").addEventListener("click", () => afficherFormulaireAuth("loginForm", "Connexion"));
+    $("showSignup").addEventListener("click", () => afficherFormulaireAuth("signupForm", "Créer un compte"));
+    $("showForgotPassword")?.addEventListener("click", () => {
+      $("forgotEmail").value = $("loginEmail").value.trim();
+      afficherFormulaireAuth("forgotPasswordForm", "Mot de passe oublié");
     });
-    $("showSignup").addEventListener("click", () => {
-      $("loginForm").classList.add("hidden");
-      $("signupForm").classList.remove("hidden");
-      $("formTitle").textContent = "Créer un compte";
-      message.textContent = "";
-      message.classList.remove("error");
-    });
+    $("backToLogin")?.addEventListener("click", () => afficherFormulaireAuth("loginForm", "Connexion"));
 
     // Afficher ou masquer les mots de passe, sans modifier leur valeur.
     document.querySelectorAll("[data-password-toggle]").forEach((button) => {
@@ -1757,6 +1771,75 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
         button.setAttribute("aria-label", visible ? "Masquer le mot de passe" : "Afficher le mot de passe");
         button.setAttribute("aria-pressed", String(visible));
       });
+    });
+
+    let emailConfirmationEnAttente = "";
+    function afficherRenvoiConfirmation(email) {
+      emailConfirmationEnAttente = (email || "").trim();
+      $("resendConfirmation")?.classList.toggle("hidden", !emailConfirmationEnAttente);
+    }
+
+    $("resendConfirmation")?.addEventListener("click", async () => {
+      const email = emailConfirmationEnAttente;
+      if (!email) return;
+      const bouton = $("resendConfirmation");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi en cours...";
+      const { error } = await supabase.auth.resend({
+        type: "signup", email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      bouton.disabled = false;
+      bouton.textContent = "Renvoyer l’e-mail de confirmation";
+      message.classList.toggle("error", !!error);
+      message.textContent = error
+        ? "Impossible de renvoyer l’e-mail : " + error.message
+        : "Un nouvel e-mail de confirmation vient d’être envoyé. Vérifie aussi tes courriers indésirables.";
+    });
+
+    $("forgotPasswordForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = $("forgotEmail").value.trim();
+      message.textContent = "Envoi du lien en cours...";
+      message.classList.remove("error");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      if (error) {
+        message.textContent = "Impossible d’envoyer le lien : " + error.message;
+        message.classList.add("error");
+      } else {
+        message.textContent = "Si cette adresse correspond à un compte, un e-mail de réinitialisation vient d’être envoyé. Vérifie ta boîte de réception et tes courriers indésirables.";
+      }
+    });
+
+    $("updatePasswordForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = $("newAccountPassword").value;
+      const confirmation = $("confirmAccountPassword").value;
+      if (password.length < 6) {
+        message.textContent = "Le mot de passe doit contenir au moins 6 caractères.";
+        message.classList.add("error");
+        return;
+      }
+      if (password !== confirmation) {
+        message.textContent = "Les deux mots de passe ne correspondent pas.";
+        message.classList.add("error");
+        return;
+      }
+      message.textContent = "Mise à jour du mot de passe...";
+      message.classList.remove("error");
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        message.textContent = "Impossible de modifier le mot de passe : " + error.message;
+        message.classList.add("error");
+      } else {
+        message.textContent = "Ton mot de passe a été modifié avec succès. Tu peux maintenant te connecter avec ce nouveau mot de passe.";
+        $("updatePasswordForm").reset();
+        await supabase.auth.signOut();
+        afficherFormulaireAuth("loginForm", "Connexion");
+        message.textContent = "Mot de passe modifié avec succès. Connecte-toi avec ton nouveau mot de passe.";
+      }
     });
 
     $("editPseudoBtn").addEventListener("click", () => {
@@ -1811,39 +1894,6 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
       $("editPseudoForm").classList.add("hidden");
     });
 
-    let emailConfirmationEnAttente = "";
-
-    function afficherRenvoiConfirmation(email) {
-      emailConfirmationEnAttente = (email || "").trim();
-      $("resendConfirmation")?.classList.toggle("hidden", !emailConfirmationEnAttente);
-    }
-
-    $("resendConfirmation")?.addEventListener("click", async () => {
-      const email = emailConfirmationEnAttente || $("signupEmail")?.value.trim() || $("loginEmail")?.value.trim();
-      if (!email) {
-        message.textContent = "Saisis ton adresse e-mail pour recevoir un nouveau lien.";
-        message.classList.add("error");
-        return;
-      }
-      const bouton = $("resendConfirmation");
-      bouton.disabled = true;
-      bouton.textContent = "Envoi en cours...";
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: window.location.origin }
-      });
-      bouton.disabled = false;
-      bouton.textContent = "Renvoyer l’e-mail de confirmation";
-      if (error) {
-        message.textContent = "Impossible de renvoyer l’e-mail : " + error.message;
-        message.classList.add("error");
-      } else {
-        message.classList.remove("error");
-        message.textContent = "Un nouvel e-mail de confirmation vient d’être envoyé. Vérifie aussi tes courriers indésirables.";
-      }
-    });
-
     $("signupForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       message.textContent = "Création du compte en cours...";
@@ -1854,10 +1904,7 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
       const password = $("signupPassword").value;
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: {
-          data: { pseudonyme },
-          emailRedirectTo: window.location.origin
-        }
+        options: { data: { pseudonyme }, emailRedirectTo: window.location.origin }
       });
       if (error) {
         message.textContent = "Erreur : " + error.message;
@@ -1885,11 +1932,9 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
       const password = $("loginPassword").value;
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        const nonConfirme = error.code === "email_not_confirmed" ||
-          /email not confirmed|email_not_confirmed/i.test(error.message || "");
+        const nonConfirme = error.code === "email_not_confirmed" || /email not confirmed|email_not_confirmed/i.test(error.message || "");
         if (nonConfirme) {
           message.textContent = "Ton adresse e-mail n’est pas encore confirmée. Ouvre le message envoyé par MedQuiz ou demande un nouvel e-mail ci-dessous.";
-          message.classList.remove("error");
           afficherRenvoiConfirmation(email);
         } else {
           message.textContent = "Erreur : " + error.message;
@@ -4905,13 +4950,13 @@ d|Quelle intervention est une solution ultime de l'IC ?|La transplantation cardi
       const dispo = selTheme.value ? base.filter(q => q.theme === selTheme.value).length : base.length;
       const select = $("nombreQuiz");
       const ancien = select.value;
-      const valeurs = [5, 10, 20, 30].filter(n => n <= dispo && (premium.actif || niv !== "difficile" || n <= LIMITE_DIFFICILE));
+      const valeurs = [5, 10, 20, 30, 50].filter(n => n <= dispo && (premium.actif || niv !== "difficile" || n <= LIMITE_DIFFICILE));
       if (!valeurs.length || (valeurs[valeurs.length - 1] < dispo && (premium.actif || niv !== "difficile"))) valeurs.push(Math.min(dispo, premium.actif || niv !== "difficile" ? dispo : LIMITE_DIFFICILE));
       select.replaceChildren();
       valeurs.forEach(n => {
         const opt = document.createElement("option");
         opt.value = String(n);
-        opt.textContent = n === dispo && ![5, 10, 20, 30].includes(n) ? `Toutes (${n} questions)` : `${n} questions`;
+        opt.textContent = n === dispo && ![5, 10, 20, 30, 50].includes(n) ? `Toutes (${n} questions)` : `${n} questions`;
         select.append(opt);
       });
       select.value = valeurs.map(String).includes(ancien) ? ancien : String(valeurs[0]);
@@ -7026,6 +7071,11 @@ function lignesDePage(items) {
     });
 
     supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === "PASSWORD_RECOVERY") {
+        afficherPage("compte");
+        afficherFormulaireAuth("updatePasswordForm", "Nouveau mot de passe");
+        message.textContent = "Lien vérifié. Choisis ton nouveau mot de passe.";
+      }
       if (session?.user) {
         utilisateurActuel = session.user;
         $("accountNav").textContent = "Mon profil";
