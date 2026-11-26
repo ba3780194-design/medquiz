@@ -7816,6 +7816,7 @@ img,svg,video,canvas{max-width:100%}
         it.appendChild(el('div','ic',b.ic));var t=el('div');t.appendChild(el('b','',b.n));t.appendChild(el('span','',b.d));it.appendChild(t);nw.appendChild(it)});
       card.appendChild(nw);
     }
+    if(tier.rewardText){var rw=el('div','mq-er-points',tier.rewardText);rw.style.cssText='margin:14px auto 4px;padding:11px 15px;border-radius:13px;background:rgba(255,255,255,.12);font-weight:900;font-size:15px';card.appendChild(rw)}
     var btn=el('button','mq-er-btn','Continuer');btn.type='button';card.appendChild(btn);
     ov.appendChild(card);document.body.appendChild(ov);
     confetti(card,[tier.c,tier.c1,'#fff','#8b75ff','#31d6c2']);
@@ -7829,10 +7830,12 @@ img,svg,video,canvas{max-width:100%}
     document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',esc)}});
   }
 
-  function award(bonnes,total){
+  function pointsPour(pct){return pct>=90?100:pct>=80?75:pct>=70?50:pct>=60?30:pct>=50?15:5}
+  var activeExamKey=null;
+  function nouvelleCleExamen(){try{return crypto.randomUUID()}catch(e){return 'exam-'+Date.now()+'-'+Math.random().toString(36).slice(2)}}
+  async function award(bonnes,total,preview){
     if(!total)return;
-    var pct=Math.round(bonnes/total*100),d=load(),before=Object.keys(d.badges);
-    var prevBest=d.best;
+    var pct=Math.round(bonnes/total*100),d=load(),prevBest=d.best;
     d.exams++;d.best=Math.max(d.best,pct);d.streak=pct>=50?d.streak+1:0;
     d.history.push({pct:pct,t:Date.now()});d.history=d.history.slice(-20);
     var got=[];function unlock(id){if(!d.badges[id]){d.badges[id]=Date.now();got.push(id)}}
@@ -7841,6 +7844,19 @@ img,svg,video,canvas{max-width:100%}
     save(d);
     var tier=TIERS.filter(function(t){return pct>=t.min})[0];
     var newOnes=BADGES.filter(function(b){return got.indexOf(b.id)>-1});
+    var points=pointsPour(pct), rewardText='';
+    if(!preview&&typeof supabase!=='undefined'&&typeof utilisateurActuel!=='undefined'&&utilisateurActuel&&utilisateurActuel.id){
+      try{
+        var key=activeExamKey||(activeExamKey=nouvelleCleExamen());
+        var rep=await supabase.rpc('award_exam_white_points',{p_exam_key:key,p_correct:bonnes,p_total:total});
+        if(rep.error)throw rep.error;
+        var result=rep.data||{};
+        if(result.already_awarded){rewardText='🔒 Récompense déjà enregistrée pour cet examen';}
+        else{points=Number(result.points_awarded)||points;rewardText='🎁 +'+points+' points ajoutés à tes classements !';}
+        if(typeof chargerHistorique==='function')await chargerHistorique();
+      }catch(err){console.error('Récompense examen blanc non enregistrée :',err);rewardText='⚠️ Points non enregistrés. Vérifie le script SQL dans Supabase.'}
+    }else if(!preview){rewardText='Connecte-toi pour gagner tes points dans les classements.'}
+    tier.rewardText=rewardText;
     show(pct,bonnes,total,newOnes,tier);renderStrip(got);
   }
 
@@ -7859,7 +7875,7 @@ img,svg,video,canvas{max-width:100%}
   }
   function onKicker(){
     var k=document.getElementById('mqQuizKicker');if(!k)return;var tx=k.textContent||'';
-    if(isExamTitle(tx)){examFlag=true;done=false}
+    if(isExamTitle(tx)){if(!examFlag)activeExamKey=nouvelleCleExamen();examFlag=true;done=false}
     else if(/TERMIN/i.test(tx)){
       if(examFlag&&!done){
         var tries=0;(function wait(){if(done)return;if(tryResult()){done=true;examFlag=false;return}if(++tries<12)setTimeout(wait,250)})();
@@ -7871,10 +7887,10 @@ img,svg,video,canvas{max-width:100%}
     var k=document.getElementById('mqQuizKicker');
     if(k&&!watching){watching=true;new MutationObserver(onKicker).observe(k,{childList:true,characterData:true,subtree:true})}
     var b=document.getElementById('ouvrirExamenBlanc');
-    if(b)b.addEventListener('click',function(){examFlag=true;done=false},true);
+    if(b)b.addEventListener('click',function(){activeExamKey=nouvelleCleExamen();examFlag=true;done=false},true);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
-  window.medquizExamRewardsDemo=function(p){var t=Math.round((p==null?80:p));award(t,100)};
+  window.medquizExamRewardsDemo=function(p){var t=Math.round((p==null?80:p));award(t,100,true)};
 })();
 </script>
 
