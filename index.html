@@ -8216,3 +8216,47 @@ html body .mq-stats-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,1
 }
 </style>
 
+
+
+<style id="medquiz-quiz-balance-v1">
+/* ===== Quiz : réponses en cartes, bouton Suivant à portée de pouce, 2 colonnes sur PC ===== */
+#mqQuizFocus .quiz-area{counter-reset:qa}
+#mqQuizFocus .quiz-area .quiz-answer{counter-increment:qa;display:flex!important;align-items:center;gap:12px;touch-action:manipulation;transition:transform .12s,border-color .15s,background .15s}
+#mqQuizFocus .quiz-area .quiz-answer::before{content:counter(qa,upper-alpha);flex:0 0 auto;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;font-size:.82rem;font-weight:800;background:var(--fq-card,#fff);border:1px solid var(--fq-line,#dcd9ec);color:var(--fq-accent,#6847f5)}
+#mqQuizFocus .quiz-area .quiz-answer:active:not(:disabled){transform:scale(.985)}
+#mqQuizFocus .quiz-area .quiz-answer.correct::before{background:#1f9d5c;border-color:#1f9d5c;color:#fff;content:"✓"}
+#mqQuizFocus .quiz-area .quiz-answer.wrong::before{background:#d93a3a;border-color:#d93a3a;color:#fff;content:"✕"}
+/* Bouton « Question suivante » collé en bas de l'écran */
+#mqQuizFocus .quiz-area>.btn.btn-primary:last-child{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:100%;min-height:52px;justify-content:center;box-shadow:0 10px 26px rgba(40,30,110,.28);z-index:3}
+@media(max-width:640px){
+  #mqQuizFocus .quiz-area .quiz-answer{min-height:60px!important;margin:0 0 10px!important}
+  #mqQuizFocus .mq-focus-main{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))!important}
+}
+@media(min-width:1024px){
+  #mqQuizFocus main.mq-focus-main{width:min(1040px,100%)!important;max-width:1040px!important}
+  #mqQuizFocus .quiz-area{display:grid!important;grid-template-columns:1fr 1fr;gap:12px 16px;align-content:start}
+  #mqQuizFocus .quiz-area>*{grid-column:1/-1}
+  #mqQuizFocus .quiz-area>.quiz-answer{grid-column:auto;margin:0!important;height:100%}
+  #mqQuizFocus .quiz-area .quiz-answer::before{content:counter(qa)}
+  #mqQuizFocus .quiz-area>.btn.btn-primary:last-child{position:static;width:auto;justify-self:start;min-width:260px}
+}
+</style>
+<script id="medquiz-quiz-shortcuts-v1">
+/* Raccourcis clavier (PC) : 1–4 / A–D pour répondre, Entrée ou Espace pour continuer */
+document.addEventListener("keydown",function(e){
+  try{
+    var f=document.getElementById("mqQuizFocus");
+    if(!f||!f.classList.contains("is-open"))return;
+    var d=document.getElementById("mqQuitDialog");if(d&&d.classList.contains("is-open"))return;
+    var t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;
+    var z=document.getElementById("mqQuizZone");if(!z)return;
+    var k=e.key.toLowerCase(),i="1234".indexOf(k);if(i<0)i="abcd".indexOf(k);
+    if(i>=0){var a=z.querySelectorAll(".quiz-answer:not(:disabled)");if(a[i]){e.preventDefault();a[i].click();}return;}
+    if(k==="enter"||k===" "){
+      if(z.querySelector(".quiz-answer:not(:disabled)"))return;
+      var n=z.querySelector(":scope>.btn.btn-primary:last-child");
+      if(n){e.preventDefault();n.click();}
+    }
+  }catch(_){}
+});
+</script>
