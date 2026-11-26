@@ -1558,6 +1558,7 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
 <p class="auth-switch">Pas encore de compte ? <button class="text-link" id="showSignup" type="button">Créer un compte</button></p>
 </form>
 <div aria-live="polite" id="message"></div>
+<button class="btn btn-secondary hidden" id="resendConfirmation" type="button" style="width:100%;margin-top:12px">Renvoyer l’e-mail de confirmation</button>
 </div>
 </div>
 </section>
@@ -1810,41 +1811,90 @@ html{min-height:100%;-webkit-text-size-adjust:100%;} body{min-height:100vh;min-h
       $("editPseudoForm").classList.add("hidden");
     });
 
+    let emailConfirmationEnAttente = "";
+
+    function afficherRenvoiConfirmation(email) {
+      emailConfirmationEnAttente = (email || "").trim();
+      $("resendConfirmation")?.classList.toggle("hidden", !emailConfirmationEnAttente);
+    }
+
+    $("resendConfirmation")?.addEventListener("click", async () => {
+      const email = emailConfirmationEnAttente || $("signupEmail")?.value.trim() || $("loginEmail")?.value.trim();
+      if (!email) {
+        message.textContent = "Saisis ton adresse e-mail pour recevoir un nouveau lien.";
+        message.classList.add("error");
+        return;
+      }
+      const bouton = $("resendConfirmation");
+      bouton.disabled = true;
+      bouton.textContent = "Envoi en cours...";
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      bouton.disabled = false;
+      bouton.textContent = "Renvoyer l’e-mail de confirmation";
+      if (error) {
+        message.textContent = "Impossible de renvoyer l’e-mail : " + error.message;
+        message.classList.add("error");
+      } else {
+        message.classList.remove("error");
+        message.textContent = "Un nouvel e-mail de confirmation vient d’être envoyé. Vérifie aussi tes courriers indésirables.";
+      }
+    });
+
     $("signupForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       message.textContent = "Création du compte en cours...";
+      message.classList.remove("error");
+      afficherRenvoiConfirmation("");
       const pseudonyme = $("signupPseudo").value.trim();
       const email = $("signupEmail").value.trim();
       const password = $("signupPassword").value;
       const { data, error } = await supabase.auth.signUp({
-        email, password, options: { data: { pseudonyme } }
+        email, password,
+        options: {
+          data: { pseudonyme },
+          emailRedirectTo: window.location.origin
+        }
       });
       if (error) {
         message.textContent = "Erreur : " + error.message;
         message.classList.add("error");
         return;
       }
-      message.classList.remove("error");
+      $("signupForm").reset();
+      chargerPromoLancement();
       if (data.session && data.user) {
         message.textContent = "Compte créé avec succès !";
         utilisateurActuel = data.user;
         afficherPage("member");
       } else {
-        message.textContent = "Compte créé. Vérifie ton e-mail si une confirmation est demandée.";
+        message.textContent = "Compte créé ! Nous venons de t’envoyer un e-mail de confirmation. Clique sur le lien reçu pour activer ton compte MedQuiz, puis connecte-toi.";
+        afficherRenvoiConfirmation(email);
       }
-      $("signupForm").reset();
-      chargerPromoLancement();
     });
 
     $("loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       message.textContent = "Connexion en cours...";
+      message.classList.remove("error");
+      afficherRenvoiConfirmation("");
       const email = $("loginEmail").value.trim();
       const password = $("loginPassword").value;
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        message.textContent = "Erreur : " + error.message;
-        message.classList.add("error");
+        const nonConfirme = error.code === "email_not_confirmed" ||
+          /email not confirmed|email_not_confirmed/i.test(error.message || "");
+        if (nonConfirme) {
+          message.textContent = "Ton adresse e-mail n’est pas encore confirmée. Ouvre le message envoyé par MedQuiz ou demande un nouvel e-mail ci-dessous.";
+          message.classList.remove("error");
+          afficherRenvoiConfirmation(email);
+        } else {
+          message.textContent = "Erreur : " + error.message;
+          message.classList.add("error");
+        }
         return;
       }
       message.classList.remove("error");
