@@ -1578,7 +1578,7 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 </section>
 <section class="page" id="social" aria-label="MedQuiz Social">
  <div class="section-heading"><span class="eyebrow">✦ CAMPUS CONNECTÉ</span><h2>MedQuiz Social</h2><p>Retrouve tes amis, partage tes révisions et lance des défis sans quitter MedQuiz.</p></div>
- <div class="social-tabs"><button class="btn btn-primary" data-social-tab="friends">👥 Mes amis</button><button class="btn btn-secondary" data-social-tab="requests">📨 Invitations <span id="socialRequestCount"></span></button><button class="btn btn-secondary" data-social-tab="search">🔎 Étudiants</button><button class="btn btn-secondary" data-social-tab="chat">💬 Messages</button><button class="btn btn-secondary" data-social-tab="feed">📰 Actualités</button><button class="btn btn-secondary" data-social-tab="groups">📚 Groupes</button><button class="btn btn-secondary" data-social-tab="challenges">⚔️ Défis</button></div>
+ <div class="social-tabs"><button class="btn btn-primary" data-social-tab="friends">👥 Mes amis</button><button class="btn btn-secondary" data-social-tab="requests">📨 Invitations <span id="socialRequestCount"></span></button><button class="btn btn-secondary" data-social-tab="search">🔎 Étudiants</button><button class="btn btn-secondary" data-social-tab="chat">💬 Messages</button><button class="btn btn-secondary" data-social-tab="feed">📰 Actualités</button><button class="btn btn-secondary" data-social-tab="groups">📚 Groupes</button><button class="btn btn-secondary" data-social-tab="challenges">⚔️ Défis</button><button class="btn btn-secondary" data-social-tab="lives">🎙️ Lives</button><button class="btn btn-secondary" data-social-tab="stats">📊 Statistiques</button></div>
  <div id="socialNotice" class="notice" role="status" style="display:none"></div>
  <div class="social-layout">
   <div class="panel social-main" id="socialMain"><h3>Mes amis</h3><p class="muted">Connecte-toi pour retrouver tes amis sur MedQuiz.</p></div>
@@ -7036,15 +7036,14 @@ function lignesDePage(items) {
           zone.replaceChildren();
           const pseudo=pseudoActuel||"Étudiant MedQuiz",uid=utilisateurActuel.id;
           const wrap=el("div","mq-ig-shell");zone.append(wrap);
-          const hero=el("header","mq-ig-hero"),heroCopy=el("div");heroCopy.append(el("span","mq-ig-eyebrow","MEDQUIZ · COMMUNITY"),el("h2","","Le savoir se partage."),el("p","","Tes révisions, tes découvertes et les petites victoires du quotidien."));
-          const heroStat=el("div","mq-ig-hero-stat");heroStat.append(el("strong","","✦"),el("span","","Apprendre ensemble"));hero.append(heroCopy,heroStat);wrap.append(hero);
-          const layout=el("div","mq-ig-layout"),mainCol=el("div","mq-ig-main"),side=el("aside","mq-ig-side");layout.append(mainCol,side);wrap.append(layout);
+                    const layout=el("div","mq-ig-layout"),mainCol=el("div","mq-ig-main"),side=el("aside","mq-ig-side");layout.append(mainCol,side);wrap.append(layout);
           const storiesCard=el("section","mq-ig-stories-card"),storyHead=el("div","mq-ig-section-head");storyHead.append(el("strong","","Stories"),el("small","","Visibles 24 heures"));storiesCard.append(storyHead);
           const storyRail=el("div","mq-ig-stories");storiesCard.append(storyRail);mainCol.append(storiesCard);
           const fileInput=el("input");fileInput.type="file";fileInput.accept="image/*";fileInput.hidden=true;wrap.append(fileInput);
           const compressImage=file=>new Promise((resolve,reject)=>{if(!file||!file.type.startsWith("image/")){reject(new Error("Choisis une image valide."));return;}const rd=new FileReader();rd.onerror=()=>reject(new Error("Lecture de l’image impossible."));rd.onload=()=>{const im=new Image();im.onerror=()=>reject(new Error("Image illisible."));im.onload=()=>{const max=1400,sc=Math.min(1,max/Math.max(im.width,im.height)),cv=document.createElement("canvas");cv.width=Math.max(1,Math.round(im.width*sc));cv.height=Math.max(1,Math.round(im.height*sc));cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);cv.toBlob(b=>b?resolve(b):reject(new Error("Compression impossible.")),"image/jpeg",.78);};im.src=rd.result;};rd.readAsDataURL(file);});
           const uploadMedia=async(file,kind)=>{const blob=await compressImage(file),path=`${uid}/${kind}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;const {error}=await supabase.storage.from("mq-social-media").upload(path,blob,{contentType:"image/jpeg",upsert:false});if(error)throw error;return supabase.storage.from("mq-social-media").getPublicUrl(path).data.publicUrl;};
-          let stories=[],posts=[],savedIds=new Set(),filter="Tous",view="feed",pendingFile=null;
+          let stories=[],posts=[],savedIds=new Set(),filter="Tous",view="feed",pendingFile=null,profs={};
+          const nameOf=(id,fb)=>profs[id]?.pseudonyme||fb||"Étudiant MedQuiz",avOf=id=>profs[id]?.avatar_url||null;
           const loadAll=async()=>{
             const now=new Date().toISOString();
             const [sr,pr,sv]=await Promise.all([
@@ -7058,21 +7057,59 @@ function lignesDePage(items) {
             if(ids.length){const [lr,cr]=await Promise.all([supabase.from("mq_social_likes").select("post_id,user_id").in("post_id",ids),supabase.from("mq_social_comments").select("id,post_id,user_id,author,body,created_at").in("post_id",ids).order("created_at",{ascending:true})]);if(lr.error)throw lr.error;if(cr.error)throw cr.error;likes=lr.data||[];comments=cr.data||[];}
             stories=sr.data||[];savedIds=new Set((sv.data||[]).map(x=>x.post_id));
             posts=(pr.data||[]).map(p=>({...p,likes:likes.filter(x=>x.post_id===p.id),comments:comments.filter(x=>x.post_id===p.id)}));
+            try{const uids=[...new Set([uid,...posts.map(x=>x.user_id),...stories.map(x=>x.user_id),...comments.map(x=>x.user_id)])].filter(Boolean);const {data:pf}=await supabase.from("profiles").select("id,pseudonyme,avatar_url").in("id",uids);(pf||[]).forEach(p=>{profs[p.id]=p});}catch(_){}
           };
-          const openStory=story=>{const overlay=el("div","mq-story-viewer"),panel=el("div","mq-story-viewer-panel"),top=el("div","mq-story-viewer-top");top.append(socialAvatar(null,story.author),el("strong","",story.author||"Étudiant"),socialBtn("✕",()=>overlay.remove(),"mq-story-close"));const im=el("img");im.src=story.image_url;im.alt="Story de "+story.author;panel.append(top,im);if(story.caption)panel.append(el("p","",story.caption));overlay.append(panel);overlay.addEventListener("click",e=>{if(e.target===overlay)overlay.remove()});document.body.append(overlay);};
-          const renderStories=()=>{storyRail.replaceChildren();const add=el("button","mq-ig-story mq-ig-story-add");add.type="button";const av=socialAvatar(null,pseudo);av.classList.add("mq-ig-story-avatar");add.append(av,el("span","","Ta story"));add.addEventListener("click",()=>{fileInput.dataset.kind="story";fileInput.click()});storyRail.append(add);stories.forEach(st=>{const b=el("button","mq-ig-story");b.type="button";const ring=el("span","mq-ig-ring"),im=el("img");im.src=st.image_url;im.alt="";ring.append(im);b.append(ring,el("span","",st.author||"Étudiant"));b.addEventListener("click",()=>openStory(st));storyRail.append(b);});};
+          const seenStories=new Set();
+          const openStory=story=>{seenStories.add(story.id);const overlay=el("div","mq-story-viewer"),panel=el("div","mq-story-viewer-panel"),bar=el("div","mq-story-progress"),fill=el("i"),top=el("div","mq-story-viewer-top");bar.append(fill);let timer=null;const close=()=>{clearTimeout(timer);overlay.remove();document.removeEventListener("keydown",onKey);renderStories();};const onKey=e=>{if(e.key==="Escape")close()};document.addEventListener("keydown",onKey);const who=el("div","mq-story-who");who.append(el("strong","",nameOf(story.user_id,story.author)),el("small","",new Date(story.created_at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));const x=socialBtn("✕",close,"mq-story-close");x.setAttribute("aria-label","Fermer la story");top.append(socialAvatar(avOf(story.user_id),nameOf(story.user_id,story.author)),who,x);const im=el("img");im.src=story.image_url;im.alt="Story de "+nameOf(story.user_id,story.author);panel.append(bar,top,im);if(story.caption)panel.append(el("p","mq-story-caption",story.caption));overlay.append(panel);overlay.addEventListener("click",e=>{if(e.target===overlay)close()});document.body.append(overlay);timer=setTimeout(close,6000);};
+          const renderStories=()=>{storyRail.replaceChildren();const add=el("button","mq-ig-story mq-ig-story-add");add.type="button";const wrapAv=el("span","mq-ig-story-mine"),av=socialAvatar(avOf(uid),pseudo);av.classList.add("mq-ig-story-avatar");wrapAv.append(av,el("b","","+"));add.append(wrapAv,el("span","","Ta story"));add.addEventListener("click",()=>{fileInput.dataset.kind="story";fileInput.click()});storyRail.append(add);stories.forEach(st=>{const b=el("button","mq-ig-story");b.type="button";const ring=el("span","mq-ig-ring"+(seenStories.has(st.id)?" seen":"")),im=el("img");im.src=avOf(st.user_id)||st.image_url;im.alt="";ring.append(im);b.append(ring,el("span","",nameOf(st.user_id,st.author)));b.addEventListener("click",()=>openStory(st));storyRail.append(b);});if(!stories.length)storyRail.append(el("p","mq-ig-story-hint","Les stories de la communauté apparaîtront ici pendant 24 h."));};
           fileInput.addEventListener("change",async()=>{const file=fileInput.files?.[0];if(!file)return;try{const url=await uploadMedia(file,fileInput.dataset.kind||"post");if(fileInput.dataset.kind==="story"){const caption=prompt("Une légende pour ta story ?")||"";const {error}=await supabase.from("mq_social_stories").insert({user_id:uid,author:pseudo,caption:caption.slice(0,180),image_url:url});if(error)throw error;await loadAll();renderStories();socialNotice("Story publiée pour 24 heures !");}else{pendingFile={url};const im=el("img");im.src=url;im.alt="Aperçu";preview.replaceChildren(im,socialBtn("Retirer",()=>{pendingFile=null;preview.replaceChildren();preview.hidden=true;}));preview.hidden=false;}}catch(e){socialNotice("Envoi impossible : "+e.message,true);}finally{fileInput.value="";}});
           renderStories();
-          const composer=el("section","mq-ig-composer"),composeTop=el("div","mq-ig-compose-top");composeTop.append(socialAvatar(null,pseudo),el("strong","",`Partager avec la communauté`));const area=el("textarea","mq-ig-textarea");area.placeholder="Qu’as-tu appris aujourd’hui ? Une fiche, une question, une victoire…";area.maxLength=1200;
-          const preview=el("div","mq-ig-preview");preview.hidden=true;const composeFoot=el("div","mq-ig-compose-foot"),category=el("select","mq-feed-select");["Révision","Question","Réussite","Conseil","Humour"].forEach(x=>{const o=el("option");o.value=x;o.textContent=x;category.append(o)});
-          const photo=socialBtn("＋ Photo",()=>{fileInput.dataset.kind="post";fileInput.click()},"mq-ig-soft-btn");const publish=socialBtn("Publier ↗",async()=>{const body=area.value.trim();if(body.length<2&&!pendingFile){socialNotice("Ajoute un texte ou une photo.",true);return;}publish.disabled=true;try{const {error}=await supabase.from("mq_social_posts").insert({user_id:uid,author:pseudo,body,category:category.value,image_url:pendingFile?.url||null});if(error)throw error;area.value="";pendingFile=null;preview.replaceChildren();preview.hidden=true;await loadAll();renderPosts();socialNotice("Publication partagée avec la communauté ! ✨");}catch(e){socialNotice("Publication impossible : "+e.message,true);}finally{publish.disabled=false;}},"mq-ig-publish");composeFoot.append(photo,category,publish);composer.append(composeTop,area,preview,composeFoot);mainCol.append(composer);
-          const feedHead=el("div","mq-ig-feed-head"),feedTitle=el("div");feedTitle.append(el("h3","","À découvrir"),el("p","","Les dernières publications des étudiants"));feedHead.append(feedTitle);const tabs=el("div","mq-ig-tabs");[["feed","Pour toi"],["mine","Mes posts"],["saved","Enregistrés"]].forEach(([id,label])=>{const b=socialBtn(label,()=>{view=id;tabs.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));renderPosts()},"mq-ig-tab"+(id==="feed"?" active":""));b.dataset.view=id;tabs.append(b)});feedHead.append(tabs);mainCol.append(feedHead);
+          const composer=el("section","mq-ig-composer"),composeTop=el("div","mq-ig-compose-top");const area=el("textarea","mq-ig-textarea");area.placeholder="Partage une fiche, une question, une victoire…";area.maxLength=1200;area.rows=2;area.setAttribute("aria-label","Écrire une publication");area.addEventListener("input",()=>{area.style.height="auto";area.style.height=Math.min(area.scrollHeight,220)+"px";});const meAv=socialAvatar(avOf(uid),pseudo);meAv.classList.add("mq-ig-mine-av");composeTop.append(meAv,area);
+          const preview=el("div","mq-ig-preview");preview.hidden=true;
+          let catValue="Révision";const category={get value(){return catValue}};const chips=el("div","mq-ig-chips");["Révision","Question","Réussite","Conseil","Humour"].forEach(x=>{const b=socialBtn(x,()=>{catValue=x;chips.querySelectorAll("button").forEach(y=>y.classList.toggle("active",y===b))},"mq-ig-chip"+(x===catValue?" active":""));chips.append(b)});
+          const composeFoot=el("div","mq-ig-compose-foot");
+          const photo=socialBtn("",()=>{fileInput.dataset.kind="post";fileInput.click()},"mq-ig-soft-btn");photo.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg><span>Photo</span>';
+          const publish=socialBtn("Publier",async()=>{const body=area.value.trim();if(body.length<2&&!pendingFile){socialNotice("Ajoute un texte ou une photo.",true);return;}publish.disabled=true;try{const {error}=await supabase.from("mq_social_posts").insert({user_id:uid,author:pseudo,body,category:category.value,image_url:pendingFile?.url||null});if(error)throw error;area.value="";area.style.height="auto";pendingFile=null;preview.replaceChildren();preview.hidden=true;await loadAll();renderPosts();socialNotice("Publié !");}catch(e){socialNotice("Publication impossible : "+e.message,true);}finally{publish.disabled=false;}},"mq-ig-publish");
+          composeFoot.append(photo,publish);composer.append(composeTop,preview,chips,composeFoot);mainCol.append(composer);
+          const feedHead=el("div","mq-ig-feed-head"),feedTitle=el("div");feedTitle.append(el("h3","","Fil d’actualité"));feedHead.append(feedTitle);const tabs=el("div","mq-ig-tabs");[["feed","Pour toi"],["mine","Mes posts"],["saved","Enregistrés"]].forEach(([id,label])=>{const b=socialBtn(label,()=>{view=id;tabs.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.view===id));renderPosts()},"mq-ig-tab"+(id==="feed"?" active":""));b.dataset.view=id;tabs.append(b)});feedHead.append(tabs);mainCol.append(feedHead);
           const filters=el("div","mq-ig-filters");["Tous","Révision","Question","Réussite","Conseil","Humour"].forEach(c=>{const b=socialBtn(c,()=>{filter=c;filters.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.cat===c));renderPosts()},"mq-ig-filter"+(c==="Tous"?" active":""));b.dataset.cat=c;filters.append(b)});mainCol.append(filters);const list=el("div","mq-ig-post-list");mainCol.append(list);
-          const renderPosts=()=>{list.replaceChildren();let rows=[...posts];if(view==="mine")rows=rows.filter(p=>p.user_id===uid);if(view==="saved")rows=rows.filter(p=>savedIds.has(p.id));if(filter!=="Tous")rows=rows.filter(p=>p.category===filter);if(!rows.length){list.append(el("div","mq-ig-empty","✨ Rien ici pour le moment. Sois le premier à partager quelque chose !"));return;}rows.forEach(post=>{const card=el("article","mq-ig-post"),head=el("div","mq-ig-post-head");head.append(socialAvatar(null,post.author));const who=el("div","mq-ig-who");who.append(el("strong","",post.author||"Étudiant MedQuiz"),el("small","",new Date(post.created_at).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"})));head.append(who);const tag=el("span","mq-ig-tag",post.category||"Révision");head.append(tag);if(post.user_id===uid)head.append(socialBtn("···",async()=>{if(!confirm("Supprimer cette publication ?"))return;const {error}=await supabase.from("mq_social_posts").delete().eq("id",post.id);if(error){socialNotice(error.message,true);return;}await loadAll();renderPosts()},"mq-ig-more"));card.append(head);if(post.body)card.append(el("div","mq-ig-post-body",post.body));if(post.image_url){const media=el("div","mq-ig-media"),im=el("img");im.src=post.image_url;im.alt="Publication de "+post.author;media.append(im);media.addEventListener("dblclick",()=>toggleLike(post));card.append(media);}const actions=el("div","mq-ig-actions"),liked=post.likes.some(x=>x.user_id===uid),like=socialBtn((liked?"♥":"♡")+" "+post.likes.length,()=>toggleLike(post),"mq-ig-action"+(liked?" liked":"")),commentBtn=socialBtn("▢ "+post.comments.length+" commentaires",()=>{const f=card.querySelector(".mq-ig-comment-form");f.hidden=!f.hidden;if(!f.hidden)f.querySelector("input").focus()},"mq-ig-action"),save=socialBtn(savedIds.has(post.id)?"▣ Enregistré":"♧ Enregistrer",async()=>{try{if(savedIds.has(post.id)){const {error}=await supabase.from("mq_social_saves").delete().eq("post_id",post.id).eq("user_id",uid);if(error)throw error;savedIds.delete(post.id)}else{const {error}=await supabase.from("mq_social_saves").insert({post_id:post.id,user_id:uid});if(error)throw error;savedIds.add(post.id)}renderPosts()}catch(e){socialNotice(e.message,true)}},"mq-ig-action");actions.append(like,commentBtn,save);card.append(actions);const comments=el("div","mq-ig-comments");post.comments.forEach(c=>{const line=el("p","","");line.append(el("strong","",(c.author||"Étudiant")+" "),document.createTextNode(c.body));comments.append(line)});const form=el("form","mq-ig-comment-form"),input=el("input");input.placeholder="Ajouter un commentaire…";input.maxLength=400;const send=el("button","","Envoyer");send.type="submit";form.append(input,send);form.hidden=true;form.addEventListener("submit",async e=>{e.preventDefault();const body=input.value.trim();if(!body)return;send.disabled=true;try{const {error}=await supabase.from("mq_social_comments").insert({post_id:post.id,user_id:uid,author:pseudo,body});if(error)throw error;await loadAll();renderPosts()}catch(err){socialNotice(err.message,true)}finally{send.disabled=false}});card.append(comments,form);list.append(card);});};
-          const toggleLike=async post=>{const existing=post.likes.find(x=>x.user_id===uid);try{if(existing){const {error}=await supabase.from("mq_social_likes").delete().eq("post_id",post.id).eq("user_id",uid);if(error)throw error;}else{const {error}=await supabase.from("mq_social_likes").insert({post_id:post.id,user_id:uid});if(error)throw error;}await loadAll();renderPosts()}catch(e){socialNotice(e.message,true)}};
-          const about=el("div","mq-ig-side-card");about.append(el("span","mq-ig-eyebrow","TON ESPACE"),el("h3","","La communauté MedQuiz"),el("p","","Partage tes méthodes, pose tes questions et aide les autres à progresser."));side.append(about);
-          const tips=el("div","mq-ig-side-card");tips.append(el("strong","","À partager"),el("p","","📚 Une fiche claire"),el("p","","🧠 Un QCM intéressant"),el("p","","🏆 Une progression"),el("p","","💡 Une astuce de révision"));side.append(tips);
-          try{await loadAll();renderStories();renderPosts();}catch(e){list.replaceChildren(el("div","mq-ig-empty","Le fil partagé n’est pas encore configuré. Exécute le fichier SQL MedQuiz Social fourni avec cette version. Détail : "+e.message));}
+          const ICON={
+            heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.3C1.5 8 3.5 4.8 6.8 4.8c2 0 3.5 1.1 5.2 3 1.7-1.9 3.2-3 5.2-3 3.3 0 5.3 3.200 4.100 6.400-1.800 4.700-9.300 9.300-9.300 9.300z"/></svg>',
+            comment:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.7a8.200 8.200 0 0 1-12 7.300L3.500 20.500l1.500-4.600A8.200 8.200 0 1 1 20.500 11.700z"/></svg>',
+            save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.500h12a1 1 0 0 1 1 1v16.500l-7-4.800-7 4.800V4.500a1 1 0 0 1 1-1z"/></svg>',
+            more:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.700"/><circle cx="12" cy="12" r="1.700"/><circle cx="19" cy="12" r="1.700"/></svg>'
+          };
+          const ago=d=>{const s=Math.max(1,Math.floor((Date.now()-new Date(d))/1000));if(s<60)return"à l’instant";const m=Math.floor(s/60);if(m<60)return m+" min";const h=Math.floor(m/60);if(h<24)return h+" h";const j=Math.floor(h/24);if(j<7)return j+" j";return new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short"});};
+          const iconBtn=(name,label,fn,cls)=>{const b=el("button","mq-ig-iconbtn"+(cls?" "+cls:""));b.type="button";b.setAttribute("aria-label",label);const sp=el("span","mq-ig-ico");sp.innerHTML=ICON[name];b.append(sp);b.addEventListener("click",fn);return b;};
+          const plural=(n,a,b)=>n+" "+(n>1?b:a);
+          const paintLike=post=>{const ui=post._ui;if(!ui)return;const liked=post.likes.some(x=>x.user_id===uid);ui.like.classList.toggle("liked",liked);ui.like.setAttribute("aria-pressed",liked);ui.count.textContent=post.likes.length?plural(post.likes.length,"J’aime","J’aime"):"Sois le premier à aimer";ui.count.classList.toggle("empty",!post.likes.length);};
+          const paintSave=post=>{const ui=post._ui;if(!ui)return;const on=savedIds.has(post.id);ui.save.classList.toggle("saved",on);ui.save.setAttribute("aria-pressed",on);};
+          const toggleSave=async post=>{const was=savedIds.has(post.id);if(was)savedIds.delete(post.id);else savedIds.add(post.id);paintSave(post);try{if(was){const {error}=await supabase.from("mq_social_saves").delete().eq("post_id",post.id).eq("user_id",uid);if(error)throw error}else{const {error}=await supabase.from("mq_social_saves").insert({post_id:post.id,user_id:uid});if(error)throw error}if(view==="saved"&&was)renderPosts();}catch(e){if(was)savedIds.add(post.id);else savedIds.delete(post.id);paintSave(post);socialNotice(e.message,true)}};
+          const toggleLike=async post=>{const i=post.likes.findIndex(x=>x.user_id===uid),was=i>=0;if(was)post.likes.splice(i,1);else post.likes.push({post_id:post.id,user_id:uid});paintLike(post);try{if(was){const {error}=await supabase.from("mq_social_likes").delete().eq("post_id",post.id).eq("user_id",uid);if(error)throw error}else{const {error}=await supabase.from("mq_social_likes").insert({post_id:post.id,user_id:uid});if(error)throw error}}catch(e){socialNotice(e.message,true);try{await loadAll();renderPosts()}catch(_){}}};
+          const burst=host=>{const h=el("span","mq-ig-burst");h.innerHTML=ICON.heart;host.append(h);setTimeout(()=>h.remove(),800);};
+          const likeFromDouble=(post,host)=>{if(!post.likes.some(x=>x.user_id===uid))toggleLike(post);burst(host);};
+          const renderPosts=()=>{list.replaceChildren();let rows=[...posts];if(view==="mine")rows=rows.filter(p=>p.user_id===uid);if(view==="saved")rows=rows.filter(p=>savedIds.has(p.id));if(filter!=="Tous")rows=rows.filter(p=>p.category===filter);if(!rows.length){const em=el("div","mq-ig-empty");em.append(el("strong","",view==="saved"?"Aucune publication enregistrée":view==="mine"?"Tu n’as encore rien publié":"Rien à voir pour le moment"),el("span","",view==="saved"?"Touche le marque-page sous une publication pour la retrouver ici.":"Utilise le champ ci-dessus pour partager le premier post."));list.append(em);return;}
+            rows.forEach(post=>{
+              const card=el("article","mq-ig-post"),head=el("div","mq-ig-post-head"),ring=el("span","mq-ig-post-ring");ring.append(socialAvatar(avOf(post.user_id),nameOf(post.user_id,post.author)));
+              const who=el("div","mq-ig-who"),line=el("div","mq-ig-who-line");line.append(el("strong","",nameOf(post.user_id,post.author)),el("span","mq-ig-dot","•"),el("time","",ago(post.created_at)));who.append(line,el("small","","#"+(post.category||"Révision")));head.append(ring,who);
+              if(post.user_id===uid)head.append(iconBtn("more","Supprimer la publication",async()=>{if(!confirm("Supprimer cette publication ?"))return;const {error}=await supabase.from("mq_social_posts").delete().eq("id",post.id);if(error){socialNotice(error.message,true);return;}await loadAll();renderPosts()},"mq-ig-more"));
+              card._uid=post.user_id;card.append(head);
+              let hasMedia=false;
+              if(post.image_url){hasMedia=true;const media=el("div","mq-ig-media"),im=el("img");im.src=post.image_url;im.alt="Publication de "+nameOf(post.user_id,post.author);im.loading="lazy";media.append(im);media.addEventListener("dblclick",()=>likeFromDouble(post,media));card.append(media);}
+              else if(post.body&&post.body.length<=220){hasMedia=true;const tc=el("div","mq-ig-textcard t"+(([...String(post.id)].reduce((a,c)=>a+c.charCodeAt(0),0))%5));tc.append(el("p","",post.body));tc.addEventListener("dblclick",()=>likeFromDouble(post,tc));card.append(tc);}
+              const actions=el("div","mq-ig-actions"),like=iconBtn("heart","J’aime",()=>toggleLike(post),"mq-ig-like"),cBtn=iconBtn("comment","Commenter",()=>{form.querySelector("input").focus()}),save=iconBtn("save","Enregistrer",()=>toggleSave(post),"mq-ig-save");actions.append(like,cBtn,save);card.append(actions);
+              const count=el("div","mq-ig-likes");card.append(count);
+              post._ui={like,save,count};paintLike(post);paintSave(post);
+              if(post.body&&!(hasMedia&&!post.image_url)){const cap=el("p","mq-ig-caption");cap.append(el("strong","",nameOf(post.user_id,post.author)+" "),document.createTextNode(post.body));card.append(cap);}
+              const box=el("div","mq-ig-comments");let expanded=false;
+              const paintComments=()=>{box.replaceChildren();const all=post.comments,shown=expanded?all:all.slice(-2);if(!expanded&&all.length>2){const more=el("button","mq-ig-viewall","Voir les "+all.length+" commentaires");more.type="button";more.addEventListener("click",()=>{expanded=true;paintComments()});box.append(more);}shown.forEach(c=>{const p=el("p");p.append(el("strong","",nameOf(c.user_id,c.author)+" "),document.createTextNode(c.body));box.append(p)});};paintComments();card.append(box);
+              const form=el("form","mq-ig-comment-form"),input=el("input");input.placeholder="Ajouter un commentaire…";input.maxLength=400;input.setAttribute("aria-label","Ajouter un commentaire");const send=el("button","","Publier");send.type="submit";send.disabled=true;input.addEventListener("input",()=>{send.disabled=!input.value.trim()});form.append(input,send);
+              form.addEventListener("submit",async e=>{e.preventDefault();const body=input.value.trim();if(!body)return;const local={id:"tmp"+Date.now(),post_id:post.id,user_id:uid,author:pseudo,body,created_at:new Date().toISOString()};post.comments.push(local);expanded=true;paintComments();input.value="";send.disabled=true;try{const {error}=await supabase.from("mq_social_comments").insert({post_id:post.id,user_id:uid,author:pseudo,body});if(error)throw error}catch(err){post.comments=post.comments.filter(c=>c!==local);paintComments();socialNotice(err.message,true)}});
+              card.append(form);list.append(card);
+            });};
+          const me=el("div","mq-ig-side-me");const meInfo=el("div");meInfo.append(el("strong","",pseudo),el("small","","Étudiant MedQuiz"));const meAv2=socialAvatar(avOf(uid),pseudo);meAv2.classList.add("mq-ig-mine-av");me.append(meAv2,meInfo);side.append(me);
+          const tips=el("div","mq-ig-side-card");tips.append(el("strong","","Idées de publication"),el("p","","Une fiche claire"),el("p","","Un QCM qui t’a piégé"),el("p","","Ta progression de la semaine"),el("p","","Une astuce de révision"));side.append(tips);
+          try{await loadAll();wrap.querySelectorAll(".mq-ig-mine-av").forEach(a=>{const n=socialAvatar(avOf(uid),nameOf(uid,pseudo));n.className=a.className;a.replaceWith(n)});renderStories();renderPosts();}catch(e){list.replaceChildren(el("div","mq-ig-empty","Le fil partagé n’est pas encore configuré. Exécute le fichier SQL MedQuiz Social fourni avec cette version. Détail : "+e.message));}
         }else if(tab==="groups"){
           zone.replaceChildren(el("h3","","📚 Groupes d’étude"),el("p","muted","Rejoins un espace par matière pour organiser tes révisions."));
           const groups=[{id:"anatomie",icon:"🦴",name:"Anatomie",desc:"Repères, schémas et QCM d’anatomie."},{id:"cardio",icon:"❤️",name:"Cardiologie",desc:"ECG, sémiologie et pathologies cardiaques."},{id:"neuro",icon:"🧠",name:"Neurologie",desc:"Neuroanatomie et cas cliniques."},{id:"pediatrie",icon:"🧸",name:"Pédiatrie",desc:"Développement, urgences et pédiatrie générale."},{id:"pharma",icon:"💊",name:"Pharmacologie",desc:"Mécanismes, indications et effets indésirables."},{id:"chirurgie",icon:"🩺",name:"Chirurgie",desc:"Techniques, indications et préparation."}];const key="mq-social-groups-v1";let joined=[];try{joined=JSON.parse(localStorage.getItem(key)||"[]")}catch(_){}const grid=el("div","mq-group-grid");groups.forEach(g=>{const card=el("div","mq-group-card");card.append(el("h4","",g.icon+" "+g.name),el("p","",g.desc));const b=socialBtn(joined.includes(g.id)?"✓ Rejoint":"Rejoindre",()=>{joined=joined.includes(g.id)?joined.filter(x=>x!==g.id):[...joined,g.id];try{localStorage.setItem(key,JSON.stringify(joined))}catch(_){}b.textContent=joined.includes(g.id)?"✓ Rejoint":"Rejoindre";});card.append(b);grid.append(card)});zone.append(grid,el("p","muted","ℹ️ Les adhésions sont enregistrées localement sur cet appareil. Les espaces de discussion partagés nécessiteront une configuration Supabase supplémentaire."));
@@ -7151,6 +7188,116 @@ function lignesDePage(items) {
     window.addEventListener("hashchange",()=>{if(location.hash==="#social")chargerSocial("friends")});
     setInterval(()=>{if(utilisateurActuel){supabase.rpc("mq_ping_presence").then(()=>{}).catch(()=>{});if(location.hash==="#social"&&socialTab==="chat")socialLoadMessages();mqVerifierInvitations();}},3500);
     supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user&&location.hash==="#social")setTimeout(()=>chargerSocial(socialTab),0)});
+
+    // ===== MEDQUIZ LIVES AUDIO + STATISTIQUES =====
+    const MQ_CATS=["Cardiologie","Neurologie","Pédiatrie","Gynéco-obstétrique","Chirurgie","Urgences","Anatomie","Pharmacologie","Autre"];
+    let mqLeave=null;
+    const mqIcon=p=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+    const MQI={mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',micoff:'<path d="M3 3l18 18M9 9v2a3 3 0 0 0 5 2M15 9V6a3 3 0 0 0-6 0M5 11a7 7 0 0 0 11 5.5M12 18v3"/>',hand:'<path d="M8 13V6a1.500 1.500 0 0 1 3 0v5m0-6a1.500 1.500 0 0 1 3 0v6m0-4a1.500 1.500 0 0 1 3 0v6a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-3l-2-4a1.500 1.500 0 0 1 2.500-1.500L8 14"/>',leave:'<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/>',plus:'<path d="M12 5v14M5 12h14"/>'};
+    const mqBtn=(ic,label,fn,cls="")=>{const b=el("button","mq-lv-btn "+cls);b.type="button";b.innerHTML=mqIcon(MQI[ic]||"")+(label?`<span></span>`:"");if(label)b.lastChild.textContent=label;b.setAttribute("aria-label",label||ic);b.addEventListener("click",fn);return b;};
+    async function mqProfiles(ids){const m={};ids=[...new Set(ids.filter(Boolean))];if(ids.length){const {data}=await supabase.from("profiles").select("id,pseudonyme,avatar_url").in("id",ids);(data||[]).forEach(p=>m[p.id]=p)}return m;}
+    const mqAv=(pf,id,fb)=>socialAvatar(pf[id]?.avatar_url,pf[id]?.pseudonyme||fb||"?");
+    function mqModal(title,body){const ov=el("div","mq-modal"),box=el("div","mq-modal-box"),h=el("div","mq-modal-head");const x=el("button","mq-modal-x","✕");x.type="button";x.setAttribute("aria-label","Fermer");h.append(el("h3","",title),x);box.append(h,body);ov.append(box);const close=()=>ov.remove();x.onclick=close;ov.addEventListener("click",e=>{if(e.target===ov)close()});document.body.append(ov);return close;}
+    const mqErr=(zone,msg)=>zone.replaceChildren(el("div","mq-lv-state error",msg));
+    const mqSqlHint="Exécute d’abord le fichier supabase/medquiz_lives_stats.sql dans Supabase. Détail : ";
+
+    const socialPrevLoad=chargerSocial;
+    chargerSocial=async function(tab){
+      if(mqLeave){const f=mqLeave;mqLeave=null;await f();}
+      if(tab==="lives"||tab==="stats"){socialTab=tab;const z=socialMain();if(!z)return;if(!utilisateurActuel){z.replaceChildren(el("h3","","Connecte-toi"),socialBtn("Se connecter",()=>afficherPage("compte"),"btn btn-primary"));return;}z.classList.add("mq-wide");try{return tab==="lives"?await mqLivesHome():await mqStats(30);}catch(e){mqErr(z,mqSqlHint+e.message)}return;}
+      socialMain()?.classList.remove("mq-wide");return socialPrevLoad.apply(this,arguments);
+    };
+
+    // ---------- LIVES : accueil ----------
+    async function mqLivesHome(){
+      const zone=socialMain(),uid=utilisateurActuel.id;zone.replaceChildren(el("div","mq-lv-state","Chargement des lives…"));
+      const [lr,fr]=await Promise.all([supabase.from("mq_lives").select("*,mq_live_members(user_id,role,left_at)").order("created_at",{ascending:false}).limit(80),supabase.rpc("mq_list_friends")]);
+      if(lr.error)throw lr.error;
+      const friends=new Set((fr.data||[]).map(f=>f.id)),all=lr.data||[],pf=await mqProfiles(all.flatMap(l=>[l.host_id,...l.mq_live_members.map(m=>m.user_id)]));
+      let q="",cat="Toutes";const root=el("div","mq-lv");
+      const head=el("div","mq-lv-head"),t=el("div");t.append(el("h3","","Lives audio"),el("p","","Salons en direct entre étudiants. Écoute, demande la parole, échange."));
+      head.append(t,mqBtn("plus","Créer un Live",()=>mqCreate(),"primary"));
+      const search=el("input","mq-lv-search");search.type="search";search.placeholder="Rechercher un live…";search.setAttribute("aria-label","Rechercher un live");
+      const chips=el("div","mq-ig-chips");["Toutes",...MQ_CATS].forEach(c=>{const b=socialBtn(c,()=>{cat=c;chips.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));paint()},"mq-ig-chip"+(c===cat?" active":""));chips.append(b)});
+      const body=el("div");root.append(head,search,chips,body);zone.replaceChildren(root);
+      const card=l=>{const act=l.mq_live_members.filter(m=>!m.left_at),c=el("article","mq-lv-card"+(l.status==="live"?" live":""));const top=el("div","mq-lv-card-top");top.append(el("span","mq-lv-badge "+l.status,l.status==="live"?"EN DIRECT":l.status==="scheduled"?"PROGRAMMÉ":"TERMINÉ"),el("span","mq-lv-cat",l.category||"Autre"));if(l.is_private)top.append(el("span","mq-lv-cat","🔒 Privé"));
+        const ti=el("h4","",l.title);const host=el("div","mq-lv-host");host.append(mqAv(pf,l.host_id),el("span","",(pf[l.host_id]?.pseudonyme||"Organisateur")+(friends.has(l.host_id)?" · ami":"")));
+        const faces=el("div","mq-lv-faces");act.slice(0,5).forEach(m=>faces.append(mqAv(pf,m.user_id)));faces.append(el("small","",l.status==="scheduled"&&l.scheduled_at?new Date(l.scheduled_at).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"}):act.length+" / "+l.max_participants+" présents"));
+        c.append(top,ti,host,faces);if(l.description)c.append(el("p","mq-lv-desc",l.description));
+        if(l.status==="live")c.append(mqBtn("mic","Rejoindre",()=>mqRoom(l),"primary"));
+        else if(l.status==="scheduled"&&l.host_id===uid)c.append(mqBtn("mic","Démarrer maintenant",async()=>{const {error}=await supabase.from("mq_lives").update({status:"live"}).eq("id",l.id);if(error)return socialNotice(error.message,true);l.status="live";mqRoom(l)},"primary"));
+        if(l.status!=="ended"){const sh=el("button","mq-lv-link","Partager à un ami");sh.type="button";sh.onclick=async()=>{const url=location.origin+location.pathname+"#social";try{if(navigator.share)await navigator.share({title:l.title,text:"Rejoins mon live MedQuiz : "+l.title,url});else{await navigator.clipboard.writeText(url);socialNotice("Lien copié.")}}catch(_){}};c.append(sh);}
+        return c;};
+      const sec=(title,rows,empty)=>{const s=el("section","mq-lv-sec");s.append(el("h4","",title));if(!rows.length)s.append(el("p","mq-lv-empty",empty));else{const g=el("div","mq-lv-grid");rows.forEach(l=>g.append(card(l)));s.append(g)}return s};
+      function paint(){body.replaceChildren();const ok=l=>(cat==="Toutes"||l.category===cat)&&(!q||(l.title+" "+(l.description||"")).toLowerCase().includes(q))&&(!l.is_private||l.host_id===uid);const live=all.filter(l=>l.status==="live"&&ok(l)),pop=[...live].sort((a,b)=>b.mq_live_members.filter(m=>!m.left_at).length-a.mq_live_members.filter(m=>!m.left_at).length);
+        const fl=live.filter(l=>l.mq_live_members.some(m=>!m.left_at&&friends.has(m.user_id))||friends.has(l.host_id));
+        body.append(sec("En ce moment",pop,"Aucun live en cours. Lance le premier !"));if(fl.length)body.append(sec("Tes amis sont là",fl,""));
+        body.append(sec("Programmés",all.filter(l=>l.status==="scheduled"&&ok(l)),"Rien de programmé."));body.append(sec("Mon historique",all.filter(l=>l.status==="ended"&&(l.host_id===uid||l.mq_live_members.some(m=>m.user_id===uid))&&ok(l)).slice(0,8),"Tes lives terminés apparaîtront ici."));}
+      search.addEventListener("input",()=>{q=search.value.trim().toLowerCase();paint()});paint();
+    }
+    // ---------- LIVES : création ----------
+    function mqCreate(){
+      const f=el("form","mq-form"),fld=(l,n)=>{const w=el("label","",l);w.append(n);f.append(w);return n};
+      const title=fld("Titre",el("input"));title.maxLength=90;title.required=true;title.placeholder="Ex. Révision ECG avant l’examen";
+      const desc=fld("Description",el("textarea"));desc.rows=2;desc.maxLength=300;
+      const cat=fld("Catégorie",el("select"));MQ_CATS.forEach(c=>cat.append(new Option(c,c)));
+      const vis=fld("Accès",el("select"));vis.append(new Option("Public","0"),new Option("Privé (hors liste)","1"));
+      const max=fld("Participants maximum",el("input"));max.type="number";max.min=2;max.max=500;max.value=50;
+      const when=fld("Programmer (facultatif)",el("input"));when.type="datetime-local";
+      const go=el("button","btn btn-primary","Créer le Live");go.type="submit";f.append(go);let close;
+      f.addEventListener("submit",async e=>{e.preventDefault();go.disabled=true;try{const sched=when.value?new Date(when.value).toISOString():null;const {data,error}=await supabase.from("mq_lives").insert({host_id:utilisateurActuel.id,title:title.value.trim(),description:desc.value.trim()||null,category:cat.value,is_private:vis.value==="1",max_participants:Math.max(2,Math.min(500,+max.value||50)),scheduled_at:sched,status:sched&&new Date(sched)>new Date()?"scheduled":"live"}).select().single();if(error)throw error;close();data.status==="live"?mqRoom(data):mqLivesHome();}catch(err){socialNotice("Création impossible : "+err.message,true);go.disabled=false}});
+      close=mqModal("Créer un Live",f);
+    }
+    // ---------- LIVES : salon ----------
+    async function mqRoom(live){
+      const zone=socialMain(),uid=utilisateurActuel.id;zone.classList.add("mq-wide");zone.replaceChildren(el("div","mq-lv-state","Connexion au salon…"));
+      let role;try{const {data,error}=await supabase.rpc("mq_live_join",{p_live:live.id});if(error)throw error;role=data}catch(e){socialNotice(e.message,true);return mqLivesHome()}
+      let room=null,micOn=false,members=[],pf={},audioState="idle",ch=null,alive=true;
+      const root=el("div","mq-room"),bar=el("div","mq-room-bar"),stage=el("div","mq-stage"),aud=el("div","mq-aud"),chatBox=el("div","mq-chat-list"),audioDiv=el("div");audioDiv.hidden=true;
+      const banner=el("div","mq-lv-state");const title=el("div","mq-room-title");title.append(el("span","mq-lv-badge live","EN DIRECT"),el("h3","",live.title));const cnt=el("small");title.append(cnt);
+      const isMod=()=>role==="host"||role==="moderator",canTalk=()=>role!=="listener";
+      const connect=async()=>{if(room){try{await room.disconnect()}catch(_){}room=null}audioState="connecting";paintBanner();try{if(!window.LivekitClient)await new Promise((ok,ko)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js";s.onload=ok;s.onerror=()=>ko(new Error("Bibliothèque audio inaccessible"));document.head.append(s)});
+          const {data,error}=await supabase.functions.invoke("livekit-token",{body:{live_id:live.id}});if(error||!data?.token)throw new Error(error?.message||data?.error||"Fonction livekit-token non déployée");
+          const L=window.LivekitClient;room=new L.Room({adaptiveStream:true});room.on(L.RoomEvent.TrackSubscribed,(tr)=>{if(tr.kind==="audio")audioDiv.append(tr.attach())});room.on(L.RoomEvent.TrackUnsubscribed,tr=>tr.detach().forEach(n=>n.remove()));room.on(L.RoomEvent.ActiveSpeakersChanged,sp=>{const ids=new Set(sp.map(s=>s.identity));stage.querySelectorAll("[data-uid]").forEach(n=>n.classList.toggle("speaking",ids.has(n.dataset.uid)))});room.on(L.RoomEvent.Disconnected,()=>{if(alive){audioState="off";paintBanner()}});
+          await room.connect(data.url,data.token);audioState="on";if(canTalk()){await room.localParticipant.setMicrophoneEnabled(true);micOn=true}}catch(e){audioState="error:"+e.message;room=null}paintBanner();paintBar()};
+      const paintBanner=()=>{banner.className="mq-lv-state"+(audioState==="on"?" ok":audioState==="connecting"?"":" error");banner.textContent=audioState==="on"?"Audio connecté"+(canTalk()?"":" — tu écoutes"):audioState==="connecting"?"Connexion audio…":audioState.startsWith("error:")?"Audio non connecté : "+audioState.slice(6)+". Le chat reste disponible.":"Audio non connecté"};
+      const person=m=>{const n=el("button","mq-person");n.type="button";n.dataset.uid=m.user_id;n.append(mqAv(pf,m.user_id),el("span","",pf[m.user_id]?.pseudonyme||"Étudiant"));const tag=m.role==="host"?"Hôte":m.role==="moderator"?"Modérateur":m.hand_raised?"✋ demande la parole":"";if(tag)n.append(el("small","",tag));
+        if(isMod()&&m.user_id!==uid&&m.role!=="host")n.onclick=()=>{const b=el("div","mq-actions");const act=(l,r)=>b.append(socialBtn(l,async()=>{const {error}=await supabase.rpc("mq_live_set_role",{p_live:live.id,p_user:m.user_id,p_role:r});if(error)socialNotice(error.message,true);c();loadMembers()},"btn btn-secondary"));
+          if(m.role==="listener")act(m.hand_raised?"Accepter la parole":"Donner la parole","speaker");if(m.role==="speaker"||m.role==="moderator")act("Couper / repasser auditeur","listener");if(role==="host"&&m.role!=="moderator")act("Nommer modérateur","moderator");act("Exclure","kicked");const c=mqModal(pf[m.user_id]?.pseudonyme||"Participant",b)};return n};
+      const paint=()=>{const on=members.filter(m=>!m.left_at);cnt.textContent=on.length+" connecté"+(on.length>1?"s":"");stage.replaceChildren(...on.filter(m=>m.role!=="listener").map(person));aud.replaceChildren(...on.filter(m=>m.role==="listener").map(person));if(!aud.children.length)aud.append(el("p","mq-lv-empty","Aucun auditeur pour le moment."))};
+      const loadMembers=async()=>{const {data}=await supabase.from("mq_live_members").select("user_id,role,hand_raised,left_at").eq("live_id",live.id);members=data||[];pf=await mqProfiles(members.map(m=>m.user_id));const me=members.find(m=>m.user_id===uid);if(me){if(me.role==="kicked"){socialNotice("Tu as été exclu du salon.",true);return exit()}if(me.role!==role){const wasTalk=canTalk();role=me.role;if(canTalk()!==wasTalk)connect()}}paint();paintBar()};
+      const bar2=el("div","mq-controls");function paintBar(){bar2.replaceChildren();if(canTalk())bar2.append(mqBtn(micOn?"mic":"micoff",micOn?"Micro actif":"Micro coupé",async()=>{if(!room)return socialNotice("Audio non connecté.",true);micOn=!micOn;try{await room.localParticipant.setMicrophoneEnabled(micOn)}catch(e){micOn=!micOn;socialNotice(e.message,true)}paintBar()},micOn?"on":""));else{const me=members.find(m=>m.user_id===uid);bar2.append(mqBtn("hand",me?.hand_raised?"Baisser la main":"Demander la parole",async()=>{await supabase.rpc("mq_live_hand",{p_live:live.id,p_raise:!me?.hand_raised});loadMembers()},me?.hand_raised?"on":""))}
+        ["❤️","🔥","👏","😂"].forEach(r=>{const b=el("button","mq-react",r);b.type="button";b.setAttribute("aria-label","Réaction "+r);b.onclick=()=>{fly(r);ch?.send({type:"broadcast",event:"react",payload:{r}})};bar2.append(b)});
+        bar2.append(mqBtn("leave","Quitter",()=>exit(),"danger"));if(role==="host")bar2.append(mqBtn("","Fermer le salon",async()=>{if(!confirm("Fermer le salon pour tout le monde ?"))return;await supabase.from("mq_lives").update({status:"ended",ended_at:new Date().toISOString()}).eq("id",live.id);exit()},"danger"))}
+      const fly=r=>{const s=el("span","mq-fly",r);s.style.left=(10+Math.random()*80)+"%";root.append(s);setTimeout(()=>s.remove(),1800)};
+      const msg=m=>{const p=el("p");p.append(el("strong","",(m.author||"Étudiant")+" "),document.createTextNode(m.body));chatBox.append(p);chatBox.scrollTop=chatBox.scrollHeight};
+      const form=el("form","mq-chat-form"),inp=el("input");inp.placeholder="Écrire dans le chat…";inp.maxLength=300;inp.setAttribute("aria-label","Message");const sb=el("button","","Envoyer");sb.type="submit";form.append(inp,sb);
+      form.onsubmit=async e=>{e.preventDefault();const body=inp.value.trim();if(!body)return;inp.value="";const {error}=await supabase.from("mq_live_messages").insert({live_id:live.id,user_id:uid,author:pseudoActuel||"Étudiant",body});if(error)socialNotice(error.message,true)};
+      async function exit(){alive=false;mqLeave=null;try{if(room)await room.disconnect()}catch(_){}if(ch)supabase.removeChannel(ch);try{await supabase.rpc("mq_live_leave",{p_live:live.id})}catch(_){}mqLivesHome()}
+      const chat=el("section","mq-chat");chat.append(el("h4","","Chat en direct"),chatBox,form);
+      const left=el("div","mq-room-main");left.append(el("h4","","Sur scène"),stage,el("h4","","Auditeurs"),aud);
+      root.append(title,banner,el("div","mq-room-grid"),audioDiv);root.querySelector(".mq-room-grid").append(left,chat);root.append(bar2);zone.replaceChildren(root);
+      mqLeave=()=>exit();
+      const {data:old}=await supabase.from("mq_live_messages").select("author,body").eq("live_id",live.id).order("created_at",{ascending:false}).limit(40);(old||[]).reverse().forEach(msg);
+      ch=supabase.channel("mq-live-"+live.id).on("postgres_changes",{event:"INSERT",schema:"public",table:"mq_live_messages",filter:"live_id=eq."+live.id},p=>msg(p.new)).on("postgres_changes",{event:"*",schema:"public",table:"mq_live_members",filter:"live_id=eq."+live.id},()=>loadMembers()).on("postgres_changes",{event:"UPDATE",schema:"public",table:"mq_lives",filter:"id=eq."+live.id},p=>{if(p.new.status==="ended"){socialNotice("Le live est terminé.");exit()}}).on("broadcast",{event:"react"},p=>fly(p.payload.r)).subscribe();
+      await loadMembers();paintBanner();connect();
+    }
+    // ---------- STATISTIQUES (privées) ----------
+    async function mqStats(days){
+      const zone=socialMain();zone.replaceChildren(el("div","mq-lv-state","Chargement des statistiques…"));
+      const [sr,pr,fr]=await Promise.all([supabase.rpc("mq_my_stats",{p_days:days}),supabase.rpc("mq_my_post_stats"),supabase.rpc("mq_list_friends")]);if(sr.error)throw sr.error;if(pr.error)throw pr.error;
+      const s=sr.data,posts=pr.data||[],sum=a=>a.reduce((x,y)=>x+y.n,0),vTot=sum(s.visits),iTot=sum(s.interactions),root=el("div","mq-st");
+      const head=el("div","mq-lv-head"),t=el("div");t.append(el("h3","","Mes statistiques"),el("p","","Visibles par toi seul. Aucun visiteur n’est identifié."));const per=el("div","mq-ig-tabs");[7,30,90].forEach(d=>{const b=socialBtn(d+" j",()=>mqStats(d).catch(e=>mqErr(zone,e.message)),"mq-ig-tab"+(d===days?" active":""));per.append(b)});head.append(t,per);
+      const cards=el("div","mq-st-cards");const delta=(a,b)=>b?Math.round((a-b)/b*100)+"% vs période préc.":a?"nouveau":"—";
+      [["Visites du profil",vTot,delta(vTot,s.visits_prev)],["Visiteurs uniques",s.unique_visitors,"sur "+days+" j"],["Amis",(fr.data||[]).length,"abonnés : non disponible"],["Publications",s.posts,""],["Likes reçus",s.likes,""],["Commentaires reçus",s.comments,""],["Enregistrements",s.saves,""],["Partages","—","non mesuré"]].forEach(([l,v,n])=>{const c=el("div","mq-st-card");c.append(el("small","",l),el("strong","",String(v)),el("span","",n));cards.append(c)});
+      const chart=(title,arr)=>{const box=el("section","mq-st-chart");box.append(el("h4","",title));const mx=Math.max(1,...arr.map(x=>x.n)),w=Math.max(4,Math.floor(600/arr.length));let svg=`<svg viewBox="0 0 600 140" role="img" aria-label="${title}" preserveAspectRatio="none">`;arr.forEach((x,i)=>{const h=Math.round(x.n/mx*118);svg+=`<rect x="${i*w+1}" y="${130-h}" width="${w-2}" height="${Math.max(h,2)}" rx="2"><title>${x.d} : ${x.n}</title></rect>`});box.insertAdjacentHTML("beforeend",svg+"</svg>");if(!sum(arr))box.append(el("p","mq-lv-empty","Pas encore de données sur cette période."));return box};
+      const grid=el("div","mq-st-charts");grid.append(chart("Visites du profil",s.visits),chart("Interactions (likes + commentaires)",s.interactions));
+      const perf=el("section","mq-st-perf"),ph=el("div","mq-lv-head");ph.append(el("h4","","Publications les plus performantes"));const sel=el("select");[["score","Score total"],["likes","Likes"],["comments","Commentaires"],["saves","Enregistrements"]].forEach(([v,l])=>sel.append(new Option(l,v)));ph.append(sel);const list=el("div");perf.append(ph,list);
+      const draw=()=>{list.replaceChildren();const k=sel.value,sc=p=>k==="score"?+p.likes+ +p.comments+ +p.saves:+p[k];[...posts].sort((a,b)=>sc(b)-sc(a)).slice(0,10).forEach(p=>{const r=el("div","mq-st-post"),th=el("div","mq-st-thumb");if(p.image_url){const im=el("img");im.src=p.image_url;im.alt="";im.loading="lazy";th.append(im)}else th.textContent="Aa";const tx=el("div");tx.append(el("strong","",(p.body||"Photo").slice(0,70)),el("small","",new Date(p.created_at).toLocaleDateString("fr-FR")+" · vues : non mesurées"));const nums=el("div","mq-st-nums");nums.innerHTML="<span>♥ "+p.likes+"</span><span>💬 "+p.comments+"</span><span>🔖 "+p.saves+"</span>";r.append(th,tx,nums);list.append(r)});if(!posts.length)list.append(el("p","mq-lv-empty","Publie ton premier post pour voir ses performances."))};sel.onchange=draw;draw();
+      const priv=el("p","mq-lv-empty","Provenance des visites, vues/impressions et partages ne sont pas encore mesurés : aucune valeur n’est inventée.");root.append(head,cards,grid,perf,priv);zone.replaceChildren(root);
+    }
+    // Visite de profil : enregistrée quand on ouvre l'auteur d'un post
+    document.addEventListener("click",e=>{const a=e.target.closest?.("#social .mq-ig-post-ring");if(!a||!utilisateurActuel)return;const post=a.closest(".mq-ig-post");const id=post?._uid;if(id)supabase.rpc("mq_log_visit",{p_profile:id}).then(()=>{});});
     // Page de jeu indépendante : uniquement les QCM et le classement du tournoi.
     const mqTournoiPageId=new URLSearchParams(location.search).get("mq-tournoi");
     if(mqTournoiPageId){
@@ -7533,4 +7680,174 @@ img,svg,video,canvas{max-width:100%}
 #classement .rank-avatar img{width:100%;height:100%;object-fit:cover}
 #classement .rank-left>span:not(.rank-number):not(.rank-avatar){min-width:0}
 @media(max-width:640px){#classement .rank-avatar{width:36px;height:36px;flex-basis:36px}}
+</style>
+
+<style id="medquiz-social-insta-v3">
+/* ===== MedQuiz Social — rendu type Instagram ===== */
+#social .mq-ig-shell{max-width:900px;margin:0 auto;padding:0 0 40px}
+#social .mq-ig-layout{display:grid;grid-template-columns:minmax(0,600px) 270px;justify-content:center;gap:34px;align-items:start}
+#social .mq-ig-main{min-width:0}
+
+/* Stories */
+#social .mq-ig-stories-card{padding:14px 12px 10px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;margin-bottom:14px}
+#social .mq-ig-section-head{display:none}
+#social .mq-ig-stories{display:flex;gap:16px;overflow-x:auto;padding:2px 4px 6px;scrollbar-width:none}
+#social .mq-ig-stories::-webkit-scrollbar{display:none}
+#social .mq-ig-story{flex:0 0 72px;gap:6px;font-size:11px;color:var(--mq-ink);background:none;border:0;cursor:pointer}
+#social .mq-ig-story>span:last-child{max-width:72px;color:var(--mq-ink)}
+#social .mq-ig-ring{width:68px;height:68px;padding:3px;border-radius:50%;background:conic-gradient(from 210deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5,#feda75)}
+#social .mq-ig-ring img{border:3px solid var(--mq-paper);border-radius:50%}
+#social .mq-ig-ring.seen{background:var(--mq-line)}
+#social .mq-ig-story-mine{position:relative;display:grid;place-items:center;width:68px;height:68px}
+#social .mq-ig-story-avatar{width:64px;height:64px;padding:0;background:var(--mq-bg);border:1px solid var(--mq-line);outline:0;font-size:22px;font-weight:800;color:var(--mq-violet)}
+#social .mq-ig-story-mine b{position:absolute;right:1px;bottom:1px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#0095f6;color:#fff;font-size:16px;line-height:1;border:2px solid var(--mq-paper)}
+#social .mq-ig-story-hint{align-self:center;margin:0 0 14px 6px;font-size:12px;color:var(--mq-muted);white-space:normal;max-width:240px;line-height:1.4}
+
+/* Composeur */
+#social .mq-ig-composer{padding:14px 16px 12px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;margin-bottom:6px}
+#social .mq-ig-compose-top{display:flex;align-items:flex-start;gap:12px;margin:0}
+#social .mq-ig-compose-top .social-avatar{flex:0 0 42px;width:42px;height:42px}
+#social .mq-ig-textarea{flex:1;min-height:46px;max-height:220px;padding:11px 0 8px;background:transparent;border:0;border-radius:0;font-size:15px;line-height:1.45;resize:none;color:var(--mq-ink)}
+#social .mq-ig-textarea::placeholder{color:var(--mq-muted)}
+#social .mq-ig-preview{position:relative;margin:10px 0 0;display:block}
+#social .mq-ig-preview[hidden]{display:none}
+#social .mq-ig-preview img{display:block;width:100%;max-height:340px;object-fit:cover;border-radius:10px}
+#social .mq-ig-preview button{position:absolute;top:10px;right:10px;border:0;border-radius:99px;padding:6px 12px;font-size:12px;font-weight:700;background:rgba(0,0,0,.65);color:#fff;cursor:pointer}
+#social .mq-ig-chips{display:flex;gap:7px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
+#social .mq-ig-chips::-webkit-scrollbar{display:none}
+#social .mq-ig-chip{flex:0 0 auto;border:1px solid var(--mq-line);background:transparent;color:var(--mq-muted);border-radius:99px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer}
+#social .mq-ig-chip.active{background:var(--mq-ink);border-color:var(--mq-ink);color:var(--mq-paper)}
+#social .mq-ig-compose-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 0;padding-top:10px;border-top:1px solid var(--mq-line)}
+#social .mq-ig-soft-btn{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--mq-ink);border:0;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:650}
+#social .mq-ig-soft-btn:hover{background:var(--mq-bg)}
+#social .mq-ig-publish{margin:0;background:#0095f6;color:#fff;box-shadow:none;border-radius:10px;padding:9px 20px;font-size:13px;font-weight:700}
+#social .mq-ig-publish:hover{background:#1877f2}
+#social .mq-ig-publish:disabled{opacity:.5;cursor:default}
+
+/* Titre et filtres du fil */
+#social .mq-ig-feed-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 10px}
+#social .mq-ig-feed-head h3{font-size:17px;letter-spacing:-.2px;margin:0}
+#social .mq-ig-feed-head p{display:none}
+#social .mq-ig-tabs{padding:3px;border-radius:10px;background:var(--mq-bg);border:0;gap:2px}
+#social .mq-ig-tab{padding:7px 13px;border-radius:8px;font-size:12px;font-weight:650;color:var(--mq-muted)}
+#social .mq-ig-tab.active{background:var(--mq-paper);color:var(--mq-ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+#social .mq-ig-filters{gap:7px;padding:2px 0 14px;scrollbar-width:none}
+#social .mq-ig-filters::-webkit-scrollbar{display:none}
+#social .mq-ig-filter{padding:6px 13px;font-size:12px;font-weight:600;background:transparent;border-color:var(--mq-line);color:var(--mq-muted)}
+#social .mq-ig-filter.active{background:var(--mq-ink);border-color:var(--mq-ink);color:var(--mq-paper)}
+
+/* Publication */
+#social .mq-ig-post{margin:0 0 18px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none;overflow:hidden}
+#social .mq-ig-post-head{display:flex;align-items:center;gap:11px;padding:11px 14px}
+#social .mq-ig-post-ring{display:grid;place-items:center;flex:0 0 auto;width:42px;height:42px;padding:2px;border-radius:50%;background:conic-gradient(from 210deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5,#feda75)}
+#social .mq-ig-post-ring .social-avatar{width:100%;height:100%;border:2px solid var(--mq-paper);font-size:15px}
+#social .mq-ig-who{display:grid;gap:1px;min-width:0;flex:1}
+#social .mq-ig-who-line{display:flex;align-items:baseline;gap:6px;min-width:0}
+#social .mq-ig-who-line strong{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#social .mq-ig-who-line time,#social .mq-ig-dot{font-size:13px;color:var(--mq-muted);white-space:nowrap}
+#social .mq-ig-who small{font-size:12px;color:var(--mq-muted)}
+#social .mq-ig-iconbtn{display:inline-grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--mq-ink);cursor:pointer;transition:transform .12s}
+#social .mq-ig-iconbtn:hover{opacity:.65}
+#social .mq-ig-iconbtn:active{transform:scale(.88)}
+#social .mq-ig-ico{display:block;width:26px;height:26px}
+#social .mq-ig-ico svg{display:block;width:100%;height:100%}
+#social .mq-ig-more .mq-ig-ico{width:22px;height:22px}
+
+#social .mq-ig-media{position:relative;display:block;max-height:none;overflow:hidden;background:#000;cursor:pointer;-webkit-user-select:none;user-select:none}
+#social .mq-ig-media img{display:block;width:100%;max-height:640px;aspect-ratio:4/5;object-fit:cover;margin:0}
+#social .mq-ig-textcard{position:relative;display:grid;place-items:center;aspect-ratio:1/1;max-height:420px;padding:34px 30px;text-align:center;color:#fff;-webkit-user-select:none;user-select:none}
+#social .mq-ig-textcard p{margin:0;font-size:clamp(19px,3.4vw,26px);line-height:1.35;font-weight:700;letter-spacing:-.3px;overflow-wrap:anywhere;white-space:pre-wrap}
+#social .mq-ig-textcard.t0{background:linear-gradient(135deg,#833ab4,#fd1d1d 60%,#fcb045)}
+#social .mq-ig-textcard.t1{background:linear-gradient(135deg,#0f2027,#2c5364)}
+#social .mq-ig-textcard.t2{background:linear-gradient(135deg,#11998e,#38ef7d);color:#06231c}
+#social .mq-ig-textcard.t3{background:linear-gradient(135deg,#4776e6,#8e54e9)}
+#social .mq-ig-textcard.t4{background:linear-gradient(135deg,#f7971e,#ffd200);color:#2e2100}
+
+#social .mq-ig-burst{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;color:#fff;pointer-events:none;filter:drop-shadow(0 4px 14px rgba(0,0,0,.35));animation:mqBurst .75s ease-out forwards}
+#social .mq-ig-burst svg{display:block;width:100%;height:100%;fill:currentColor;stroke:none}
+@keyframes mqBurst{0%{transform:scale(.3);opacity:0}25%{transform:scale(1.15);opacity:1}55%{transform:scale(.95)}100%{transform:scale(1.2);opacity:0}}
+
+#social .mq-ig-actions{display:flex;align-items:center;gap:2px;padding:6px 8px 0;border:0}
+#social .mq-ig-save{margin-left:auto}
+#social .mq-ig-like.liked{color:#ff3040}
+#social .mq-ig-like.liked .mq-ig-ico svg{fill:currentColor;animation:mqPop .3s ease-out}
+#social .mq-ig-save.saved .mq-ig-ico svg{fill:currentColor}
+@keyframes mqPop{0%{transform:scale(.7)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+#social .mq-ig-likes{padding:2px 14px 0;font-size:14px;font-weight:700}
+#social .mq-ig-likes.empty{font-weight:500;color:var(--mq-muted);font-size:13px}
+#social .mq-ig-caption{margin:5px 0 0;padding:0 14px;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+#social .mq-ig-caption strong{font-weight:700}
+#social .mq-ig-comments{padding:4px 14px 0}
+#social .mq-ig-comments p{margin:2px 0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+#social .mq-ig-viewall{display:block;border:0;background:none;padding:2px 0;font-size:13px;color:var(--mq-muted);cursor:pointer}
+#social .mq-ig-comment-form{display:flex;align-items:center;gap:8px;margin:8px 0 0;padding:4px 14px 12px}
+#social .mq-ig-comment-form[hidden]{display:none}
+#social .mq-ig-comment-form input{flex:1;min-width:0;border:0;background:transparent;padding:8px 0;font-size:14px;color:var(--mq-ink);outline:0}
+#social .mq-ig-comment-form input::placeholder{color:var(--mq-muted)}
+#social .mq-ig-comment-form button{border:0;background:none;color:#0095f6;font-weight:700;font-size:14px;cursor:pointer;padding:6px 0}
+#social .mq-ig-comment-form button:disabled{opacity:0;pointer-events:none}
+#social .mq-ig-empty{display:grid;gap:6px;padding:48px 20px;text-align:center;border:1px dashed var(--mq-line);border-radius:14px;color:var(--mq-muted);font-size:13px}
+#social .mq-ig-empty strong{color:var(--mq-ink);font-size:16px}
+
+/* Colonne droite */
+#social .mq-ig-side{position:sticky;top:88px;display:grid;gap:18px}
+#social .mq-ig-side-me{display:flex;align-items:center;gap:12px;padding:4px 2px}
+#social .mq-ig-side-me .social-avatar{width:56px;height:56px;font-size:20px}
+#social .mq-ig-side-me strong{display:block;font-size:14px}
+#social .mq-ig-side-me small{font-size:13px;color:var(--mq-muted)}
+#social .mq-ig-side-card{padding:14px 16px;border:1px solid var(--mq-line);border-radius:14px;background:var(--mq-paper);box-shadow:none}
+#social .mq-ig-side-card strong{font-size:14px}
+#social .mq-ig-side-card p{margin:8px 0 0;font-size:13px;color:var(--mq-muted)}
+
+/* Visionneuse de story (ajoutée à <body>, donc non limitée à #social) */
+.mq-story-viewer{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:0;background:rgba(0,0,0,.92)}
+.mq-story-viewer-panel{position:relative;width:min(420px,100vw);height:min(100dvh,760px);background:#000;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.mq-story-viewer-panel>img{width:100%;height:100%;object-fit:contain;background:#000}
+.mq-story-progress{position:absolute;left:12px;right:12px;top:10px;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden;z-index:2}
+.mq-story-progress i{display:block;height:100%;background:#fff;transform-origin:left;animation:mqStory 6s linear forwards}
+@keyframes mqStory{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.mq-story-viewer-top{position:absolute;left:0;right:0;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:22px 14px 30px;color:#fff;background:linear-gradient(rgba(0,0,0,.6),transparent)}
+.mq-story-viewer-top .social-avatar{width:36px;height:36px;font-size:14px}
+.mq-story-who{display:grid;flex:1;line-height:1.2}
+.mq-story-who small{opacity:.75;font-size:12px}
+.mq-story-close{border:0;background:transparent;color:#fff;font-size:20px;width:40px;height:40px;cursor:pointer}
+.mq-story-caption{position:absolute;left:0;right:0;bottom:0;margin:0;padding:40px 18px 24px;color:#fff;font-size:15px;line-height:1.4;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+
+#social .mq-ig-iconbtn:focus-visible,#social .mq-ig-chip:focus-visible,#social .mq-ig-tab:focus-visible,#social .mq-ig-filter:focus-visible,#social .mq-ig-publish:focus-visible,#social .mq-ig-story:focus-visible{outline:2px solid #0095f6;outline-offset:2px}
+
+@media(max-width:900px){#social .mq-ig-layout{grid-template-columns:minmax(0,600px)}#social .mq-ig-side{display:none}}
+@media(max-width:620px){
+  #social .mq-ig-stories-card,#social .mq-ig-composer,#social .mq-ig-post{border-radius:12px}
+  #social .mq-ig-feed-head{flex-direction:column;align-items:stretch}
+  #social .mq-ig-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+  #social .mq-ig-media img{max-height:560px}
+}
+@media(prefers-reduced-motion:reduce){#social .mq-ig-burst,#social .mq-ig-like.liked .mq-ig-ico svg{animation:none}.mq-story-progress i{animation-duration:.01s}}
+#social .mq-ig-post-ring .social-avatar,#social .mq-ig-story-avatar,#social .mq-ig-side-me .social-avatar,#social .mq-ig-compose-top .social-avatar,.mq-story-viewer-top .social-avatar{overflow:hidden;border-radius:50%}
+#social .mq-ig-post-ring .social-avatar img,#social .mq-ig-story-avatar img,#social .mq-ig-side-me .social-avatar img,#social .mq-ig-compose-top .social-avatar img,.mq-story-viewer-top .social-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+</style>
+
+<style id="medquiz-lives-stats-v1">
+#socialMain.mq-wide{padding:18px}
+.mq-lv-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.mq-lv-head h3{margin:0;font-size:22px;letter-spacing:-.4px}.mq-lv-head p{margin:2px 0 0;font-size:13px;color:var(--mq-muted)}
+.mq-lv-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--mq-line);background:var(--mq-paper);color:var(--mq-ink);border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:transform .12s,background .15s}.mq-lv-btn:hover{background:var(--mq-bg)}.mq-lv-btn:active{transform:scale(.96)}.mq-lv-btn.primary{background:linear-gradient(110deg,#e0245e,#7b3fe4);border:0;color:#fff}.mq-lv-btn.danger{color:#ff4d5e}.mq-lv-btn.on{background:#22c55e;border-color:#22c55e;color:#fff}
+.mq-lv-search{width:100%;border:1px solid var(--mq-line);border-radius:12px;padding:11px 14px;background:var(--mq-bg);color:var(--mq-ink);margin-bottom:6px}
+.mq-lv-sec{margin-top:18px}.mq-lv-sec h4{margin:0 0 10px;font-size:15px}.mq-lv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}.mq-lv-empty{font-size:13px;color:var(--mq-muted);margin:6px 0}
+.mq-lv-card{display:grid;gap:9px;padding:15px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper);animation:mqIn .35s ease both}.mq-lv-card.live{border-color:rgba(224,36,94,.45);box-shadow:0 0 0 3px rgba(224,36,94,.08)}.mq-lv-card h4{margin:0;font-size:16px;line-height:1.3}.mq-lv-desc{margin:0;font-size:13px;color:var(--mq-muted);overflow-wrap:anywhere}
+.mq-lv-card-top{display:flex;gap:6px;flex-wrap:wrap}.mq-lv-badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;background:var(--mq-bg);color:var(--mq-muted)}.mq-lv-badge.live{background:#e0245e;color:#fff;display:inline-flex;align-items:center;gap:6px}.mq-lv-badge.live::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;animation:mqPulse 1.2s infinite}.mq-lv-cat{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--mq-line);color:var(--mq-muted)}
+.mq-lv-host{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:650}.mq-lv-host .social-avatar{width:30px;height:30px;font-size:12px}.mq-lv-faces{display:flex;align-items:center}.mq-lv-faces .social-avatar{width:28px;height:28px;font-size:11px;margin-right:-8px;border:2px solid var(--mq-paper)}.mq-lv-faces small{margin-left:16px;font-size:12px;color:var(--mq-muted)}
+.mq-lv-link{border:0;background:none;color:var(--mq-muted);font-size:12px;cursor:pointer;text-align:left;padding:0}
+.mq-lv-state{padding:11px 14px;border-radius:12px;background:var(--mq-bg);color:var(--mq-muted);font-size:13px;margin:8px 0}.mq-lv-state.error{background:rgba(255,77,94,.12);color:#ff4d5e}.mq-lv-state.ok{background:rgba(34,197,94,.12);color:#22c55e}
+.mq-room{position:relative;overflow:hidden}.mq-room-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mq-room-title h3{margin:0;font-size:20px}.mq-room-title small{margin-left:auto;color:var(--mq-muted)}
+.mq-room-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:10px}.mq-room-main h4,.mq-chat h4{margin:12px 0 8px;font-size:14px}
+.mq-stage,.mq-aud{display:flex;flex-wrap:wrap;gap:12px}.mq-person{display:grid;justify-items:center;gap:4px;width:84px;border:0;background:none;color:var(--mq-ink);font-size:12px;cursor:pointer}.mq-person .social-avatar{width:60px;height:60px;font-size:20px;outline:3px solid transparent;outline-offset:2px;transition:outline-color .15s}.mq-stage .mq-person .social-avatar{width:72px;height:72px}.mq-person.speaking .social-avatar{outline-color:#22c55e}.mq-person small{font-size:10px;color:var(--mq-muted)}
+.mq-chat{display:flex;flex-direction:column;border:1px solid var(--mq-line);border-radius:16px;padding:12px;background:var(--mq-bg);min-height:320px}.mq-chat h4{margin-top:0}.mq-chat-list{flex:1;max-height:340px;overflow-y:auto;font-size:13px}.mq-chat-list p{margin:4px 0;overflow-wrap:anywhere}.mq-chat-form{display:flex;gap:6px;margin-top:8px}.mq-chat-form input{flex:1;min-width:0;border:1px solid var(--mq-line);border-radius:10px;padding:9px;background:var(--mq-paper);color:var(--mq-ink)}.mq-chat-form button{border:0;border-radius:10px;background:#0095f6;color:#fff;font-weight:700;padding:0 12px}
+.mq-controls{position:sticky;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px;padding:10px;border:1px solid var(--mq-line);border-radius:18px;background:var(--mq-paper);box-shadow:0 8px 28px rgba(0,0,0,.16)}.mq-react{border:0;background:var(--mq-bg);border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;transition:transform .12s}.mq-react:active{transform:scale(1.3)}
+.mq-fly{position:absolute;bottom:70px;font-size:30px;pointer-events:none;animation:mqFly 1.8s ease-out forwards}@keyframes mqFly{to{transform:translateY(-260px);opacity:0}}@keyframes mqPulse{50%{opacity:.25}}@keyframes mqIn{from{opacity:0;transform:translateY(6px)}}
+.mq-modal{position:fixed;inset:0;z-index:99998;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.55)}.mq-modal-box{width:min(460px,100%);max-height:92vh;overflow:auto;border-radius:20px;padding:18px;background:var(--mq-paper,#fff);color:var(--mq-ink,#111);animation:mqIn .2s ease}.mq-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.mq-modal-head h3{margin:0}.mq-modal-x{border:0;background:none;color:inherit;font-size:20px;cursor:pointer}.mq-form{display:grid;gap:11px}.mq-form label{display:grid;gap:5px;font-size:13px;font-weight:650}.mq-form input,.mq-form textarea,.mq-form select{border:1px solid var(--mq-line,#ddd);border-radius:10px;padding:10px;background:var(--mq-bg,#f5f5f5);color:inherit;font:inherit}.mq-actions{display:grid;gap:8px}
+.mq-st-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.mq-st-card{display:grid;gap:2px;padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper);animation:mqIn .35s ease both}.mq-st-card small{font-size:12px;color:var(--mq-muted)}.mq-st-card strong{font-size:28px;letter-spacing:-1px}.mq-st-card span{font-size:11px;color:var(--mq-muted)}
+.mq-st-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}.mq-st-chart{padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper)}.mq-st-chart h4{margin:0 0 8px;font-size:14px}.mq-st-chart svg{width:100%;height:140px;fill:var(--mq-violet)}.mq-st-chart rect:hover{opacity:.6}
+.mq-st-perf{margin-top:14px;padding:14px;border:1px solid var(--mq-line);border-radius:16px;background:var(--mq-paper)}.mq-st-perf select{border:1px solid var(--mq-line);border-radius:10px;padding:7px;background:var(--mq-bg);color:var(--mq-ink)}.mq-st-post{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--mq-line)}.mq-st-post>div:nth-child(2){flex:1;min-width:0;display:grid}.mq-st-post small{color:var(--mq-muted);font-size:11px}.mq-st-thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:var(--mq-bg);color:var(--mq-muted);font-weight:800}.mq-st-thumb img{width:100%;height:100%;object-fit:cover}.mq-st-nums{display:flex;gap:10px;font-size:12px;white-space:nowrap}
+@media(max-width:760px){.mq-room-grid{grid-template-columns:1fr}.mq-controls{border-radius:16px}}
+@media(prefers-reduced-motion:reduce){.mq-lv-card,.mq-st-card,.mq-fly,.mq-lv-badge.live::before{animation:none}}
 </style>
