@@ -1168,6 +1168,48 @@ body[data-skin="cyber"] #premium .premium-hero:before{width:100%;aspect-ratio:au
 }
 @media (prefers-reduced-motion:reduce){#mqExamReward .mq-er-ring .fg{stroke-dashoffset:var(--er-off,408)}.mq-er-confetti{display:none}}
 </style>
+
+<style id="medquiz-android-tablet-navigation-fix">
+/* Android tablets: replace the narrow fixed sidebar with a reachable horizontal navigation */
+@media (min-width:641px) and (max-width:900px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden}
+  .site-header.mq-sidebar{
+    position:sticky!important;top:0!important;left:auto!important;inset:auto!important;
+    z-index:10000!important;width:100%!important;height:auto!important;min-height:0!important;
+    padding:12px 16px 10px!important;display:block!important;
+    background:#17152c!important;box-shadow:0 8px 24px rgba(10,8,30,.18)!important;
+  }
+  .mq-sidebar .logo{margin:0 0 8px 4px!important;font-size:22px!important}
+  .mq-brand-note{display:none!important}
+  .mq-sidebar .nav{
+    display:flex!important;flex-direction:row!important;align-items:center!important;
+    justify-content:flex-start!important;gap:7px!important;width:100%!important;
+    overflow-x:auto!important;overflow-y:hidden!important;padding:2px 4px 7px!important;
+    -webkit-overflow-scrolling:touch!important;scrollbar-width:thin!important;
+    white-space:nowrap!important;touch-action:pan-x!important;
+  }
+  .mq-sidebar .nav a,
+  .mq-sidebar .nav a.nav-cta{
+    display:inline-flex!important;position:relative!important;flex:0 0 auto!important;
+    align-items:center!important;justify-content:center!important;
+    min-height:44px!important;width:auto!important;margin:0!important;
+    padding:0 14px!important;font-size:0!important;white-space:nowrap!important;
+    pointer-events:auto!important;touch-action:manipulation!important;
+  }
+  .mq-sidebar .nav a:before{font-size:12px!important;pointer-events:none!important}
+  .mq-sidebar .nav a.nav-cta:before{content:"Mon compte"!important}
+  .mq-sidebar .nav a.active:after{display:none!important}
+  .mq-sidebar .theme-toggle{
+    position:absolute!important;right:15px!important;top:10px!important;
+    width:40px!important;height:36px!important;margin:0!important;
+  }
+  .mq-sidebar .nav{padding-right:52px!important}
+  main{width:100%!important;max-width:none!important;margin:0!important;
+    padding:0 22px 50px!important;min-width:0!important}
+  .page,.page.active{width:100%!important;max-width:1320px!important;min-width:0!important}
+  button,a{touch-action:manipulation}
+}
+</style>
 </head>
 <body>
 <header class="site-header mq-sidebar">
