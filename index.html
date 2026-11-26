@@ -6801,7 +6801,12 @@ function lignesDePage(items) {
     }
 
     async function chargerPromoLancement() {
+      const zone = $("homePromoLaunch");
+      if (!zone) return;
+
       const compteur = $("promoPlacesRestantes");
+      let restantes = null;
+
       if (compteur) {
         const { data, error } = await supabase.rpc("medquiz_launch_promo_stats");
         if (error) {
@@ -6809,22 +6814,54 @@ function lignesDePage(items) {
           compteur.textContent = "—";
         } else {
           const stats = Array.isArray(data) ? data[0] : data;
-          compteur.textContent = stats?.remaining ?? "—";
-          const zone = $("homePromoLaunch");
-          if (zone && Number(stats?.remaining) <= 0) {
-            zone.querySelector("h2").textContent = "Les 20 places Premium ont été attribuées !";
-            zone.querySelector("p").textContent = "Merci à tous les membres qui rejoignent l'aventure MedQuiz.";
-            zone.querySelector(".mq-launch-cta").classList.add("hidden");
-          }
+          restantes = Number(stats?.remaining);
+          compteur.textContent = Number.isFinite(restantes) ? restantes : "—";
         }
       }
+
+      const titre = zone.querySelector("h2");
+      const description = zone.querySelector("p");
+      const bouton = zone.querySelector(".mq-launch-cta");
       const badge = $("founderBadge");
+      let estFondateur = false;
+
       if (badge) {
         badge.classList.add("hidden");
         if (utilisateurActuel) {
           const { data, error } = await supabase.rpc("my_medquiz_founder_status");
-          if (error) console.warn("Badge Fondateur indisponible :", error.message);
-          else badge.classList.toggle("hidden", data !== true);
+          if (error) {
+            console.warn("Badge Fondateur indisponible :", error.message);
+          } else {
+            estFondateur = data === true;
+            badge.classList.toggle("hidden", !estFondateur);
+          }
+        }
+      }
+
+      // Un membre déjà connecté ne doit jamais être invité à s'inscrire.
+      if (utilisateurActuel) {
+        if (bouton) bouton.classList.add("hidden");
+
+        if (estFondateur) {
+          titre.textContent = "Tu fais partie des membres Fondateurs !";
+          description.textContent = "Ton accès Fondateur est bien enregistré. Merci de faire partie de l'aventure MedQuiz.";
+        } else if (restantes !== null && restantes <= 0) {
+          titre.textContent = "Les 20 places Premium ont été attribuées !";
+          description.textContent = "L'offre de lancement est maintenant terminée. Merci de faire grandir MedQuiz.";
+        } else {
+          titre.textContent = "Bienvenue sur MedQuiz !";
+          description.textContent = "L'offre Premium de lancement est réservée aux 20 premiers nouveaux comptes. Continue à profiter de MedQuiz !";
+        }
+      } else if (restantes !== null && restantes <= 0) {
+        titre.textContent = "Les 20 places Premium ont été attribuées !";
+        description.textContent = "Merci à tous les membres qui rejoignent l'aventure MedQuiz.";
+        if (bouton) bouton.classList.add("hidden");
+      } else {
+        titre.textContent = "Rejoins les 20 premiers membres Premium.";
+        description.textContent = "Les 20 premiers nouveaux inscrits reçoivent 20 jours de Premium offerts.";
+        if (bouton) {
+          bouton.textContent = "Obtenir mon Premium gratuit ↗";
+          bouton.classList.remove("hidden");
         }
       }
     }
